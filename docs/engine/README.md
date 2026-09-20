@@ -254,6 +254,58 @@ participant must be the other configured identity. Missing evidence returns a dr
 `--request-missing` (or `requestMissing: true`) writes an information ticket, and an
 identical nonterminal request is reused instead of duplicated.
 
+## Daily wiki refinement execution
+
+`runDailyWikiRefinement({repository, schedule, ifDue, now})` connects the pure W4
+planner to synchronized shared state. The matching CLI command is suitable for an
+external scheduler; duobrain does not install an operating-system job:
+
+```text
+duobrain wiki-refine --file daily-refinement.json --if-due
+```
+
+The schedule file contains an IANA timezone, a 24-hour local time (default `09:00`),
+and the W4 policy:
+
+```json
+{
+  "timezone": "Asia/Seoul",
+  "time": "09:00",
+  "policy": {
+    "id": "default-daily-index",
+    "version": "1",
+    "staleAfterDays": 30,
+    "recencyWindowDays": 90,
+    "lowImportanceThreshold": 0.3,
+    "highImportanceThreshold": 0.7,
+    "unknownImportanceExposure": "normal",
+    "importanceSignals": []
+  }
+}
+```
+
+An external scheduler may invoke `--if-due` repeatedly. Only
+`config.participants[0]` is the scheduler owner; the other participant returns
+`reason: "not-scheduler-owner"`. Before the configured wall-clock time the result is
+`not-due`, and a validated summary already shared for that local date returns
+`already-successful`. Delayed invocations after the configured time still run. State
+is reconstructed from the synchronized store on every invocation, so process restarts
+do not lose the once-per-date guard.
+
+Without `--if-due`, the command is a manual refresh. It runs only when the stable
+source revision has changed since the newest real, validated refinement summary. The
+revision is a SHA-256 hash of non-refinement wiki note contents and immutable ticket
+events; refinement summaries are excluded, preventing a run from scheduling itself.
+The planner's `priorRun` is populated only from an existing validated summary, never
+from a local completion marker or caller-supplied path.
+
+Execution holds a dedicated daily-run lock and the common shared-store lock. It syncs
+before planning, commits the immutable candidate, and reports `completed` only after a
+successful push. A rejected push returns `pending`; the next invocation retries the
+same local summary during its initial sync, then recognizes it as the successful run.
+For deterministic testing or a one-off replay, `--now <ISO timestamp>` overrides the
+clock used for due-date evaluation; normal scheduled use omits it.
+
 ## Synchronization guarantees
 
 Sync fetches and merges append-only histories, so concurrent events with different

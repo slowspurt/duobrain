@@ -21,6 +21,7 @@ import {
   resumeSession,
   resolveTicket,
   respondToTicket,
+  runDailyWikiRefinement,
   searchSharedWiki,
   setPlan,
   startSession,
@@ -55,6 +56,7 @@ Usage:
   duobrain wiki-search --query <text> [--filters <json-path>]
   duobrain wiki-trace --roots <wiki/path,...>
   duobrain method-compare --file <json-path> [--request-missing] [--actor <human|ai>]
+  duobrain wiki-refine --file <schedule-json> [--if-due] [--now <iso-timestamp>]
   duobrain plan-set --file <json-path> [--actor <human|ai>]
   duobrain overlap --scope <path,path> [--base-commit <ref>]
   duobrain worktree-prepare --directory <path> [--branch <name>] [--base-commit <ref>]
@@ -85,6 +87,7 @@ const COMMAND_HELP = {
   'wiki-search': 'Usage: duobrain wiki-search --query <text> [--filters <json-path>] [--repository <path>]',
   'wiki-trace': 'Usage: duobrain wiki-trace --roots <wiki/path,...> [--repository <path>]',
   'method-compare': 'Usage: duobrain method-compare --file <json-path> [--request-missing] [--actor <human|ai>] [--repository <path>]',
+  'wiki-refine': 'Usage: duobrain wiki-refine --file <schedule-json> [--if-due] [--now <iso-timestamp>] [--repository <path>]',
   'plan-set': 'Usage: duobrain plan-set --file <json-path> [--actor <human|ai>] [--repository <path>]',
   overlap: 'Usage: duobrain overlap --scope <path,path> [--base-commit <ref>] [--repository <path>]',
   'worktree-prepare': 'Usage: duobrain worktree-prepare --directory <path> [--branch <name>] [--base-commit <ref>] [--repository <path>]',
@@ -94,7 +97,7 @@ const COMMAND_HELP = {
 
 function parseOptions(tokens) {
   const options = {};
-  const booleanOptions = new Set(['help', 'request-missing']);
+  const booleanOptions = new Set(['help', 'if-due', 'request-missing']);
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
     if (!token.startsWith('--')) throw new Error(`Unexpected argument: ${token}`);
@@ -275,6 +278,13 @@ async function main() {
       manifest: JSON.parse(await readFile(requireOption(options, 'file'), 'utf8')),
       requestMissing: options['request-missing'] === true,
       actorKind: options.actor ?? 'ai',
+    });
+  } else if (command === 'wiki-refine') {
+    result = await runDailyWikiRefinement({
+      repository,
+      schedule: JSON.parse(await readFile(requireOption(options, 'file'), 'utf8')),
+      ifDue: options['if-due'] === true,
+      now: options.now,
     });
   } else if (command === 'plan-set') {
     result = await setPlan({
