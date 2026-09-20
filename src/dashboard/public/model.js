@@ -34,6 +34,55 @@ export function wikiValidationPresentation(validation) {
   return { kind: 'valid', title: '검증 통과', issues: [] };
 }
 
+export function wikiListRecords(notes) {
+  return (Array.isArray(notes) ? notes : []).map((entry) => {
+    const validation = entry?.validation;
+    const parsed = validation?.valid === true ? validation.note : null;
+    const metadata = parsed?.format === 'structured' ? parsed.metadata : null;
+    return {
+      path: typeof entry?.path === 'string' ? entry.path : null,
+      format: parsed?.format ?? null,
+      title: typeof metadata?.title === 'string' ? metadata.title : null,
+      recordType: typeof metadata?.recordType === 'string' ? metadata.recordType : null,
+      status: typeof metadata?.status === 'string' ? metadata.status : 'invalid',
+      author: metadata?.author ?? null,
+      observedAt: typeof metadata?.observedAt === 'string' ? metadata.observedAt : null,
+      workContext: metadata?.workContext ?? { promptRef: null, harnessRef: null },
+      sources: Array.isArray(metadata?.sources) ? metadata.sources : [],
+      supersedes: Array.isArray(metadata?.supersedes) ? metadata.supersedes : [],
+      dailyRefinement: validDailyRefinement(metadata),
+      validation,
+    };
+  }).filter((record) => record.path !== null);
+}
+
+function validDailyRefinement(metadata) {
+  const run = metadata?.recordType === 'summary' ? metadata.dailyRefinement : null;
+  if (run === null || typeof run !== 'object' || Array.isArray(run)) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(run.date ?? '')) return null;
+  for (const field of ['timezone', 'sourceRevision', 'policyFingerprint', 'runKey']) {
+    if (typeof run[field] !== 'string' || !run[field]) return null;
+  }
+  return run;
+}
+
+export function recordedContextDifferences(records) {
+  const usable = (Array.isArray(records) ? records : []).filter(
+    (record) => record?.format === 'structured' && record?.recordType === 'source-note',
+  );
+  const refs = (field) => [...new Set(usable.map((record) => record?.workContext?.[field]).filter(
+    (value) => typeof value === 'string' && value.trim(),
+  ))].sort();
+  const promptRefs = refs('promptRef');
+  const harnessRefs = refs('harnessRef');
+  return {
+    promptRefs,
+    harnessRefs,
+    promptDiffers: promptRefs.length > 1,
+    harnessDiffers: harnessRefs.length > 1,
+  };
+}
+
 export function filterTickets(tickets, { tab = 'inbox', query = '', status = '', kind = '', peer = '' } = {}) {
   const needle = query.trim().toLocaleLowerCase();
   return (Array.isArray(tickets) ? tickets : []).filter((ticket) => {

@@ -29,13 +29,20 @@ import { startDashboard } from './src/dashboard/index.js';
 const server = startDashboard({
   getSnapshot: () => snapshot, // 동기 함수 또는 Promise 반환 함수
   getWikiNote: ({ path }) => note, // 선택 사항; 동기 함수 또는 Promise 반환 함수
+  listWikiNotes: () => notes, // 선택 사항; 공유 위키 목록
+  searchSharedWiki: ({ query, filters }) => searchResult, // 선택 사항
+  traceSharedWiki: ({ roots }) => lineage, // 선택 사항
   port: 4173,
 });
 ```
 
 `GET /api/snapshot`은 getter의 JSON 직렬화 가능한 객체를 반환한다. 읽기 실패나 객체가 아닌 결과는 세부 내부 오류를 노출하지 않고 HTTP 503 `snapshot_unavailable`로 응답한다. UI는 빈 배열과 누락 필드를 빈 상태 또는 `미확인`으로 표시한다.
 
-`GET /api/wiki?path=wiki/<uuid>.md`는 선택적 `getWikiNote`가 반환한 `{path, markdown, validation}`만 전달한다. 경로 형식 오류는 400, 누락은 404, 1 MiB 초과는 413, 안전하지 않은 파일·reader 부재·내부 실패는 세부 경로를 숨긴 503으로 응답한다. 다른 파일 경로나 파일 목록 API는 제공하지 않는다. `--repository` 실행은 엔진의 `getWikiNote({repository,path})`를 이 getter로 연결한다.
+`GET /api/wiki?path=wiki/<uuid>.md`는 선택적 `getWikiNote`가 반환한 `{path, markdown, validation}`만 전달한다. 경로 형식 오류는 400, 누락은 404, 1 MiB 초과는 413, 안전하지 않은 파일·reader 부재·내부 실패는 세부 경로를 숨긴 503으로 응답한다. `--repository` 실행은 엔진의 `getWikiNote({repository,path})`를 이 getter로 연결한다.
+
+실제 저장소 실행에서는 E5 읽기 API도 주입한다. `GET /api/wiki/notes`는 `listWikiNotes`, `GET /api/wiki/search`는 `searchSharedWiki`, `GET /api/wiki/lineage?root=wiki/<uuid>.md`는 `traceSharedWiki` 결과를 전달한다. 검색은 최대 500자의 단일 검색어와 participant/status/recordType/includeSuperseded 필터만 허용하고, 계보 루트는 최대 20개의 위키 UUID 경로로 제한한다. 이 경계는 제품 파일이나 임의 경로를 읽지 않으며 모든 내부 실패 세부를 숨긴다. 예시 모드에서는 실제 위키가 연결되지 않았음을 별도로 표시한다.
+
+공유 위키 영역은 전체 목록, 서버 검색 결과, 검증된 `dailyRefinement` 메타데이터가 있는 일일 정제 인덱스를 독립적으로 탐색한다. 각 기록에서 원문과 계보를 펼칠 수 있고 검증 실패와 lineage의 누락 참조를 서로 구분한다. source-note에 기록된 `promptRef`와 `harnessRef` 차이는 식별자 그대로만 나열하며 인과나 성과 차이를 추론하지 않는다. artifact manifest는 브라우저에 주입하지 않고 실제 비교는 `duobrain method-compare --file comparison.json` CLI 안내만 제공한다.
 
 스냅샷 문자열은 정적 HTML에 삽입하지 않고 API에서 읽은 뒤 DOM `textContent`로만 표시한다. 미종료 세션은 종료와 최종 경과 시간이 미확정이라고 표시하며, 기록이 없는 참여자의 활동을 추정하지 않는다. `sync.status`의 `unknown`, `pending`, `error`, `synced`도 서로 구분한다.
 
@@ -65,4 +72,4 @@ const server = startDashboard({
 node --test test/dashboard/*.test.js
 ```
 
-테스트는 동기·비동기 getter, HTTP 읽기 전용 동작, 빈 스냅샷, 읽기 실패, 로컬 바인딩, 정적 셸의 악성 문자열 비삽입과 CSP를 확인한다. 또한 protocol 형태의 티켓 fixture로 탭·필터·검색·근거·상태 구분을 검사한다. 실제 통합 테스트는 임시 원격과 두 클론에서 정보 요청, 확인, 위키 노트 공유, 응답, 해결을 수행한 뒤 실행 중인 dashboard API가 snapshot과 검증된 원문을 그대로 전달하는지 확인한다. 세션 순수 집계 테스트는 빈 데이터, pause, 기간 양끝 경계, 같은 사람의 겹치는 세션, 여러 참여자, 미종료·시간 오류·충돌·history 누락을 검증한다. E4 연결 테스트는 실제 엔진으로 plan 설정과 start/pause/scope-update/resume/end를 수행하고 실행 중 API snapshot을 plan·scope 집계 모델에 전달한다.
+테스트는 동기·비동기 getter, HTTP 읽기 전용 동작, 빈 스냅샷, 읽기 실패, 로컬 바인딩, 정적 셸의 악성 문자열 비삽입과 CSP를 확인한다. 또한 protocol 형태의 티켓 fixture로 탭·필터·검색·근거·상태 구분을 검사한다. 실제 통합 테스트는 임시 원격과 두 클론에서 정보 요청, 확인, 위키 노트 공유, 응답, 해결을 수행한 뒤 실행 중인 dashboard API가 snapshot과 검증된 원문을 그대로 전달하는지 확인한다. E5 통합 테스트는 실제 공유 위키에 source-note와 일일 정제 결과를 만든 뒤 목록·필터 검색·계보·원문 API를 관통하고 제품 파일 내용이 노출되지 않는지 확인한다. 세션 순수 집계 테스트는 빈 데이터, pause, 기간 양끝 경계, 같은 사람의 겹치는 세션, 여러 참여자, 미종료·시간 오류·충돌·history 누락을 검증한다. E4 연결 테스트는 실제 엔진으로 plan 설정과 start/pause/scope-update/resume/end를 수행하고 실행 중 API snapshot을 plan·scope 집계 모델에 전달한다.

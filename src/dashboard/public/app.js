@@ -3,8 +3,10 @@ import {
   filterTickets,
   planPresentation,
   peerConfirmation,
+  recordedContextDifferences,
   ticketEvidence,
   ticketStatusLabels,
+  wikiListRecords,
   wikiValidationPresentation,
 } from '/model.js';
 
@@ -17,7 +19,11 @@ const labels = {
   ...ticketStatusLabels,
 };
 
-const state = { tickets: [], sessions: [], conflicts: [], participants: [], sample: false, tab: 'inbox', query: '', status: '', kind: '', peer: '', period: '30d' };
+const state = {
+  tickets: [], sessions: [], conflicts: [], participants: [], sample: false,
+  tab: 'inbox', query: '', status: '', kind: '', peer: '', period: '30d',
+  wikiTab: 'all', wikiRecords: [], wikiSearchResults: [], wikiIssues: [],
+};
 const text = (value, fallback = '미확인') => typeof value === 'string' && value.trim() ? value : fallback;
 
 function element(tag, className, value) {
@@ -262,6 +268,163 @@ async function loadEvidence(path, button, content) {
   }
 }
 
+function wikiMetadata(record) {
+  const parts = [
+    text(record.recordType, '종류 미확인'),
+    text(record.status, '상태 미확인'),
+    text(record.author?.participant, '작성자 미확인'),
+    formatDate(record.observedAt),
+  ];
+  return parts.join(' · ');
+}
+
+async function loadLineage(path, button, content) {
+  button.disabled = true;
+  content.hidden = false;
+  content.replaceChildren(element('p', 'caption', '계보를 불러오는 중입니다.'));
+  try {
+    const response = await fetch(`/api/wiki/lineage?root=${encodeURIComponent(path)}`, { headers: { Accept: 'application/json' } });
+    const result = await response.json();
+    if (!response.ok) {
+      content.replaceChildren(element('strong', 'validation failure', '계보 조회 실패'), element('p', 'caption', text(result.message)));
+      return;
+    }
+    content.replaceChildren(element('p', 'caption', `노드 ${result.nodes.length}개 · 연결 ${result.edges.length}개`));
+    for (const edge of result.edges) content.append(element('p', 'lineage-edge', `${edge.from} — ${edge.relation} → ${edge.to}`));
+    for (const issue of result.issues) {
+      const missing = /^MISSING_/.test(issue?.code ?? '');
+      content.append(element('p', `validation-issue${missing ? ' missing-copy' : ''}`, `${text(issue?.code, 'UNKNOWN')} · ${text(issue?.message, '세부 내용 없음')}`));
+    }
+    if (!result.edges.length && !result.issues.length) content.append(empty('연결된 위키 계보가 없습니다.'));
+  } catch {
+    content.replaceChildren(element('strong', 'validation failure', '계보 조회 실패'));
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function wikiRecordCard(record) {
+  const card = element('article', 'wiki-card');
+  const heading = element('div', 'wiki-card-heading');
+  heading.append(element('h3', '', text(record.title, record.format === 'legacy' ? '레거시 위키 기록' : '제목 미확인')));
+  if (record.validation) {
+    const validation = wikiValidationPresentation(record.validation);
+    heading.append(element('span', `validation ${validation.kind}`, validation.title));
+  }
+  card.append(heading, element('p', 'caption', wikiMetadata(record)), element('code', 'wiki-path', record.path));
+  const context = element('div', 'work-context');
+  context.append(
+    element('p', '', `promptRef · ${text(record.workContext?.promptRef, '기록 없음')}`),
+    element('p', '', `harnessRef · ${text(record.workContext?.harnessRef, '기록 없음')}`),
+  );
+  card.append(context);
+  if (record.dailyRefinement) {
+    card.append(element('p', 'refinement-run', `정제 실행 · ${text(record.dailyRefinement.date)} · ${text(record.dailyRefinement.timezone)} · source ${text(record.dailyRefinement.sourceRevision)}`));
+  }
+  const actions = element('div', 'wiki-actions');
+  const sourceButton = element('button', 'evidence-link', '원문 보기');
+  const lineageButton = element('button', 'evidence-link', '계보 보기');
+  sourceButton.type = 'button';
+  lineageButton.type = 'button';
+  const source = element('div', 'evidence-content');
+  const lineage = element('div', 'lineage-content');
+  source.hidden = true;
+  lineage.hidden = true;
+  sourceButton.addEventListener('click', () => loadEvidence(record.path, sourceButton, source));
+  lineageButton.addEventListener('click', () => loadLineage(record.path, lineageButton, lineage));
+  actions.append(sourceButton, lineageButton);
+  card.append(actions, source, lineage);
+  return card;
+}
+
+function renderWikiContext(records) {
+  const container = byId('wiki-context-differences');
+  container.replaceChildren();
+  const differences = recordedContextDifferences(records);
+  container.append(
+    element('p', '', `promptRef ${differences.promptDiffers ? '차이 기록됨' : '비교 가능한 차이 없음'} · ${differences.promptRefs.join(', ') || '기록 없음'}`),
+    element('p', '', `harnessRef ${differences.harnessDiffers ? '차이 기록됨' : '비교 가능한 차이 없음'} · ${differences.harnessRefs.join(', ') || '기록 없음'}`),
+  );
+}
+
+function renderWiki() {
+  const container = byId('wiki-records');
+  const stateCopy = byId('wiki-state');
+  container.replaceChildren();
+  stateCopy.replaceChildren();
+  let records = state.wikiTab === 'search' ? state.wikiSearchResults : state.wikiRecords;
+  if (state.wikiTab === 'refinement') records = state.wikiRecords.filter((record) => record.dailyRefinement !== null);
+  byId('wiki-count').textContent = `${records.length}건`;
+  for (const issue of state.wikiIssues) stateCopy.append(element('p', 'validation-issue', `${text(issue?.code, 'UNKNOWN')} · ${text(issue?.message, '세부 내용 없음')}`));
+  if (!records.length) {
+    const message = state.wikiTab === 'refinement' ? '유효한 일일 정제 결과가 없습니다.' : '조건에 맞는 공유 위키 기록이 없습니다.';
+    container.append(empty(message));
+  } else records.forEach((record) => container.append(wikiRecordCard(record)));
+  renderWikiContext(records);
+}
+
+function selectWikiTab(tab) {
+  state.wikiTab = tab;
+  for (const name of ['all', 'search', 'refinement']) {
+    const button = byId(`wiki-${name}-tab`);
+    button.classList.toggle('active', name === tab);
+    button.setAttribute('aria-selected', String(name === tab));
+  }
+  renderWiki();
+}
+
+async function loadWikiList() {
+  if (state.sample) {
+    state.wikiRecords = [];
+    state.wikiIssues = [];
+    renderWiki();
+    byId('wiki-state').replaceChildren(element('p', 'sample-wiki', '예시 스냅샷에는 실제 공유 위키가 연결되지 않습니다. --repository로 실행하면 탐색할 수 있습니다.'));
+    return;
+  }
+  byId('wiki-state').replaceChildren(element('p', 'caption', '공유 위키 목록을 불러오는 중입니다.'));
+  try {
+    const response = await fetch('/api/wiki/notes', { headers: { Accept: 'application/json' } });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message);
+    state.wikiRecords = wikiListRecords(result.notes);
+    state.wikiIssues = [];
+    renderWiki();
+  } catch {
+    state.wikiRecords = [];
+    renderWiki();
+    byId('wiki-state').replaceChildren(element('p', 'validation-issue', '공유 위키 목록을 불러오지 못했습니다.'));
+  }
+}
+
+async function searchWiki(event) {
+  event.preventDefault();
+  if (state.sample) return selectWikiTab('search');
+  const params = new URLSearchParams();
+  const values = {
+    q: byId('wiki-query').value,
+    participant: byId('wiki-participant').value.trim(),
+    status: byId('wiki-status').value,
+    recordType: byId('wiki-record-type').value,
+  };
+  for (const [key, value] of Object.entries(values)) if (value) params.set(key, value);
+  params.set('includeSuperseded', String(byId('wiki-include-superseded').checked));
+  selectWikiTab('search');
+  byId('wiki-state').replaceChildren(element('p', 'caption', '공유 위키를 검색하는 중입니다.'));
+  try {
+    const response = await fetch(`/api/wiki/search?${params}`, { headers: { Accept: 'application/json' } });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message);
+    state.wikiSearchResults = result.results;
+    state.wikiIssues = result.issues;
+    renderWiki();
+  } catch {
+    state.wikiSearchResults = [];
+    state.wikiIssues = [];
+    renderWiki();
+    byId('wiki-state').replaceChildren(element('p', 'validation-issue', '공유 위키 검색 결과를 불러오지 못했습니다.'));
+  }
+}
+
 function ticketCard(ticket) {
   const card = element('article', 'ticket-card');
   const summary = element('div', 'ticket-summary');
@@ -333,6 +496,7 @@ function render(snapshot) {
   fillFilters();
   renderTickets();
   renderSync(snapshot.sync);
+  loadWikiList();
 }
 
 async function load() {
@@ -365,4 +529,8 @@ byId('history-tab').addEventListener('click', () => selectTab('history'));
 byId('ticket-search').addEventListener('input', (event) => { state.query = event.target.value; renderTickets(); });
 for (const key of ['status', 'kind', 'peer']) byId(`${key}-filter`).addEventListener('change', (event) => { state[key] = event.target.value; renderTickets(); });
 byId('session-period').addEventListener('change', (event) => { state.period = event.target.value; renderSessionAnalysis(); });
+byId('wiki-all-tab').addEventListener('click', () => selectWikiTab('all'));
+byId('wiki-search-tab').addEventListener('click', () => selectWikiTab('search'));
+byId('wiki-refinement-tab').addEventListener('click', () => selectWikiTab('refinement'));
+byId('wiki-search-form').addEventListener('submit', searchWiki);
 load();
