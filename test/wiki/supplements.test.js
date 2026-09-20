@@ -82,6 +82,40 @@ test("a partial retry reuses its source and prepares only the missing summary", 
   assert.deepEqual(retry.ticketResponse.evidence, [first.candidates.sourceNote.path]);
 });
 
+test("work context changes create a new supplement while new IDs and time remain a retry", async () => {
+  const {input} = await normalInput();
+  const first = prepareTicketSupplement(input);
+  const persisted = [
+    {path: first.candidates.sourceNote.path, markdown: first.candidates.sourceNote.markdown},
+    {path: first.candidates.summary.path, markdown: first.candidates.summary.markdown},
+  ];
+
+  const changedContext = structuredClone(input);
+  changedContext.notes.push(...persisted);
+  changedContext.context.sourceNote.id = "30000000-0000-4000-8000-000000000010";
+  changedContext.context.summary.id = "30000000-0000-4000-8000-000000000011";
+  changedContext.context.sourceNote.workContext.harnessRef = "codex:revised-harness";
+  const revised = prepareTicketSupplement(changedContext);
+
+  assert.equal(revised.outcome, "prepared");
+  assert.notEqual(revised.fingerprint, first.fingerprint);
+  assert.equal(revised.duplicateOf, null);
+
+  const retriedWithNewIdentity = structuredClone(input);
+  retriedWithNewIdentity.notes.push(...persisted);
+  retriedWithNewIdentity.context.sourceNote.id = "30000000-0000-4000-8000-000000000012";
+  retriedWithNewIdentity.context.summary.id = "30000000-0000-4000-8000-000000000013";
+  retriedWithNewIdentity.context.sourceNote.observedAt = "2026-01-15T10:15:00Z";
+  const retry = prepareTicketSupplement(retriedWithNewIdentity);
+
+  assert.equal(retry.outcome, "duplicate");
+  assert.equal(retry.fingerprint, first.fingerprint);
+  assert.deepEqual(retry.duplicateOf, {
+    source: first.candidates.sourceNote.path,
+    summary: first.candidates.summary.path,
+  });
+});
+
 test("rejects self references and reachable reference cycles", async () => {
   const {input} = await normalInput();
   const sourcePath = `wiki/${input.context.sourceNote.id}.md`;
