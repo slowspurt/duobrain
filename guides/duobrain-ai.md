@@ -133,13 +133,25 @@ node bin/duobrain.js ticket-resolve --ticket <ticket-uuid> \
 
 정보 요청이 사전에 허용된 경우에는 질문이 이미 특정한 주장·근거 범위를 다시 사용자에게 확인하지 않고 `ticket-create`로 처리한다. 다만 대상 작업·자료가 모호하거나, 새 판단·승인·우선순위 또는 허용 범위를 넘는 공유가 필요하면 실행 전에 사용자에게 묻는다.
 
-## 캡처된 작업 방식 비교
+## 캡처된 작업 방식 비교와 위키 탐색
 
-“B 하네스와 내 버전이 달라?”에는 두 structured source note의 `workContext.promptRef`와 `harnessRef`를 비교한다. 서로 다른 ref는 캡처된 참조가 다르다는 사실만 보인다. artifact의 version 또는 text가 빠졌다면 내용 차이·성능 원인은 미확인이고, 높아 보이는 버전이 더 좋은 결과를 냈다고 결론 내리지 않는다.
+“B 하네스와 내 버전이 달라?”에는 shared store의 structured note와 manifest에 **캡처된** artifact만 사용한다. `wiki-list`, `wiki-search --query <text> [--filters <json-path>]`, `wiki-trace --roots <wiki/path,...>`로 note·출처·lineage를 확인하고, `method-compare --file <json-path>`로 두 participant의 명시적 left/right note refs와 artifacts를 비교한다. artifact ref는 식별자일 뿐 파일 경로가 아니며, manifest가 제공한 version/text만 비교 대상이다.
 
-W3의 `compareKnowledgeMethods`는 CLI가 아니라 caller가 전달한 notes와 artifacts만 처리하는 순수 API다. 누락된 비교 재료가 있으면 결과의 `ticketCandidate`는 제안일 뿐 티켓을 자동 생성하거나 AI가 백그라운드에서 답을 기다리지 않는다. 다음의 명시적 sync 또는 사용자 호출 뒤 새 근거를 전달해 다시 비교한다. API 입력 형태는 [knowledge-records API](../docs/wiki/knowledge-records.md#method-search-and-comparison)와 [reference-only example](../examples/wiki/method-comparison.json)를 따른다.
+```sh
+node bin/duobrain.js wiki-search --query "export harness"
+node bin/duobrain.js wiki-trace --roots wiki/<a-note>.md,wiki/<b-note>.md
+node bin/duobrain.js method-compare --file ./method-comparison.json --actor ai
+```
 
-하루 정제와 비교용 CLI는 E5 진행 중이다. 현재 API·티켓 흐름을 그 명령으로 대체하거나 이름·옵션을 추측하지 않는다.
+서로 다른 ref는 캡처된 참조가 다르다는 사실만 보인다. version 또는 text가 빠졌다면 내용 차이·성능 원인은 미확인이고, 높아 보이는 버전이 더 좋은 결과를 냈다고 결론 내리지 않는다. 비교 결과의 `ticketCandidate`와 `missingRequest.action: "proposed"`는 아직 요청을 기록하지 않은 제안이다.
+
+필요한 필드·공유 범위가 이미 사전 허용된 경우에는 같은 manifest에 `--request-missing --actor ai`를 붙여 좁은 information ticket을 만들거나 기존 비종결 요청을 재사용한다. 상대는 명시적으로 sync하고 허용된 note·근거를 보충한 뒤 응답한다. 요청자는 다음 명시적 sync 또는 사용자 호출에서 같은 `method-compare`를 다시 실행해 원 질문을 이어간다. 이 명령은 AI가 백그라운드에서 기다리거나 자동 재개한다는 뜻이 아니다.
+
+## 하루 위키 정제
+
+`wiki-refine --file <schedule-json> --if-due`는 외부 scheduler가 호출할 수 있는 한 번의 실행이다. duobrain 자체가 상주 프로세스·예약 작업·AI 자동 재개를 설치하지 않는다. schedule에는 IANA `timezone`, 24시간 `time`(기본 `09:00`), policy를 둔다. `config.participants[0]`만 예약 실행 담당이고, 다른 participant는 `not-scheduler-owner`로 건너뛴다.
+
+구성 시각 전에는 `not-due`, 같은 local date의 검증·공유 완료 정제가 있으면 `already-successful`로 건너뛴다. 늦은 호출은 해당 날짜에 실행할 수 있다. 실행은 원문 source note와 immutable ticket event를 보존한 새 summary candidate를 만들며, summary 자신이 다음 실행을 유발하지 않도록 source revision에서 제외된다. push 성공 전에는 완료가 아니며 `pending`이면 다음 scheduler 호출 또는 명시적 sync가 같은 로컬 summary의 전달을 재시도한다.
 
 ## 인계와 하루 마무리
 

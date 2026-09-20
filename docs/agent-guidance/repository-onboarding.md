@@ -205,23 +205,50 @@ node /Users/alice/tools/duobrain/bin/duobrain.js overlap \
   --scope src/export/empty-state.tsx --base-commit <confirmed-base>
 ```
 
-`docs/protocol-extensions.md` now documents implemented E4 behavior; its remaining future sections must still be distinguished from executable commands. Daily refinement and a comparison CLI are E5 work in progress: do not invent either command name or options.
+`docs/protocol-extensions.md` now documents implemented E4 behavior; its remaining future sections must still be distinguished from executable commands.
 
-## 9. Compare only captured method evidence
+## 9. Compare B's method with captured evidence
 
-There is no method-comparison CLI. `compareKnowledgeMethods` is a pure W3 module: the caller must supply note Markdown and any captured prompt/harness artifacts. It does not read a repository, create a ticket, or wait for evidence in the background. This fixture-only invocation demonstrates the boundary:
+Use shared-store discovery before comparison. These commands search only validated `wiki/<uuid>.md` records in the isolated store; they do not search the product checkout or private directories.
 
 ```sh
-node --input-type=module -e '
-import { readFile } from "node:fs/promises";
-import { basename } from "node:path";
-import { compareKnowledgeMethods } from "/Users/alice/tools/duobrain/src/wiki/index.js";
-const manifest = JSON.parse(await readFile("/Users/alice/tools/duobrain/examples/wiki/method-comparison.json", "utf8"));
-const notes = await Promise.all(manifest.noteFiles.map(async (file) => ({
-  path: `wiki/${basename(file)}`, markdown: await readFile(`/Users/alice/tools/duobrain/${file}`, "utf8"),
-})));
-console.log(JSON.stringify(compareKnowledgeMethods({...manifest, notes}), null, 2));
-'
+node /Users/alice/tools/duobrain/bin/duobrain.js wiki-list \
+  --repository /Users/alice/work/reading-app
+node /Users/alice/tools/duobrain/bin/duobrain.js wiki-search \
+  --repository /Users/alice/work/reading-app --query "export harness" \
+  --filters /Users/alice/work/plans/wiki-filters.json
+node /Users/alice/tools/duobrain/bin/duobrain.js wiki-trace \
+  --repository /Users/alice/work/reading-app \
+  --roots wiki/<alice-method-note>.md,wiki/<bob-method-note>.md
 ```
 
-The API can compare captured ref identity, versions, and supplied text only. Missing or opaque refs/text remain unknown; different refs do not prove behavior or a causal result. A returned `ticketCandidate` is only a narrow proposal. On a later explicit sync or user request, pass newly captured evidence to the API again; do not claim automatic wake-up. A daily-refinement or comparison CLI is E5 work in progress; do not invent its command or options.
+Prepare a comparison manifest with `left`, `right`, and `artifacts`, following [the engine manifest example](../engine/README.md#shared-wiki-discovery-and-method-comparison). `left.participant` must be the local participant and `right.participant` the other participant. Artifact `ref` values are identifiers, not file paths: only manifest-supplied captured `version` and `text` are compared.
+
+```sh
+# First run is dry: it may return a proposed ticketCandidate.
+node /Users/alice/tools/duobrain/bin/duobrain.js method-compare \
+  --repository /Users/alice/work/reading-app \
+  --file /Users/alice/work/plans/export-method-comparison.json --actor ai
+
+# Use this only when the missing fields and sharing scope are already authorized.
+node /Users/alice/tools/duobrain/bin/duobrain.js method-compare \
+  --repository /Users/alice/work/reading-app \
+  --file /Users/alice/work/plans/export-method-comparison.json \
+  --request-missing --actor ai
+```
+
+The dry result's `ticketCandidate` and `missingRequest.action: "proposed"` do not yet create a ticket. With `--request-missing`, an identical nonterminal information request is reused instead of duplicated. Bob explicitly syncs, adds permitted evidence notes, and responds. Alice then explicitly syncs and reruns the same dry comparison to continue the original question. Missing or opaque refs/text remain unknown; different refs do not prove behavior or a causal result. This sequence does not make an AI wait in the background or wake automatically.
+
+## 10. Run daily refinement from an external scheduler
+
+Create a schedule JSON with IANA `timezone`, local 24-hour `time` (default `09:00`), and the documented refinement policy, then let an external scheduler invoke one command at its chosen cadence:
+
+```sh
+node /Users/alice/tools/duobrain/bin/duobrain.js wiki-refine \
+  --repository /Users/alice/work/reading-app \
+  --file /Users/alice/work/plans/daily-refinement.json --if-due
+```
+
+This command does not install or persist a scheduler, keep a server alive, or automatically resume an AI. Only `config.participants[0]` is the scheduler owner; the other participant returns `not-scheduler-owner`. Before the configured local time it returns `not-due`; after one validated shared run for that local date it returns `already-successful`; a delayed eligible call still runs.
+
+Refinement preserves immutable source notes and ticket events, creating a new summary candidate instead of rewriting evidence. It is `completed` only after push succeeds. A `pending` push is not shared completion: a later explicit sync or scheduler invocation retries delivery of the same local summary. Manual refresh behavior is being finalized separately; use the documented `--if-due` schedule path for recurring execution.
