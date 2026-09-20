@@ -403,8 +403,11 @@ export function planDailyWikiRefinement({
   if (typeof sourceRevision !== "string" || sourceRevision.trim() === "") {
     issues.push(refinementIssue("INVALID_SOURCE_REVISION", "sourceRevision", "sourceRevision must be a non-empty string."));
   }
-  const resolvedPolicy = validateRefinementPolicy(policy, existing, issues);
-  const policyFingerprint = createHash("sha256").update(stableStringify(resolvedPolicy)).digest("hex");
+  const ticketState = collectRefinementTickets(tickets, existing, issues);
+  const resolvedPolicy = validateRefinementPolicy(policy, existing, ticketState.allIds, issues);
+  const policyFingerprint = createHash("sha256")
+    .update(stableStringify(refinementPolicyFingerprintInput(resolvedPolicy)))
+    .digest("hex");
   const runKey = createHash("sha256").update(stableStringify({
     date,
     timezone,
@@ -412,11 +415,15 @@ export function planDailyWikiRefinement({
     policyFingerprint,
   })).digest("hex");
   const run = {date, timezone, sourceRevision, policyFingerprint, runKey};
-  const ticketState = collectRefinementTickets(tickets, existing, issues);
   const supersededBy = buildSupersededBy(existing);
   const sourceRecords = [...existing.values()]
     .filter(({parsed}) => parsed.format !== "structured" || !isObject(parsed.metadata.dailyRefinement))
     .sort((left, right) => left.path.localeCompare(right.path));
+  let refinementLineage = addRefinementLineageIssues(
+    existing,
+    sourceRecords.map(({path}) => path),
+    issues,
+  );
   const entries = sourceRecords.map((record) => refinementEntry({
     record,
     signal: resolvedPolicy.importanceSignals.find(({path}) => path === record.path),
@@ -426,30 +433,58 @@ export function planDailyWikiRefinement({
     supersededBy,
     issues,
   }));
-  const matchingExisting = [...existing.values()].find(({parsed}) => (
-    parsed.format === "structured" && parsed.metadata.dailyRefinement?.runKey === runKey
+  const sameKeyExisting = [...existing.values()].find(({parsed}) => (
+    parsed.format === "structured"
+    && parsed.metadata.recordType === "summary"
+    && parsed.metadata.dailyRefinement?.runKey === runKey
   ));
-  const matchingPrior = priorRunMatches(priorRun, run);
+  const matchingExisting = sameKeyExisting && refinementMetadataMatchesRun(
+    sameKeyExisting.parsed.metadata.dailyRefinement,
+    run,
+  ) ? sameKeyExisting : null;
+  if (sameKeyExisting && !matchingExisting) {
+    issues.push(refinementIssue(
+      "REFINEMENT_RUN_METADATA_MISMATCH",
+      sameKeyExisting.path,
+      "An existing daily summary has the run key but inconsistent run metadata.",
+    ));
+  }
+  const priorClaimsCurrentRun = priorRunMatches(priorRun, run);
+  const priorSummary = refinementSummaryRecord(priorRun?.summaryPath, existing);
+  const matchingPrior = priorClaimsCurrentRun && priorSummary
+    && refinementMetadataMatchesRun(priorSummary.parsed.metadata.dailyRefinement, run)
+    ? priorSummary
+    : null;
+  if (priorClaimsCurrentRun && !matchingPrior) {
+    issues.push(refinementIssue(
+      "PRIOR_RUN_SUMMARY_NOT_PERSISTED",
+      "priorRun.summaryPath",
+      "The matching prior run has no persisted summary with matching dailyRefinement metadata; planning will recover with a new candidate.",
+      "warning",
+    ));
+  }
   const errors = () => issues.filter(({severity}) => severity !== "warning");
 
   if (matchingExisting || matchingPrior) {
-    const duplicateOf = matchingExisting?.path ?? priorRun?.summaryPath ?? null;
+    const duplicateRecord = matchingExisting ?? matchingPrior;
+    refinementLineage = addRefinementLineageIssues(existing, [duplicateRecord.path], issues);
     return {
       outcome: errors().length === 0 ? "duplicate" : "insufficient",
       ready: errors().length === 0,
       run,
       entries,
+      lineage: refinementLineage,
       unresolvedTickets: ticketState.unresolved,
       issues: uniqueRefinementIssues(issues),
       candidate: null,
-      duplicateOf,
+      duplicateOf: duplicateRecord.path,
     };
   }
 
   if (!isObject(candidate)) {
     issues.push(refinementIssue("INVALID_CANDIDATE", "candidate", "candidate must provide an id, author, observedAt, and workContext."));
   }
-  const previousSummary = isObject(priorRun) && typeof priorRun.summaryPath === "string"
+  const previousSummary = !priorClaimsCurrentRun && isObject(priorRun) && typeof priorRun.summaryPath === "string"
     ? priorRun.summaryPath
     : null;
   if (previousSummary !== null && (!WIKI_PATH_PATTERN.test(previousSummary) || !existing.has(previousSummary))) {
@@ -457,6 +492,12 @@ export function planDailyWikiRefinement({
       "MISSING_PREVIOUS_REFINEMENT",
       "priorRun.summaryPath",
       "The previous refinement summary must be included in notes as wiki/<uuid>.md.",
+    ));
+  } else if (previousSummary !== null && !priorSummaryMatchesDeclaration(priorRun, existing.get(previousSummary))) {
+    issues.push(refinementIssue(
+      "PRIOR_RUN_METADATA_MISMATCH",
+      "priorRun.summaryPath",
+      "The previous refinement summary does not match the declared priorRun metadata.",
     ));
   }
   if (sourceRecords.length === 0) {
@@ -492,6 +533,9 @@ export function planDailyWikiRefinement({
     plannedCandidate = makeCandidate(candidatePath, metadata, body);
     addRefinementCandidateValidation(plannedCandidate, issues);
     checkPathCollision(existing, plannedCandidate, issues);
+    const graph = new Map(existing);
+    graph.set(plannedCandidate.path, graphRecord(plannedCandidate));
+    refinementLineage = addRefinementLineageIssues(graph, [plannedCandidate.path], issues);
   }
 
   const ready = errors().length === 0;
@@ -500,6 +544,7 @@ export function planDailyWikiRefinement({
     ready,
     run,
     entries,
+    lineage: refinementLineage,
     unresolvedTickets: ticketState.unresolved,
     issues: uniqueRefinementIssues(issues),
     candidate: ready ? plannedCandidate : null,
@@ -545,7 +590,7 @@ function dateInTimezone(timestamp, timezone) {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
-function validateRefinementPolicy(policy, existing, issues) {
+function validateRefinementPolicy(policy, existing, ticketIds, issues) {
   const fallback = {
     id: null,
     version: null,
@@ -617,6 +662,7 @@ function validateRefinementPolicy(policy, existing, issues) {
         score: signal.score,
         reason: signal.reason.trim(),
         evidenceRef: signal.evidenceRef.trim(),
+        evidence: classifyImportanceEvidence(signal.evidenceRef.trim(), existing, ticketIds, field, issues),
       };
       signals.push(normalized);
       if (!existing.has(signal.path)) {
@@ -641,9 +687,71 @@ function validateRefinementPolicy(policy, existing, issues) {
   };
 }
 
+function refinementPolicyFingerprintInput(policy) {
+  return {
+    ...policy,
+    importanceSignals: policy.importanceSignals.map(({evidence, ...signal}) => signal),
+  };
+}
+
+function classifyImportanceEvidence(ref, existing, ticketIds, field, issues) {
+  const wikiRef = normalizeImportanceWikiRef(ref);
+  if (wikiRef !== null) {
+    const verification = existing.has(wikiRef) ? "verified" : "missing";
+    if (verification === "missing") {
+      issues.push(refinementIssue(
+        "IMPORTANCE_WIKI_EVIDENCE_MISSING",
+        `${field}.evidenceRef`,
+        `Importance wiki evidence is not present in notes: ${wikiRef}`,
+        "warning",
+      ));
+    }
+    return {kind: "wiki", verification, resolvedRef: wikiRef};
+  }
+  if (ref.startsWith("wiki:")) {
+    issues.push(refinementIssue(
+      "INVALID_IMPORTANCE_WIKI_EVIDENCE_REF",
+      `${field}.evidenceRef`,
+      `Importance wiki evidence must identify wiki/<uuid>.md or wiki:<uuid>: ${ref}`,
+      "warning",
+    ));
+    return {kind: "wiki", verification: "invalid", resolvedRef: null};
+  }
+  const ticketId = ref.startsWith("ticket:") ? ref.slice("ticket:".length) : ref;
+  if (ref.startsWith("ticket:") || ticketIds.has(ref) || UUID_PATTERN.test(ref)) {
+    const verification = ticketIds.has(ticketId) ? "verified" : "missing";
+    if (verification === "missing") {
+      issues.push(refinementIssue(
+        "IMPORTANCE_TICKET_EVIDENCE_MISSING",
+        `${field}.evidenceRef`,
+        `Importance ticket evidence is not present in tickets: ${ticketId}`,
+        "warning",
+      ));
+    }
+    return {kind: "ticket", verification, resolvedRef: ticketId};
+  }
+  issues.push(refinementIssue(
+    "UNVERIFIED_EXTERNAL_IMPORTANCE_EVIDENCE",
+    `${field}.evidenceRef`,
+    `External importance evidence is an unverified caller claim: ${ref}`,
+    "warning",
+  ));
+  return {kind: "external", verification: "caller-claim", resolvedRef: ref};
+}
+
+function normalizeImportanceWikiRef(ref) {
+  if (WIKI_PATH_PATTERN.test(ref)) return ref;
+  if (!ref.startsWith("wiki:")) return null;
+  const value = ref.slice("wiki:".length);
+  if (WIKI_PATH_PATTERN.test(value)) return value;
+  if (UUID_PATTERN.test(value)) return wikiPath(value);
+  return null;
+}
+
 function collectRefinementTickets(tickets, existing, issues) {
   const byEvidence = new Map();
   const unresolved = [];
+  const allIds = new Set();
   const statuses = new Set(["open", "acknowledged", "needs_information", "answered", "resolved", "closed"]);
   tickets.forEach((ticket, index) => {
     const field = `tickets[${index}]`;
@@ -657,6 +765,7 @@ function collectRefinementTickets(tickets, existing, issues) {
       ));
       return;
     }
+    allIds.add(ticket.id);
     if (["resolved", "closed"].includes(ticket.status)) return;
     const evidence = uniqueStrings(ticket.evidence);
     const projected = {
@@ -690,23 +799,32 @@ function collectRefinementTickets(tickets, existing, issues) {
       byEvidence.set(path, ids.sort());
     }
   });
-  return {byEvidence, unresolved: unresolved.sort((left, right) => left.id.localeCompare(right.id))};
+  return {byEvidence, unresolved: unresolved.sort((left, right) => left.id.localeCompare(right.id)), allIds};
 }
 
 function refinementEntry({record, signal, unresolvedTicketIds, nowMs, policy, supersededBy, issues}) {
   const publicRecord = publicNoteRecord(record, supersededBy);
   const metadata = record.parsed.format === "structured" ? record.parsed.metadata : null;
-  const importance = signal ? {
+  const importance = signal && signal.evidence.verification === "verified" ? {
     state: "known",
     score: signal.score,
     reason: signal.reason,
     evidenceRef: signal.evidenceRef,
+    evidence: signal.evidence,
     defaultApplied: false,
+  } : signal ? {
+    state: signal.evidence.verification === "caller-claim" ? "caller-claim" : "unverified",
+    score: signal.score,
+    reason: signal.reason,
+    evidenceRef: signal.evidenceRef,
+    evidence: signal.evidence,
+    defaultApplied: true,
   } : {
     state: "unknown",
     score: null,
     reason: "No caller-provided business-importance evidence.",
     evidenceRef: null,
+    evidence: null,
     defaultApplied: true,
   };
   const recency = refinementRecency(publicRecord, nowMs, policy, issues);
@@ -784,10 +902,10 @@ function refinementExposure({importance, recency, status, unresolvedTicketIds, p
       && recency.state === "known" && recency.ageDays >= policy.staleAfterDays) {
     return {level: "low", reason: "Caller-evidenced low importance and stale age lower index exposure."};
   }
-  if (importance.state === "unknown") {
+  if (importance.state !== "known") {
     return {
       level: policy.unknownImportanceExposure,
-      reason: `No importance evidence; policy default ${policy.unknownImportanceExposure} applied.`,
+      reason: `${importance.state === "unknown" ? "No importance evidence" : "Importance evidence is not locally verified"}; policy default ${policy.unknownImportanceExposure} applied.`,
     };
   }
   return {level: "normal", reason: "No policy rule raises or lowers this record's exposure."};
@@ -817,7 +935,7 @@ function renderRefinementBody({run, entries, tickets}) {
     for (const entry of group) {
       const importance = entry.importance.state === "known"
         ? `${entry.importance.score} — ${entry.importance.reason}`
-        : `unknown — ${entry.importance.reason}`;
+        : `${entry.importance.state}${entry.importance.score === null ? "" : ` (${entry.importance.score} not applied)`} — ${entry.importance.reason}`;
       const recency = entry.recency.state === "known"
         ? `${entry.recency.score} — ${entry.recency.reason}`
         : `unknown — ${entry.recency.reason}`;
@@ -844,6 +962,46 @@ function addRefinementCandidateValidation(candidate, issues) {
   for (const error of validation.errors) {
     issues.push(refinementIssue(error.code, `${candidate.path}:${error.field}`, error.message));
   }
+}
+
+function addRefinementLineageIssues(existing, roots, issues) {
+  const lineage = traceLoadedLineage(existing, roots, []);
+  for (const entry of lineage.issues) {
+    issues.push(refinementIssue(entry.code, entry.field, entry.message));
+  }
+  return {nodes: lineage.nodes, edges: lineage.edges};
+}
+
+function refinementSummaryRecord(path, existing) {
+  if (typeof path !== "string") return null;
+  const record = existing.get(path);
+  if (!record || record.parsed.format !== "structured"
+      || record.parsed.metadata.recordType !== "summary"
+      || !isObject(record.parsed.metadata.dailyRefinement)) {
+    return null;
+  }
+  return record;
+}
+
+function refinementMetadataMatchesRun(metadata, run) {
+  return isObject(metadata)
+    && metadata.date === run.date
+    && metadata.timezone === run.timezone
+    && metadata.sourceRevision === run.sourceRevision
+    && metadata.policyFingerprint === run.policyFingerprint
+    && metadata.runKey === run.runKey;
+}
+
+function priorSummaryMatchesDeclaration(priorRun, record) {
+  if (!isObject(priorRun) || !record || record.parsed.format !== "structured"
+      || record.parsed.metadata.recordType !== "summary") {
+    return false;
+  }
+  const metadata = record.parsed.metadata.dailyRefinement;
+  if (!isObject(metadata)) return false;
+  const declared = ["date", "timezone", "sourceRevision", "policyFingerprint", "runKey"]
+    .filter((field) => priorRun[field] !== undefined);
+  return declared.every((field) => metadata[field] === priorRun[field]);
 }
 
 function priorRunMatches(priorRun, run) {
