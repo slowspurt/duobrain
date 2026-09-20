@@ -140,6 +140,18 @@ test('daily if-due execution is owner-only, delayed, once per date, and CLI-back
   assert.equal(completed.schedule.cadence, 'daily');
   assert.equal(completed.sync.status, 'synced');
 
+  const invalidSchedule = schedule();
+  invalidSchedule.policy.highImportanceThreshold = 2;
+  const invalidRepeat = await runDailyWikiRefinement({
+    repository: setup.alice,
+    schedule: invalidSchedule,
+    ifDue: true,
+    now: '2026-09-20T21:00:00+09:00',
+  });
+  assert.equal(invalidRepeat.outcome, 'insufficient');
+  assert.equal(invalidRepeat.reason, 'planner-insufficient');
+  assert.equal(invalidRepeat.plan.issues.some(({ code }) => code === 'INVALID_POLICY'), true);
+
   const repeated = await runDailyWikiRefinement({
     repository: setup.alice,
     schedule: schedule(),
@@ -156,7 +168,7 @@ test('daily if-due execution is owner-only, delayed, once per date, and CLI-back
   assert.equal(bobRefinements[0].path, completed.summaryPath);
 });
 
-test('manual refresh requires a stable-hash input change and chains a real prior summary', async (t) => {
+test('manual refresh keys no-new-input by source, normalized policy, and timezone', async (t) => {
   const setup = await fixture();
   t.after(() => rm(setup.root, { recursive: true, force: true }));
   const firstSourceId = randomUUID();
@@ -180,6 +192,43 @@ test('manual refresh requires a stable-hash input change and chains a real prior
   assert.equal(unchanged.reason, 'no-new-input');
   assert.equal(unchanged.sourceRevision, first.sourceRevision);
 
+  const invalidSchedule = schedule();
+  invalidSchedule.policy.highImportanceThreshold = 2;
+  const invalid = await runDailyWikiRefinement({
+    repository: setup.alice,
+    schedule: invalidSchedule,
+    now: '2026-09-20T10:01:00+09:00',
+  });
+  assert.equal(invalid.outcome, 'insufficient');
+  assert.equal(invalid.reason, 'planner-insufficient');
+  assert.equal(invalid.plan.issues.some(({ code }) => code === 'INVALID_POLICY'), true);
+  assert.equal(refinements(await listWikiNotes({ repository: setup.alice })).length, 1);
+
+  const changedPolicySchedule = schedule();
+  changedPolicySchedule.policy.highImportanceThreshold = 0.8;
+  const policyRefresh = await runDailyWikiRefinement({
+    repository: setup.alice,
+    schedule: changedPolicySchedule,
+    now: '2026-09-20T10:02:00+09:00',
+  });
+  assert.equal(policyRefresh.outcome, 'completed');
+  assert.equal(policyRefresh.sourceRevision, first.sourceRevision);
+  assert.notEqual(policyRefresh.plan.run.policyFingerprint, first.plan.run.policyFingerprint);
+  assert.equal(policyRefresh.plan.candidate.metadata.previousSummary, first.summaryPath);
+
+  const utcSchedule = structuredClone(changedPolicySchedule);
+  utcSchedule.timezone = 'UTC';
+  const timezoneRefresh = await runDailyWikiRefinement({
+    repository: setup.alice,
+    schedule: utcSchedule,
+    now: '2026-09-20T11:00:00Z',
+  });
+  assert.equal(timezoneRefresh.outcome, 'completed');
+  assert.equal(timezoneRefresh.sourceRevision, first.sourceRevision);
+  assert.equal(timezoneRefresh.plan.run.policyFingerprint, policyRefresh.plan.run.policyFingerprint);
+  assert.equal(timezoneRefresh.plan.run.timezone, 'UTC');
+  assert.equal(timezoneRefresh.plan.candidate.metadata.previousSummary, policyRefresh.summaryPath);
+
   await createTicket({
     repository: setup.alice,
     kind: 'information',
@@ -189,11 +238,11 @@ test('manual refresh requires a stable-hash input change and chains a real prior
   const ticketRefresh = await runDailyWikiRefinement({
     repository: setup.alice,
     schedule: schedule(),
-    now: '2026-09-20T10:02:00+09:00',
+    now: '2026-09-20T20:02:00+09:00',
   });
   assert.equal(ticketRefresh.outcome, 'completed');
   assert.notEqual(ticketRefresh.sourceRevision, first.sourceRevision);
-  assert.equal(ticketRefresh.plan.candidate.metadata.previousSummary, first.summaryPath);
+  assert.equal(ticketRefresh.plan.candidate.metadata.previousSummary, timezoneRefresh.summaryPath);
 
   const secondSourceId = randomUUID();
   await addWikiNote({
@@ -203,14 +252,14 @@ test('manual refresh requires a stable-hash input change and chains a real prior
   const refreshed = await runDailyWikiRefinement({
     repository: setup.alice,
     schedule: schedule(),
-    now: '2026-09-20T10:05:00+09:00',
+    now: '2026-09-20T20:05:00+09:00',
   });
   assert.equal(refreshed.outcome, 'completed');
   assert.notEqual(refreshed.sourceRevision, ticketRefresh.sourceRevision);
   assert.equal(refreshed.plan.candidate.metadata.previousSummary, ticketRefresh.summaryPath);
 
   const notes = await listWikiNotes({ repository: setup.alice });
-  assert.equal(refinements(notes).length, 3);
+  assert.equal(refinements(notes).length, 5);
 });
 
 test('a rejected refinement push stays pending and the next scheduled run recovers it', async (t) => {
