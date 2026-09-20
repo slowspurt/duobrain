@@ -378,6 +378,509 @@ export function compareKnowledgeMethods({notes = [], left, right, artifacts = []
   };
 }
 
+/**
+ * Plan one immutable daily refinement index from caller-provided state. The
+ * function is deterministic and never reads a clock, filesystem, Git, or a
+ * scheduler.
+ */
+export function planDailyWikiRefinement({
+  notes = [],
+  tickets = [],
+  now,
+  date,
+  timezone,
+  sourceRevision,
+  policy,
+  priorRun = null,
+  candidate,
+} = {}) {
+  if (!Array.isArray(notes) || !Array.isArray(tickets)) {
+    throw new TypeError("notes and tickets must be arrays");
+  }
+  const issues = [];
+  const existing = loadExistingNotes(notes, issues);
+  const nowMs = validateRefinementTime(now, date, timezone, issues);
+  if (typeof sourceRevision !== "string" || sourceRevision.trim() === "") {
+    issues.push(refinementIssue("INVALID_SOURCE_REVISION", "sourceRevision", "sourceRevision must be a non-empty string."));
+  }
+  const resolvedPolicy = validateRefinementPolicy(policy, existing, issues);
+  const policyFingerprint = createHash("sha256").update(stableStringify(resolvedPolicy)).digest("hex");
+  const runKey = createHash("sha256").update(stableStringify({
+    date,
+    timezone,
+    sourceRevision,
+    policyFingerprint,
+  })).digest("hex");
+  const run = {date, timezone, sourceRevision, policyFingerprint, runKey};
+  const ticketState = collectRefinementTickets(tickets, existing, issues);
+  const supersededBy = buildSupersededBy(existing);
+  const sourceRecords = [...existing.values()]
+    .filter(({parsed}) => parsed.format !== "structured" || !isObject(parsed.metadata.dailyRefinement))
+    .sort((left, right) => left.path.localeCompare(right.path));
+  const entries = sourceRecords.map((record) => refinementEntry({
+    record,
+    signal: resolvedPolicy.importanceSignals.find(({path}) => path === record.path),
+    unresolvedTicketIds: ticketState.byEvidence.get(record.path) ?? [],
+    nowMs,
+    policy: resolvedPolicy,
+    supersededBy,
+    issues,
+  }));
+  const matchingExisting = [...existing.values()].find(({parsed}) => (
+    parsed.format === "structured" && parsed.metadata.dailyRefinement?.runKey === runKey
+  ));
+  const matchingPrior = priorRunMatches(priorRun, run);
+  const errors = () => issues.filter(({severity}) => severity !== "warning");
+
+  if (matchingExisting || matchingPrior) {
+    const duplicateOf = matchingExisting?.path ?? priorRun?.summaryPath ?? null;
+    return {
+      outcome: errors().length === 0 ? "duplicate" : "insufficient",
+      ready: errors().length === 0,
+      run,
+      entries,
+      unresolvedTickets: ticketState.unresolved,
+      issues: uniqueRefinementIssues(issues),
+      candidate: null,
+      duplicateOf,
+    };
+  }
+
+  if (!isObject(candidate)) {
+    issues.push(refinementIssue("INVALID_CANDIDATE", "candidate", "candidate must provide an id, author, observedAt, and workContext."));
+  }
+  const previousSummary = isObject(priorRun) && typeof priorRun.summaryPath === "string"
+    ? priorRun.summaryPath
+    : null;
+  if (previousSummary !== null && (!WIKI_PATH_PATTERN.test(previousSummary) || !existing.has(previousSummary))) {
+    issues.push(refinementIssue(
+      "MISSING_PREVIOUS_REFINEMENT",
+      "priorRun.summaryPath",
+      "The previous refinement summary must be included in notes as wiki/<uuid>.md.",
+    ));
+  }
+  if (sourceRecords.length === 0) {
+    issues.push(refinementIssue("NO_SOURCE_NOTES", "notes", "At least one non-refinement note is required."));
+  }
+
+  let plannedCandidate = null;
+  if (isObject(candidate)) {
+    const candidatePath = wikiPath(candidate.id);
+    const summarizedPaths = sourceRecords.map(({path}) => path);
+    const metadata = {
+      schemaVersion: 1,
+      id: candidate.id,
+      recordType: "summary",
+      title: typeof candidate.title === "string" && candidate.title.trim()
+        ? candidate.title
+        : `Daily wiki refinement index — ${date}`,
+      author: candidate.author,
+      observedAt: candidate.observedAt,
+      workContext: candidate.workContext,
+      status: "proposed",
+      sources: [
+        ...summarizedPaths.map((ref) => ({kind: "wiki", ref})),
+        ...ticketState.unresolved.map(({id}) => ({kind: "ticket", ref: `ticket:${id}`})),
+      ],
+      summarizes: summarizedPaths,
+      previousSummary,
+      decisionEvidence: [],
+      supersedes: previousSummary === null ? [] : [previousSummary],
+      dailyRefinement: run,
+    };
+    const body = renderRefinementBody({run, entries, tickets: ticketState.unresolved});
+    plannedCandidate = makeCandidate(candidatePath, metadata, body);
+    addRefinementCandidateValidation(plannedCandidate, issues);
+    checkPathCollision(existing, plannedCandidate, issues);
+  }
+
+  const ready = errors().length === 0;
+  return {
+    outcome: ready ? "planned" : "insufficient",
+    ready,
+    run,
+    entries,
+    unresolvedTickets: ticketState.unresolved,
+    issues: uniqueRefinementIssues(issues),
+    candidate: ready ? plannedCandidate : null,
+    duplicateOf: null,
+  };
+}
+
+function validateRefinementTime(now, date, timezone, issues) {
+  const isoTimestamp = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+  const timestamp = typeof now === "string" && isoTimestamp.test(now) ? Date.parse(now) : Number.NaN;
+  if (!Number.isFinite(timestamp)) {
+    issues.push(refinementIssue("INVALID_NOW", "now", "now must be an explicit ISO 8601 timestamp."));
+  }
+  if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    issues.push(refinementIssue("INVALID_DATE", "date", "date must use YYYY-MM-DD."));
+  }
+  let localDate = null;
+  try {
+    if (typeof timezone !== "string" || timezone.trim() === "") throw new RangeError("missing timezone");
+    if (Number.isFinite(timestamp)) localDate = dateInTimezone(timestamp, timezone);
+    else new Intl.DateTimeFormat("en-US", {timeZone: timezone}).format(0);
+  } catch {
+    issues.push(refinementIssue("INVALID_TIMEZONE", "timezone", "timezone must be a valid IANA timezone."));
+  }
+  if (localDate !== null && typeof date === "string" && localDate !== date) {
+    issues.push(refinementIssue(
+      "DATE_TIMEZONE_MISMATCH",
+      "date",
+      `The supplied now is ${localDate} in ${timezone}, not ${date}.`,
+    ));
+  }
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function dateInTimezone(timestamp, timezone) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(timestamp));
+  const values = Object.fromEntries(parts.map(({type, value}) => [type, value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function validateRefinementPolicy(policy, existing, issues) {
+  const fallback = {
+    id: null,
+    version: null,
+    staleAfterDays: null,
+    recencyWindowDays: null,
+    lowImportanceThreshold: null,
+    highImportanceThreshold: null,
+    unknownImportanceExposure: null,
+    importanceSignals: [],
+  };
+  if (!isObject(policy)) {
+    issues.push(refinementIssue("INVALID_POLICY", "policy", "policy must be an object."));
+    return fallback;
+  }
+  for (const field of ["id", "version"]) {
+    if (typeof policy[field] !== "string" || policy[field].trim() === "") {
+      issues.push(refinementIssue("INVALID_POLICY", `policy.${field}`, `${field} must be a non-empty string.`));
+    }
+  }
+  for (const field of ["staleAfterDays", "recencyWindowDays"]) {
+    if (!Number.isFinite(policy[field]) || policy[field] <= 0) {
+      issues.push(refinementIssue("INVALID_POLICY", `policy.${field}`, `${field} must be a positive number.`));
+    }
+  }
+  for (const field of ["lowImportanceThreshold", "highImportanceThreshold"]) {
+    if (!isUnitScore(policy[field])) {
+      issues.push(refinementIssue("INVALID_POLICY", `policy.${field}`, `${field} must be between 0 and 1.`));
+    }
+  }
+  if (Number.isFinite(policy.lowImportanceThreshold) && Number.isFinite(policy.highImportanceThreshold)
+      && policy.lowImportanceThreshold > policy.highImportanceThreshold) {
+    issues.push(refinementIssue(
+      "INVALID_POLICY",
+      "policy.lowImportanceThreshold",
+      "lowImportanceThreshold cannot exceed highImportanceThreshold.",
+    ));
+  }
+  if (!["normal", "low"].includes(policy.unknownImportanceExposure)) {
+    issues.push(refinementIssue(
+      "INVALID_POLICY",
+      "policy.unknownImportanceExposure",
+      "unknownImportanceExposure must be normal or low.",
+    ));
+  }
+  const signals = [];
+  const paths = new Set();
+  if (!Array.isArray(policy.importanceSignals)) {
+    issues.push(refinementIssue("INVALID_POLICY", "policy.importanceSignals", "importanceSignals must be an array."));
+  } else {
+    policy.importanceSignals.forEach((signal, index) => {
+      const field = `policy.importanceSignals[${index}]`;
+      if (!isObject(signal) || !WIKI_PATH_PATTERN.test(signal.path ?? "") || !isUnitScore(signal.score)
+          || typeof signal.reason !== "string" || signal.reason.trim() === ""
+          || typeof signal.evidenceRef !== "string" || signal.evidenceRef.trim() === "") {
+        issues.push(refinementIssue(
+          "INVALID_IMPORTANCE_SIGNAL",
+          field,
+          "Importance signals require wiki path, 0..1 score, reason, and evidenceRef.",
+        ));
+        return;
+      }
+      if (paths.has(signal.path)) {
+        issues.push(refinementIssue("CONFLICTING_IMPORTANCE_SIGNAL", field, `Duplicate importance signal: ${signal.path}`));
+        return;
+      }
+      paths.add(signal.path);
+      const normalized = {
+        path: signal.path,
+        score: signal.score,
+        reason: signal.reason.trim(),
+        evidenceRef: signal.evidenceRef.trim(),
+      };
+      signals.push(normalized);
+      if (!existing.has(signal.path)) {
+        issues.push(refinementIssue(
+          "IMPORTANCE_TARGET_MISSING",
+          field,
+          `Importance target is not present in notes: ${signal.path}`,
+          "warning",
+        ));
+      }
+    });
+  }
+  return {
+    id: typeof policy.id === "string" ? policy.id.trim() : null,
+    version: typeof policy.version === "string" ? policy.version.trim() : null,
+    staleAfterDays: policy.staleAfterDays,
+    recencyWindowDays: policy.recencyWindowDays,
+    lowImportanceThreshold: policy.lowImportanceThreshold,
+    highImportanceThreshold: policy.highImportanceThreshold,
+    unknownImportanceExposure: policy.unknownImportanceExposure,
+    importanceSignals: signals.sort((left, right) => left.path.localeCompare(right.path)),
+  };
+}
+
+function collectRefinementTickets(tickets, existing, issues) {
+  const byEvidence = new Map();
+  const unresolved = [];
+  const statuses = new Set(["open", "acknowledged", "needs_information", "answered", "resolved", "closed"]);
+  tickets.forEach((ticket, index) => {
+    const field = `tickets[${index}]`;
+    if (!isObject(ticket) || typeof ticket.id !== "string" || ticket.id.trim() === ""
+        || !statuses.has(ticket.status) || !Array.isArray(ticket.evidence)
+        || ticket.evidence.some((path) => typeof path !== "string")) {
+      issues.push(refinementIssue(
+        "INVALID_TICKET_INPUT",
+        field,
+        "Tickets require non-empty id and status strings plus an evidence array.",
+      ));
+      return;
+    }
+    if (["resolved", "closed"].includes(ticket.status)) return;
+    const evidence = uniqueStrings(ticket.evidence);
+    const projected = {
+      id: ticket.id,
+      kind: typeof ticket.kind === "string" ? ticket.kind : null,
+      status: ticket.status,
+      title: typeof ticket.title === "string" ? ticket.title : null,
+      evidence,
+    };
+    unresolved.push(projected);
+    if (evidence.length === 0) {
+      issues.push(refinementIssue(
+        "UNRESOLVED_TICKET_WITHOUT_EVIDENCE",
+        `${field}.evidence`,
+        `Unresolved ticket ${ticket.id} has no wiki evidence yet.`,
+        "warning",
+      ));
+    }
+    for (const path of evidence) {
+      if (!WIKI_PATH_PATTERN.test(path) || !existing.has(path)) {
+        issues.push(refinementIssue(
+          "TICKET_EVIDENCE_MISSING",
+          `${field}.evidence`,
+          `Ticket evidence is not present in notes: ${path}`,
+          "warning",
+        ));
+        continue;
+      }
+      const ids = byEvidence.get(path) ?? [];
+      ids.push(ticket.id);
+      byEvidence.set(path, ids.sort());
+    }
+  });
+  return {byEvidence, unresolved: unresolved.sort((left, right) => left.id.localeCompare(right.id))};
+}
+
+function refinementEntry({record, signal, unresolvedTicketIds, nowMs, policy, supersededBy, issues}) {
+  const publicRecord = publicNoteRecord(record, supersededBy);
+  const metadata = record.parsed.format === "structured" ? record.parsed.metadata : null;
+  const importance = signal ? {
+    state: "known",
+    score: signal.score,
+    reason: signal.reason,
+    evidenceRef: signal.evidenceRef,
+    defaultApplied: false,
+  } : {
+    state: "unknown",
+    score: null,
+    reason: "No caller-provided business-importance evidence.",
+    evidenceRef: null,
+    defaultApplied: true,
+  };
+  const recency = refinementRecency(publicRecord, nowMs, policy, issues);
+  const preservationReasons = [];
+  if (publicRecord.status === "agreed") preservationReasons.push("agreement");
+  if (unresolvedTicketIds.length > 0) preservationReasons.push("unresolved-ticket-evidence");
+  if (publicRecord.sources.length > 0) preservationReasons.push("source-lineage");
+  if (publicRecord.supersededBy.length > 0 || (metadata?.supersedes?.length ?? 0) > 0) {
+    preservationReasons.push("supersession-lineage");
+  }
+  const exposure = refinementExposure({
+    importance,
+    recency,
+    status: publicRecord.status,
+    unresolvedTicketIds,
+    policy,
+  });
+  return {
+    path: record.path,
+    format: publicRecord.format,
+    title: publicRecord.title,
+    status: publicRecord.status,
+    author: publicRecord.author,
+    observedAt: publicRecord.observedAt,
+    sources: publicRecord.sources,
+    lineage: {
+      previousSummary: metadata?.previousSummary ?? null,
+      decisionEvidence: metadata?.decisionEvidence ?? [],
+      supersedes: metadata?.supersedes ?? [],
+      supersededBy: publicRecord.supersededBy,
+    },
+    importance,
+    recency,
+    exposure,
+    preservationReasons,
+    unresolvedTicketIds,
+  };
+}
+
+function refinementRecency(record, nowMs, policy, issues) {
+  if (record.observedAt === null || nowMs === null || !Number.isFinite(policy.recencyWindowDays)) {
+    return {state: "unknown", score: null, ageDays: null, reason: "Observation time or recency policy is unavailable."};
+  }
+  const observedMs = Date.parse(record.observedAt);
+  const rawAgeDays = (nowMs - observedMs) / 86_400_000;
+  if (rawAgeDays < 0) {
+    issues.push(refinementIssue(
+      "FUTURE_OBSERVATION",
+      `${record.path}:observedAt`,
+      "The note observation time is after the supplied now; age is clamped to zero.",
+      "warning",
+    ));
+  }
+  const ageDays = roundScore(Math.max(0, rawAgeDays));
+  const score = roundScore(Math.max(0, 1 - ageDays / policy.recencyWindowDays));
+  return {
+    state: "known",
+    score,
+    ageDays,
+    reason: `Observed ${ageDays} days before the supplied now; ${policy.recencyWindowDays}-day recency window.`,
+  };
+}
+
+function refinementExposure({importance, recency, status, unresolvedTicketIds, policy}) {
+  if (unresolvedTicketIds.length > 0) {
+    return {level: "action-required", reason: `Evidence for unresolved ticket(s): ${unresolvedTicketIds.join(", ")}.`};
+  }
+  if (importance.state === "known" && importance.score >= policy.highImportanceThreshold) {
+    return {level: "high", reason: "Caller-provided importance meets the high threshold."};
+  }
+  if (status === "agreed") {
+    return {level: "protected", reason: "Agreement status is preserved independently of recency."};
+  }
+  if (importance.state === "known" && importance.score <= policy.lowImportanceThreshold
+      && recency.state === "known" && recency.ageDays >= policy.staleAfterDays) {
+    return {level: "low", reason: "Caller-evidenced low importance and stale age lower index exposure."};
+  }
+  if (importance.state === "unknown") {
+    return {
+      level: policy.unknownImportanceExposure,
+      reason: `No importance evidence; policy default ${policy.unknownImportanceExposure} applied.`,
+    };
+  }
+  return {level: "normal", reason: "No policy rule raises or lowers this record's exposure."};
+}
+
+function renderRefinementBody({run, entries, tickets}) {
+  const order = new Map([
+    ["action-required", 0],
+    ["high", 1],
+    ["protected", 2],
+    ["normal", 3],
+    ["low", 4],
+  ]);
+  const sorted = [...entries].sort((left, right) => (
+    order.get(left.exposure.level) - order.get(right.exposure.level) || left.path.localeCompare(right.path)
+  ));
+  const lines = [
+    `# Daily wiki refinement index — ${markdownInline(run.date)}`,
+    "",
+    `Source revision: \`${markdownInline(run.sourceRevision)}\``,
+    `Timezone: \`${markdownInline(run.timezone)}\``,
+  ];
+  for (const level of ["action-required", "high", "protected", "normal", "low"]) {
+    const group = sorted.filter((entry) => entry.exposure.level === level);
+    if (group.length === 0) continue;
+    lines.push("", `## ${level}`);
+    for (const entry of group) {
+      const importance = entry.importance.state === "known"
+        ? `${entry.importance.score} — ${entry.importance.reason}`
+        : `unknown — ${entry.importance.reason}`;
+      const recency = entry.recency.state === "known"
+        ? `${entry.recency.score} — ${entry.recency.reason}`
+        : `unknown — ${entry.recency.reason}`;
+      lines.push(
+        `- \`${markdownInline(entry.path)}\` — status: ${markdownInline(entry.status)}; importance: ${markdownInline(importance)}; recency: ${markdownInline(recency)}; exposure: ${markdownInline(entry.exposure.reason)}; preserves: ${markdownInline(entry.preservationReasons.join(", ") || "original")}`,
+      );
+    }
+  }
+  lines.push("", "## Unresolved tickets");
+  if (tickets.length === 0) {
+    lines.push("- None in the caller-provided projection.");
+  } else {
+    for (const ticket of tickets) {
+      const evidence = ticket.evidence.length > 0 ? ticket.evidence.join(", ") : "evidence not yet recorded";
+      lines.push(`- \`${markdownInline(ticket.id)}\` (${markdownInline(ticket.status)}) — ${markdownInline(evidence)}`);
+    }
+  }
+  lines.push("", "This index changes display exposure only. Original notes, sources, and decision states remain immutable.");
+  return lines.join("\n");
+}
+
+function addRefinementCandidateValidation(candidate, issues) {
+  const validation = validateWikiNote(candidate.markdown, {path: candidate.path});
+  for (const error of validation.errors) {
+    issues.push(refinementIssue(error.code, `${candidate.path}:${error.field}`, error.message));
+  }
+}
+
+function priorRunMatches(priorRun, run) {
+  if (!isObject(priorRun)) return false;
+  if (priorRun.runKey === run.runKey) return true;
+  return priorRun.date === run.date
+    && priorRun.timezone === run.timezone
+    && priorRun.sourceRevision === run.sourceRevision
+    && priorRun.policyFingerprint === run.policyFingerprint;
+}
+
+function isUnitScore(value) {
+  return Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
+function roundScore(value) {
+  return Math.round(value * 10_000) / 10_000;
+}
+
+function markdownInline(value) {
+  return String(value).replace(/[\r\n]+/g, " ").replace(/`/g, "\\`");
+}
+
+function refinementIssue(code, field, message, severity = "error") {
+  return {code, field, message, severity};
+}
+
+function uniqueRefinementIssues(issues) {
+  const seen = new Set();
+  return issues.filter((entry) => {
+    const key = `${entry.code}\0${entry.field}\0${entry.message}\0${entry.severity ?? "error"}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function publicNoteRecord(record, supersededBy) {
   const {path, parsed} = record;
   if (parsed.format === "legacy") {

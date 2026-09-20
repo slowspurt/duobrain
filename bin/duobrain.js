@@ -6,6 +6,7 @@ import {
   acknowledgeTicket,
   addWikiNote,
   assessOverlap,
+  clarifyTicket,
   closeTicket,
   createTicket,
   endSession,
@@ -18,8 +19,10 @@ import {
   resumeSession,
   resolveTicket,
   respondToTicket,
+  setPlan,
   startSession,
   syncStore,
+  updateSessionScope,
 } from '../src/engine/index.js';
 
 const HELP = `duobrain — Git-backed collaboration records for exactly two people
@@ -30,18 +33,21 @@ Usage:
                   [--branch <name>] [--base-commit <sha>] [--actor <human|ai>]
   duobrain pause --session <uuid> [--body <text>] [--actor <human|ai>]
   duobrain resume --session <uuid> [--body <text>] [--actor <human|ai>]
+  duobrain scope-update --session <uuid> --file <json-path> [--actor <human|ai>]
   duobrain end --session <uuid> --summary <text> [--blockers <text,text>]
                 [--next <text>] [--actor <human|ai>]
   duobrain ticket-create --kind <information|feedback> --title <text> --body <text>
                          [--assignee <id>] [--goal <text>] [--actor <human|ai>]
   duobrain ticket-ack --ticket <uuid> [--actor <human|ai>]
   duobrain ticket-needs-information --ticket <uuid> --body <text> [--actor <human|ai>]
+  duobrain ticket-clarify --ticket <uuid> --body <text> [--actor <human|ai>]
   duobrain ticket-respond --ticket <uuid> --body <text>
                            [--evidence <wiki/path,...>] [--actor <human|ai>]
   duobrain ticket-resolve --ticket <uuid> --body <text> [--actor <human|ai>]
   duobrain ticket-close --ticket <uuid> --reason <cancelled|duplicate> --body <text>
   duobrain ticket-reopen --ticket <uuid> --body <text> [--actor <human|ai>]
   duobrain note-add --file <markdown-path> [--id <uuid>]
+  duobrain plan-set --file <json-path> [--actor <human|ai>]
   duobrain overlap --scope <path,path> [--base-commit <ref>]
   duobrain worktree-prepare --directory <path> [--branch <name>] [--base-commit <ref>]
   duobrain sync [--repository <path>]
@@ -56,15 +62,18 @@ const COMMAND_HELP = {
   start: 'Usage: duobrain start --title <text> [--scope <path,path>] [--goal <text>] [--branch <name>] [--base-commit <sha>] [--actor <human|ai>] [--repository <path>]',
   pause: 'Usage: duobrain pause --session <uuid> [--body <text>] [--actor <human|ai>] [--repository <path>]',
   resume: 'Usage: duobrain resume --session <uuid> [--body <text>] [--actor <human|ai>] [--repository <path>]',
+  'scope-update': 'Usage: duobrain scope-update --session <uuid> --file <json-path> [--actor <human|ai>] [--repository <path>]',
   end: 'Usage: duobrain end --session <uuid> --summary <text> [--blockers <text,text>] [--next <text>] [--actor <human|ai>] [--repository <path>]',
   'ticket-create': 'Usage: duobrain ticket-create --kind <information|feedback> --title <text> --body <text> [--assignee <id>] [--goal <text>] [--actor <human|ai>] [--repository <path>]',
   'ticket-ack': 'Usage: duobrain ticket-ack --ticket <uuid> [--actor <human|ai>] [--repository <path>]',
   'ticket-needs-information': 'Usage: duobrain ticket-needs-information --ticket <uuid> --body <text> [--actor <human|ai>] [--repository <path>]',
+  'ticket-clarify': 'Usage: duobrain ticket-clarify --ticket <uuid> --body <text> [--actor <human|ai>] [--repository <path>]',
   'ticket-respond': 'Usage: duobrain ticket-respond --ticket <uuid> --body <text> [--evidence <wiki/path,...>] [--actor <human|ai>] [--repository <path>]',
   'ticket-resolve': 'Usage: duobrain ticket-resolve --ticket <uuid> --body <text> [--actor <human|ai>] [--repository <path>]',
   'ticket-close': 'Usage: duobrain ticket-close --ticket <uuid> --reason <cancelled|duplicate> --body <text> [--actor <human|ai>] [--repository <path>]',
   'ticket-reopen': 'Usage: duobrain ticket-reopen --ticket <uuid> --body <text> [--actor <human|ai>] [--repository <path>]',
   'note-add': 'Usage: duobrain note-add --file <markdown-path> [--id <uuid>] [--repository <path>]',
+  'plan-set': 'Usage: duobrain plan-set --file <json-path> [--actor <human|ai>] [--repository <path>]',
   overlap: 'Usage: duobrain overlap --scope <path,path> [--base-commit <ref>] [--repository <path>]',
   'worktree-prepare': 'Usage: duobrain worktree-prepare --directory <path> [--branch <name>] [--base-commit <ref>] [--repository <path>]',
   sync: 'Usage: duobrain sync [--repository <path>]',
@@ -147,6 +156,15 @@ async function main() {
       body: options.body,
       actorKind: options.actor ?? 'human',
     });
+  } else if (command === 'scope-update') {
+    const change = JSON.parse(await readFile(requireOption(options, 'file'), 'utf8'));
+    result = await updateSessionScope({
+      ...change,
+      repository,
+      sessionId: requireOption(options, 'session'),
+      actorKind: options.actor ?? 'human',
+      sync: true,
+    });
   } else if (command === 'end') {
     result = await endSession({
       repository,
@@ -174,6 +192,13 @@ async function main() {
     });
   } else if (command === 'ticket-needs-information') {
     result = await requestTicketInformation({
+      repository,
+      ticketId: requireOption(options, 'ticket'),
+      body: requireOption(options, 'body'),
+      actorKind: options.actor ?? 'human',
+    });
+  } else if (command === 'ticket-clarify') {
+    result = await clarifyTicket({
       repository,
       ticketId: requireOption(options, 'ticket'),
       body: requireOption(options, 'body'),
@@ -214,6 +239,12 @@ async function main() {
       repository,
       markdown: await readFile(requireOption(options, 'file'), 'utf8'),
       id: options.id,
+    });
+  } else if (command === 'plan-set') {
+    result = await setPlan({
+      repository,
+      plan: JSON.parse(await readFile(requireOption(options, 'file'), 'utf8')),
+      actorKind: options.actor ?? 'human',
     });
   } else if (command === 'overlap') {
     result = await assessOverlap({

@@ -837,7 +837,9 @@ test('CLI exposes top-level and command help', async () => {
   const top = await execFileAsync(process.execPath, [cliPath, '--help'], { encoding: 'utf8' });
   const command = await execFileAsync(process.execPath, [cliPath, 'start', '--help'], { encoding: 'utf8' });
   const pause = await execFileAsync(process.execPath, [cliPath, 'pause', '--help'], { encoding: 'utf8' });
+  const scopeUpdate = await execFileAsync(process.execPath, [cliPath, 'scope-update', '--help'], { encoding: 'utf8' });
   const ticket = await execFileAsync(process.execPath, [cliPath, 'ticket-respond', '--help'], { encoding: 'utf8' });
+  const clarification = await execFileAsync(process.execPath, [cliPath, 'ticket-clarify', '--help'], { encoding: 'utf8' });
   const note = await execFileAsync(process.execPath, [cliPath, 'note-add', '--help'], { encoding: 'utf8' });
   const overlap = await execFileAsync(process.execPath, [cliPath, 'overlap', '--help'], { encoding: 'utf8' });
   const worktree = await execFileAsync(process.execPath, [cliPath, 'worktree-prepare', '--help'], { encoding: 'utf8' });
@@ -847,7 +849,9 @@ test('CLI exposes top-level and command help', async () => {
   assert.match(command.stdout, /--title/);
   assert.match(pause.stdout, /--session/);
   assert.match(pause.stdout, /--body/);
+  assert.match(scopeUpdate.stdout, /--file/);
   assert.match(ticket.stdout, /--evidence/);
+  assert.match(clarification.stdout, /--body/);
   assert.match(note.stdout, /--file/);
   assert.match(overlap.stdout, /--scope/);
   assert.match(worktree.stdout, /--directory/);
