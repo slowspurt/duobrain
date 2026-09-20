@@ -5,6 +5,7 @@ import { execFile } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { promisify } from 'node:util';
 
 import { aggregateSessions } from '../../src/dashboard/public/model.js';
@@ -159,6 +160,7 @@ async function run() {
     });
     assert.equal(started.sync.status, 'synced');
     const sessionId = started.event.entityId;
+    await delay(25);
     const scopeUpdated = await updateSessionScope({
       repository: fixture.b,
       sessionId,
@@ -173,6 +175,7 @@ async function run() {
     assert.deepEqual(bUpdatedSession.scope, ['src/export/empty-state']);
     assert.deepEqual(bUpdatedSession.history[0].data.scope, ['src/export/ui']);
     assert.equal(bUpdatedSession.history[1].type, 'session.scope_updated');
+    await delay(25);
     const ended = await endSession({
       repository: fixture.b,
       sessionId,
@@ -187,9 +190,17 @@ async function run() {
       conflicts: aAfterScopeSync.conflicts,
     });
     const aggregatedSession = aggregated.sessions.find(({ id }) => id === sessionId);
-    assert.equal(aggregatedSession.timeStatus, 'unknown');
-    assert.ok(aggregatedSession.timeReason);
-    assert.equal(aggregated.unknownSessionCount, 1);
+    const originalScopeTotal = aggregated.scopeTotals.find(({ participant, scope }) => (
+      participant === 'participant-b' && scope === 'src/export/ui'
+    ));
+    const updatedScopeTotal = aggregated.scopeTotals.find(({ participant, scope }) => (
+      participant === 'participant-b' && scope === 'src/export/empty-state'
+    ));
+    assert.equal(aggregatedSession.timeStatus, 'known');
+    assert.equal(aggregatedSession.timeReason, null);
+    assert.equal(aggregated.unknownSessionCount, 0);
+    assert.ok(originalScopeTotal.recordedActiveMs > 0);
+    assert.ok(updatedScopeTotal.recordedActiveMs > 0);
 
     const oldRoutine = sourceNote({
       id: '71000000-0000-4000-8000-000000000001',
@@ -303,8 +314,8 @@ async function run() {
         importanceSignals: [{
           path: oldRoutine.path,
           score: 0.1,
-          reason: 'Old routine observation',
-          evidenceRef: 'policy:g3-routine-observation',
+          reason: 'The shared comparison ticket identifies this old observation for review.',
+          evidenceRef: ticketId,
         }],
       },
       candidate: {
@@ -320,6 +331,11 @@ async function run() {
     assert.deepEqual(
       refinementEntry(refinement, oldRoutine.path).unresolvedTicketIds,
       [ticketId],
+    );
+    assert.equal(refinementEntry(refinement, oldRoutine.path).importance.state, 'known');
+    assert.equal(
+      refinementEntry(refinement, oldRoutine.path).importance.evidence.verification,
+      'verified',
     );
     assert.equal(refinementEntry(refinement, agreed.path).exposure.level, 'protected');
     assert.ok(refinementEntry(refinement, agreed.path).preservationReasons.includes('agreement'));
@@ -364,7 +380,11 @@ async function run() {
         historyPreserved: true,
         timeAggregationStatus: aggregatedSession.timeStatus,
         timeAggregationReason: aggregatedSession.timeReason,
-        scopeUpdateAttributionComplete: false,
+        recordedActiveMsByScope: {
+          before: originalScopeTotal.recordedActiveMs,
+          after: updatedScopeTotal.recordedActiveMs,
+        },
+        scopeUpdateAttributionComplete: true,
       },
       clarification: {
         statusBeforeClarification: 'needs_information',
@@ -379,9 +399,13 @@ async function run() {
         agreedOriginalSummarized: refinement.candidate.metadata.summarizes.includes(agreed.path),
         originalNotesPreserved: true,
         unresolvedTicketPreserved: refinement.unresolvedTickets.some(({ id }) => id === ticketId),
+        importanceEvidenceVerification: refinementEntry(
+          refinement,
+          oldRoutine.path,
+        ).importance.evidence.verification,
         candidatePersisted: false,
         scheduledExecution: false,
-        schedulingFollowUp: 'E5',
+        schedulingCoveredBy: 'G4',
       },
     }, null, 2)}\n`);
   } finally {
