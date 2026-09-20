@@ -11,4 +11,6 @@ Start with [Everyday conversations](everyday-conversations.md):
 
 Then use [Conversation-to-capability map](conversation-to-capability-map.md) to connect each question to shared records, evidence, AI actions, information or feedback tickets, and the engine/wiki/guidance/dashboard roles. Its central flow is represented by the anonymized [everyday flow JSON](../../examples/scenarios/everyday-flow.json).
 
+[Concurrent-work and comparison follow-ups](concurrent-comparison-followups.md) add six short conversations for work already in progress, semantic overlap, newly shared peer changes, prompt/harness references, missing comparison evidence, and the limits of the verified G1 flow. The matching anonymized fixture is [concurrent follow-ups JSON](../../examples/scenarios/concurrent-followups.json).
+
 Agent instructions may later turn these conversations into procedures. Engine, wiki, and dashboard work may use them as expected user-facing outcomes. This scenario milestone does not claim those capabilities are already implemented.
