@@ -1,0 +1,479 @@
+{
+  "fixtureSchemaVersion": 1,
+  "protocolVersion": 1,
+  "sample": true,
+  "runtimeSchema": false,
+  "scenarioId": "everyday-status-to-start",
+  "title": "B status to A safe start",
+  "anonymization": {
+    "synthetic": true,
+    "participants": [
+      "participant-a",
+      "participant-b"
+    ],
+    "note": "All names, paths, commits, timestamps, IDs, and conversation content are fictional."
+  },
+  "protocolReferences": {
+    "ticketStatuses": [
+      "open",
+      "acknowledged",
+      "needs_information",
+      "answered",
+      "resolved",
+      "closed"
+    ],
+    "sessionStatuses": [
+      "active",
+      "paused",
+      "ended"
+    ],
+    "syncStatuses": [
+      "unknown",
+      "synced",
+      "pending",
+      "error"
+    ],
+    "eventTypes": [
+      "ticket.created",
+      "ticket.acknowledged",
+      "ticket.responded",
+      "ticket.needs_information",
+      "ticket.resolved",
+      "ticket.closed",
+      "ticket.reopened",
+      "session.started",
+      "session.paused",
+      "session.resumed",
+      "session.ended"
+    ]
+  },
+  "sharedSituation": {
+    "goal": "Finish the caption export flow without duplicating or overlapping work.",
+    "sync": {
+      "status": "synced",
+      "lastSyncedAt": "2026-01-15T09:00:00Z",
+      "message": null
+    },
+    "bSession": {
+      "entityId": "20000000-0000-4000-8000-000000000001",
+      "status": "active",
+      "lastEventAt": "2026-01-14T17:00:00Z",
+      "lastSharedCommit": "8f31c2a",
+      "endEventPresent": false,
+      "safeDescription": "End unknown; the record does not prove participant-b is currently working."
+    },
+    "aSession": null,
+    "knownScopes": {
+      "participant-b": [
+        "src/export/srt.ts",
+        "test/export/srt.test.ts"
+      ],
+      "participant-a-proposed": [
+        "src/export/empty-state.tsx"
+      ]
+    },
+    "semanticDependency": "Both scopes may depend on the empty-result contract even though their file paths differ."
+  },
+  "evidenceFiles": [
+    {
+      "path": "wiki/30000000-0000-4000-8000-000000000001.md",
+      "existsInSharedStore": true,
+      "title": "Caption export handoff evidence",
+      "sourceRevision": "91ac6de",
+      "excerpt": "At 8f31c2a, CSV export passes and the SRT multiline fixture fails. Parser rewrite and newline normalization were already attempted. No local-only changes remain."
+    },
+    {
+      "path": "wiki/30000000-0000-4000-8000-000000000002.md",
+      "existsInSharedStore": true,
+      "title": "Onboarding copy options",
+      "sourceRevision": "311dc09",
+      "excerpt": "Draft A and draft B are ready for participant-b's direct review."
+    }
+  ],
+  "initialEvents": [
+    {
+      "schemaVersion": 1,
+      "id": "10000000-0000-4000-8000-000000000001",
+      "at": "2026-01-14T17:00:00Z",
+      "actor": {
+        "participant": "participant-b",
+        "kind": "ai"
+      },
+      "entityId": "20000000-0000-4000-8000-000000000001",
+      "type": "session.started",
+      "previous": null,
+      "data": {
+        "title": "SRT export parser",
+        "scope": [
+          "src/export/srt.ts",
+          "test/export/srt.test.ts"
+        ],
+        "goal": "Make SRT and CSV exports pass their fixtures.",
+        "branch": "example/export-parser",
+        "baseCommit": "8f31c2a"
+      }
+    }
+  ],
+  "centralConversation": [
+    {
+      "turnId": "TURN-01",
+      "questionId": "Q02",
+      "user": "B 지금 어디까지 했어?",
+      "reads": [
+        "initialEvents[0]",
+        "sharedSituation.sync",
+        "sharedSituation.bSession"
+      ],
+      "authorizedAction": "Create the narrow information ticket NORMAL-TICKET-CREATED because routine information requests are pre-authorized.",
+      "answer": "The last shared record is participant-b starting the SRT parser at 8f31c2a. There is no end event, so completion and current presence are unknown. The record is 16 hours old. I created an information request for passing tests, remaining failures, next action, and local-only work. Its push succeeded, but participant-b has not acknowledged it."
+    },
+    {
+      "turnId": "TURN-02",
+      "questionId": "Q03",
+      "user": "그럼 답 올 때까지 나는 뭐 하면 돼?",
+      "reads": [
+        "sharedSituation.knownScopes",
+        "sharedSituation.semanticDependency",
+        "sharedSituation.goal"
+      ],
+      "authorizedAction": "Propose a reduced independent scope; do not start yet.",
+      "answer": "The empty-state copy and display state can start now. Do not change the SRT parser or assume its return shape until the information response arrives."
+    },
+    {
+      "turnId": "TURN-03",
+      "questionId": "Q04",
+      "user": "empty state도 export 쪽인데 정말 안 겹쳐?",
+      "reads": [
+        "sharedSituation.knownScopes",
+        "sharedSituation.semanticDependency"
+      ],
+      "authorizedAction": "Narrow participant-a's proposed scope to copy and display state only.",
+      "answer": "The paths do not overlap, but both may depend on the empty-result contract. Limit the work to copy and display state and leave the parser return shape unchanged. The information ticket already asks whether participant-b is changing that contract."
+    },
+    {
+      "turnId": "TURN-04",
+      "questionId": "Q05",
+      "user": "좋아. 그 범위로 시작해줘.",
+      "reads": [
+        "sharedSituation.aSession",
+        "sharedSituation.sync",
+        "sharedSituation.knownScopes.participant-a-proposed"
+      ],
+      "authorizedAction": "Create A-SESSION-STARTED and attempt delivery.",
+      "answer": "I recorded the start scope as copy and display state in src/export/empty-state.tsx. The start event was pushed to the remote. That means participant-b can fetch it; it does not mean participant-b has read it."
+    },
+    {
+      "turnId": "TURN-05",
+      "questionId": "Q06",
+      "user": "empty state 끝내고 내가 SRT도 이어받아도 돼?",
+      "reads": [
+        "normal.events",
+        "evidenceFiles[0]"
+      ],
+      "authorizedAction": "Finish or pause participant-a's current session before a separate takeover start; resolve the information ticket only after requester verification.",
+      "answer": "The shared evidence confirms CSV passes, the SRT multiline fixture fails, two approaches were already tried, and no local-only work remains. Finish the empty-state session first, verify and resolve the answered ticket, then start a separate SRT scope from 8f31c2a."
+    }
+  ],
+  "normal": {
+    "description": "Routine information request, safe A start, B response with evidence, and requester resolution.",
+    "entities": {
+      "handoffTicket": "20000000-0000-4000-8000-000000000002",
+      "aSession": "20000000-0000-4000-8000-000000000003"
+    },
+    "events": [
+      {
+        "schemaVersion": 1,
+        "id": "10000000-0000-4000-8000-000000000002",
+        "at": "2026-01-15T09:01:00Z",
+        "actor": {
+          "participant": "participant-a",
+          "kind": "ai"
+        },
+        "entityId": "20000000-0000-4000-8000-000000000002",
+        "type": "ticket.created",
+        "previous": null,
+        "data": {
+          "kind": "information",
+          "title": "Caption export handoff facts",
+          "body": "Share the base commit, passing tests, remaining failures, next action, and whether local-only changes remain.",
+          "assignee": "participant-b",
+          "goal": "Resume export work without duplication or overlap."
+        }
+      },
+      {
+        "schemaVersion": 1,
+        "id": "10000000-0000-4000-8000-000000000003",
+        "at": "2026-01-15T09:04:00Z",
+        "actor": {
+          "participant": "participant-a",
+          "kind": "human"
+        },
+        "entityId": "20000000-0000-4000-8000-000000000003",
+        "type": "session.started",
+        "previous": null,
+        "data": {
+          "title": "Empty export state",
+          "scope": [
+            "src/export/empty-state.tsx"
+          ],
+          "goal": "Implement copy and display state without changing the parser contract.",
+          "branch": "example/empty-state",
+          "baseCommit": "31bd920"
+        }
+      },
+      {
+        "schemaVersion": 1,
+        "id": "10000000-0000-4000-8000-000000000004",
+        "at": "2026-01-15T10:00:00Z",
+        "actor": {
+          "participant": "participant-b",
+          "kind": "ai"
+        },
+        "entityId": "20000000-0000-4000-8000-000000000002",
+        "type": "ticket.acknowledged",
+        "previous": "10000000-0000-4000-8000-000000000002",
+        "data": {}
+      },
+      {
+        "schemaVersion": 1,
+        "id": "10000000-0000-4000-8000-000000000005",
+        "at": "2026-01-15T10:05:00Z",
+        "actor": {
+          "participant": "participant-b",
+          "kind": "ai"
+        },
+        "entityId": "20000000-0000-4000-8000-000000000002",
+        "type": "ticket.responded",
+        "previous": "10000000-0000-4000-8000-000000000004",
+        "data": {
+          "body": "At 8f31c2a, CSV passes and the SRT multiline fixture fails. Parser rewrite and newline normalization were already tried. No local-only changes remain. Next, minimize the failing fixture.",
+          "evidence": [
+            "wiki/30000000-0000-4000-8000-000000000001.md"
+          ]
+        }
+      },
+      {
+        "schemaVersion": 1,
+        "id": "10000000-0000-4000-8000-000000000006",
+        "at": "2026-01-15T10:10:00Z",
+        "actor": {
+          "participant": "participant-a",
+          "kind": "human"
+        },
+        "entityId": "20000000-0000-4000-8000-000000000002",
+        "type": "ticket.resolved",
+        "previous": "10000000-0000-4000-8000-000000000005",
+        "data": {
+          "body": "The response covers the requested handoff facts and its evidence is visible after synchronization."
+        }
+      }
+    ],
+    "delivery": [
+      {
+        "eventId": "10000000-0000-4000-8000-000000000002",
+        "localCommitCreated": true,
+        "pushStatus": "synced",
+        "remoteVisible": true,
+        "peerFetched": true,
+        "peerAcknowledged": true
+      },
+      {
+        "eventId": "10000000-0000-4000-8000-000000000003",
+        "localCommitCreated": true,
+        "pushStatus": "synced",
+        "remoteVisible": true,
+        "peerFetched": false,
+        "peerAcknowledged": false
+      },
+      {
+        "eventId": "10000000-0000-4000-8000-000000000005",
+        "localCommitCreated": true,
+        "pushStatus": "synced",
+        "remoteVisible": true,
+        "peerFetched": true,
+        "peerAcknowledged": false
+      }
+    ],
+    "result": {
+      "ticketStatus": "resolved",
+      "aSessionStatus": "active",
+      "syncStatus": "synced",
+      "claim": "Push success and peer fetch are observed separately; participant-b has not acknowledged participant-a's session start."
+    }
+  },
+  "informationMissing": {
+    "description": "The assignee cannot identify which experiment the requester means.",
+    "entityId": "20000000-0000-4000-8000-000000000004",
+    "events": [
+      {
+        "schemaVersion": 1,
+        "id": "10000000-0000-4000-8000-000000000007",
+        "at": "2026-01-15T11:00:00Z",
+        "actor": {
+          "participant": "participant-a",
+          "kind": "ai"
+        },
+        "entityId": "20000000-0000-4000-8000-000000000004",
+        "type": "ticket.created",
+        "previous": null,
+        "data": {
+          "kind": "information",
+          "title": "Compare extraction methods",
+          "body": "Explain how participant-b handled the extraction task and how it differs from participant-a's method.",
+          "assignee": "participant-b",
+          "goal": "Choose the next reproducible experiment."
+        }
+      },
+      {
+        "schemaVersion": 1,
+        "id": "10000000-0000-4000-8000-000000000008",
+        "at": "2026-01-15T11:05:00Z",
+        "actor": {
+          "participant": "participant-b",
+          "kind": "ai"
+        },
+        "entityId": "20000000-0000-4000-8000-000000000004",
+        "type": "ticket.needs_information",
+        "previous": "10000000-0000-4000-8000-000000000007",
+        "data": {
+          "body": "Which extraction run or result should be compared? No artifact or evaluation revision is identified."
+        }
+      }
+    ],
+    "result": {
+      "ticketStatus": "needs_information",
+      "syncStatus": "synced",
+      "usefulAnswer": "Participant-b needs the run or artifact identity before searching. No comparison has been invented."
+    },
+    "protocolGap": "Protocol v1 has no generic requester clarification event. Guidance must use a supported follow-up operation or propose one to the coordinator."
+  },
+  "peerSessionUnclosed": {
+    "description": "An old session start exists without an end event.",
+    "sourceEventId": "10000000-0000-4000-8000-000000000001",
+    "derived": {
+      "sessionStatus": "active",
+      "endedAt": null,
+      "elapsedMs": null,
+      "lastUpdateAgeHours": 16,
+      "currentPresenceKnown": false
+    },
+    "usefulAnswer": "The last shared record is 16 hours old and has no end event. End and current presence are unknown; only the recorded scope is confirmed.",
+    "allowedAction": "Create a pre-authorized information ticket for handoff facts.",
+    "forbiddenClaims": [
+      "participant-b is online",
+      "participant-b worked for 16 focused hours",
+      "participant-b completed the parser"
+    ]
+  },
+  "pushFailure": {
+    "description": "The A session event exists locally but did not reach the remote.",
+    "event": {
+      "schemaVersion": 1,
+      "id": "10000000-0000-4000-8000-000000000009",
+      "at": "2026-01-15T12:00:00Z",
+      "actor": {
+        "participant": "participant-a",
+        "kind": "human"
+      },
+      "entityId": "20000000-0000-4000-8000-000000000005",
+      "type": "session.started",
+      "previous": null,
+      "data": {
+        "title": "Empty export state",
+        "scope": [
+          "src/export/empty-state.tsx"
+        ],
+        "goal": "Implement copy and display state only.",
+        "branch": "example/empty-state",
+        "baseCommit": "31bd920"
+      }
+    },
+    "delivery": {
+      "localEventFileWritten": true,
+      "localCommitCreated": true,
+      "pushStatus": "error",
+      "message": "Synthetic remote rejection",
+      "remoteVisible": false,
+      "peerFetched": false,
+      "peerAcknowledged": false
+    },
+    "result": {
+      "localSessionStatus": "active",
+      "remoteSessionStatus": null,
+      "syncStatus": "error",
+      "usefulAnswer": "The start is recorded locally, but remote sharing failed. Participant-b cannot see it yet, so overlap protection is not complete."
+    },
+    "retryRule": "Retry the same immutable event file. Do not mint a duplicate event or force-push."
+  },
+  "humanFeedback": {
+    "description": "A asks participant-b to choose onboarding copy; only a human response is valid.",
+    "entityId": "20000000-0000-4000-8000-000000000006",
+    "events": [
+      {
+        "schemaVersion": 1,
+        "id": "10000000-0000-4000-8000-000000000010",
+        "at": "2026-01-15T13:00:00Z",
+        "actor": {
+          "participant": "participant-a",
+          "kind": "ai"
+        },
+        "entityId": "20000000-0000-4000-8000-000000000006",
+        "type": "ticket.created",
+        "previous": null,
+        "data": {
+          "kind": "feedback",
+          "title": "Choose onboarding copy",
+          "body": "Choose draft A or B and state any required change. The options are summarized in wiki/30000000-0000-4000-8000-000000000002.md.",
+          "assignee": "participant-b",
+          "goal": "Make the first-run copy decision."
+        }
+      },
+      {
+        "schemaVersion": 1,
+        "id": "10000000-0000-4000-8000-000000000011",
+        "at": "2026-01-15T13:20:00Z",
+        "actor": {
+          "participant": "participant-b",
+          "kind": "human"
+        },
+        "entityId": "20000000-0000-4000-8000-000000000006",
+        "type": "ticket.responded",
+        "previous": "10000000-0000-4000-8000-000000000010",
+        "data": {
+          "body": "Use draft B and keep its opening sentence in Korean.",
+          "evidence": []
+        }
+      },
+      {
+        "schemaVersion": 1,
+        "id": "10000000-0000-4000-8000-000000000012",
+        "at": "2026-01-15T13:25:00Z",
+        "actor": {
+          "participant": "participant-a",
+          "kind": "human"
+        },
+        "entityId": "20000000-0000-4000-8000-000000000006",
+        "type": "ticket.resolved",
+        "previous": "10000000-0000-4000-8000-000000000011",
+        "data": {
+          "body": "The decision owner answered the requested choice and condition. Implementation remains separate work."
+        }
+      }
+    ],
+    "invalidAttempt": {
+      "actor": {
+        "participant": "participant-b",
+        "kind": "ai"
+      },
+      "attemptedType": "ticket.responded",
+      "expectedResult": "rejected",
+      "reason": "Feedback responses require actor.kind human."
+    },
+    "result": {
+      "ticketStatus": "resolved",
+      "syncStatus": "synced",
+      "implementationApplied": false,
+      "usefulAnswer": "Participant-b chose draft B with a Korean opening condition. The feedback request is resolved, but applying it is separate work."
+    }
+  }
+}
