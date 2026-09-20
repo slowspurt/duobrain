@@ -759,8 +759,8 @@ function summarizeTextDifference(leftText, rightText) {
       && leftLines[leftLines.length - 1 - suffix] === rightLines[rightLines.length - 1 - suffix]) {
     suffix += 1;
   }
-  const leftChanged = leftLines.slice(prefix, leftLines.length - suffix || undefined);
-  const rightChanged = rightLines.slice(prefix, rightLines.length - suffix || undefined);
+  const leftChanged = leftLines.slice(prefix, leftLines.length - suffix);
+  const rightChanged = rightLines.slice(prefix, rightLines.length - suffix);
   return {
     available: true,
     equal: normalizedLeft === normalizedRight,
