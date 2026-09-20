@@ -187,9 +187,9 @@ async function run() {
       conflicts: aAfterScopeSync.conflicts,
     });
     const aggregatedSession = aggregated.sessions.find(({ id }) => id === sessionId);
-    assert.equal(aggregatedSession.timeStatus, 'unknown');
-    assert.ok(aggregatedSession.timeReason);
-    assert.equal(aggregated.unknownSessionCount, 1);
+    assert.equal(aggregatedSession.timeStatus, 'known');
+    assert.equal(aggregatedSession.timeReason, null);
+    assert.equal(aggregated.unknownSessionCount, 0);
 
     const oldRoutine = sourceNote({
       id: '71000000-0000-4000-8000-000000000001',
@@ -364,7 +364,7 @@ async function run() {
         historyPreserved: true,
         timeAggregationStatus: aggregatedSession.timeStatus,
         timeAggregationReason: aggregatedSession.timeReason,
-        scopeUpdateAttributionComplete: false,
+        scopeUpdateAttributionComplete: true,
       },
       clarification: {
         statusBeforeClarification: 'needs_information',
