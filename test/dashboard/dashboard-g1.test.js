@@ -21,7 +21,7 @@ import {
 } from '../../src/engine/index.js';
 import { startDashboard } from '../../src/dashboard/index.js';
 import { filterTickets, peerConfirmation, ticketEvidence } from '../../src/dashboard/public/model.js';
-import { createSnapshotGetter } from '../../src/dashboard/source.js';
+import { createSnapshotGetter, createWikiNoteGetter } from '../../src/dashboard/source.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -66,11 +66,15 @@ function sourceNote(id) {
     decisionEvidence: [],
     supersedes: [],
   };
-  return `\`\`\`duobrain-wiki\n${JSON.stringify(metadata, null, 2)}\n\`\`\`\n\nCSV passes; the SRT multiline fixture still fails.\n`;
+  return `\`\`\`duobrain-wiki\n${JSON.stringify(metadata, null, 2)}\n\`\`\`\n\nCSV passes; the SRT multiline fixture still fails.\n\n<script>alert('not executed')</script>\n`;
 }
 
 async function launchDashboard(repository) {
-  const server = startDashboard({ getSnapshot: createSnapshotGetter({ repository }), port: 0 });
+  const server = startDashboard({
+    getSnapshot: createSnapshotGetter({ repository }),
+    getWikiNote: createWikiNoteGetter({ repository }),
+    port: 0,
+  });
   await once(server, 'listening');
   const address = server.address();
   assert.equal(address.address, '127.0.0.1');
@@ -138,6 +142,13 @@ test('live dashboard preserves the two-clone ticket lifecycle through its API an
   assert.equal(answeredHistory[2].actor.kind, 'ai');
   assert.equal(answeredHistory[2].data.body, 'CSV passes; the SRT multiline fixture still fails.');
   assert.deepEqual(answeredHistory[2].data.evidence, [note.path]);
+
+  response = await fetch(`${origin}/api/wiki?path=${encodeURIComponent(note.path)}`);
+  assert.equal(response.status, 200);
+  const evidence = await response.json();
+  assert.equal(evidence.path, note.path);
+  assert.equal(evidence.validation.valid, true);
+  assert.match(evidence.markdown, /<script>alert\('not executed'\)<\/script>/);
 
   await resolveTicket({
     repository: setup.alice,
