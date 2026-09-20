@@ -205,6 +205,55 @@ paths and does not convert or execute Markdown/HTML. Consumers must display `mar
 as escaped text or pass it to
 their own explicitly safe renderer; the API does not return trusted HTML.
 
+## Shared wiki discovery and method comparison
+
+The engine adapters `listWikiNotes`, `searchSharedWiki`, and `traceSharedWiki` connect
+the pure wiki discovery functions to the isolated shared store. Listing enumerates
+only `wiki/<uuid>.md` entries and reads each through `getWikiNote`, so discovery keeps
+the same containment, regular-file, link, and size protections. It never searches the
+product checkout or private directories.
+
+The corresponding CLI commands are:
+
+```text
+duobrain wiki-list
+duobrain wiki-search --query "multiline export" [--filters filters.json]
+duobrain wiki-trace --roots wiki/<uuid>.md,wiki/<uuid>.md
+duobrain method-compare --file comparison.json [--request-missing]
+```
+
+`filters.json` is passed to the pure search contract and may select `participant`,
+`status`, `recordType`, or `includeSuperseded`. A comparison manifest has explicit
+`left`, `right`, and `artifacts` fields:
+
+```json
+{
+  "left": {
+    "label": "My export method",
+    "participant": "alice",
+    "workRef": "session:alice-export",
+    "noteRefs": ["wiki/00000000-0000-4000-8000-000000000001.md"]
+  },
+  "right": {
+    "label": "Bob export method",
+    "participant": "bob",
+    "workRef": "session:bob-export",
+    "noteRefs": ["wiki/00000000-0000-4000-8000-000000000002.md"]
+  },
+  "artifacts": [
+    {"ref": "prompt:alice", "kind": "prompt", "version": "1", "text": "Captured prompt"}
+  ]
+}
+```
+
+`compareSharedMethods` loads the actual shared notes, but artifact `ref` values remain
+identifiers: only manifest-provided `text` is compared, and no ref is treated as a
+filesystem path. The left participant must be the local identity and the right
+participant must be the other configured identity. Missing evidence returns a dry
+`ticketCandidate` with `missingRequest.action: "proposed"`. Only
+`--request-missing` (or `requestMissing: true`) writes an information ticket, and an
+identical nonterminal request is reused instead of duplicated.
+
 ## Synchronization guarantees
 
 Sync fetches and merges append-only histories, so concurrent events with different

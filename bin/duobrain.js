@@ -8,10 +8,12 @@ import {
   assessOverlap,
   clarifyTicket,
   closeTicket,
+  compareSharedMethods,
   createTicket,
   endSession,
   getEngineStatus,
   initSharedStore,
+  listWikiNotes,
   pauseSession,
   prepareProductWorktree,
   reopenTicket,
@@ -19,9 +21,11 @@ import {
   resumeSession,
   resolveTicket,
   respondToTicket,
+  searchSharedWiki,
   setPlan,
   startSession,
   syncStore,
+  traceSharedWiki,
   updateSessionScope,
 } from '../src/engine/index.js';
 
@@ -47,6 +51,10 @@ Usage:
   duobrain ticket-close --ticket <uuid> --reason <cancelled|duplicate> --body <text>
   duobrain ticket-reopen --ticket <uuid> --body <text> [--actor <human|ai>]
   duobrain note-add --file <markdown-path> [--id <uuid>]
+  duobrain wiki-list
+  duobrain wiki-search --query <text> [--filters <json-path>]
+  duobrain wiki-trace --roots <wiki/path,...>
+  duobrain method-compare --file <json-path> [--request-missing] [--actor <human|ai>]
   duobrain plan-set --file <json-path> [--actor <human|ai>]
   duobrain overlap --scope <path,path> [--base-commit <ref>]
   duobrain worktree-prepare --directory <path> [--branch <name>] [--base-commit <ref>]
@@ -73,6 +81,10 @@ const COMMAND_HELP = {
   'ticket-close': 'Usage: duobrain ticket-close --ticket <uuid> --reason <cancelled|duplicate> --body <text> [--actor <human|ai>] [--repository <path>]',
   'ticket-reopen': 'Usage: duobrain ticket-reopen --ticket <uuid> --body <text> [--actor <human|ai>] [--repository <path>]',
   'note-add': 'Usage: duobrain note-add --file <markdown-path> [--id <uuid>] [--repository <path>]',
+  'wiki-list': 'Usage: duobrain wiki-list [--repository <path>]',
+  'wiki-search': 'Usage: duobrain wiki-search --query <text> [--filters <json-path>] [--repository <path>]',
+  'wiki-trace': 'Usage: duobrain wiki-trace --roots <wiki/path,...> [--repository <path>]',
+  'method-compare': 'Usage: duobrain method-compare --file <json-path> [--request-missing] [--actor <human|ai>] [--repository <path>]',
   'plan-set': 'Usage: duobrain plan-set --file <json-path> [--actor <human|ai>] [--repository <path>]',
   overlap: 'Usage: duobrain overlap --scope <path,path> [--base-commit <ref>] [--repository <path>]',
   'worktree-prepare': 'Usage: duobrain worktree-prepare --directory <path> [--branch <name>] [--base-commit <ref>] [--repository <path>]',
@@ -82,12 +94,14 @@ const COMMAND_HELP = {
 
 function parseOptions(tokens) {
   const options = {};
+  const booleanOptions = new Set(['help', 'request-missing']);
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
     if (!token.startsWith('--')) throw new Error(`Unexpected argument: ${token}`);
     const name = token.slice(2);
-    if (name === 'help') {
-      options.help = true;
+    if (booleanOptions.has(name)) {
+      if (Object.hasOwn(options, name)) throw new Error(`Duplicate option: --${name}`);
+      options[name] = true;
       continue;
     }
     const value = tokens[index + 1];
@@ -239,6 +253,28 @@ async function main() {
       repository,
       markdown: await readFile(requireOption(options, 'file'), 'utf8'),
       id: options.id,
+    });
+  } else if (command === 'wiki-list') {
+    result = await listWikiNotes({ repository });
+  } else if (command === 'wiki-search') {
+    result = await searchSharedWiki({
+      repository,
+      query: requireOption(options, 'query'),
+      filters: options.filters
+        ? JSON.parse(await readFile(options.filters, 'utf8'))
+        : {},
+    });
+  } else if (command === 'wiki-trace') {
+    result = await traceSharedWiki({
+      repository,
+      roots: list(requireOption(options, 'roots')),
+    });
+  } else if (command === 'method-compare') {
+    result = await compareSharedMethods({
+      repository,
+      manifest: JSON.parse(await readFile(requireOption(options, 'file'), 'utf8')),
+      requestMissing: options['request-missing'] === true,
+      actorKind: options.actor ?? 'ai',
     });
   } else if (command === 'plan-set') {
     result = await setPlan({

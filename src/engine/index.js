@@ -6,7 +6,13 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { promisify } from 'node:util';
 
-import { parseWikiNote, validateWikiNote } from '../wiki/index.js';
+import {
+  compareKnowledgeMethods,
+  parseWikiNote,
+  searchWikiNotes,
+  traceWikiLineage,
+  validateWikiNote,
+} from '../wiki/index.js';
 
 const execFileAsync = promisify(execFile);
 const STATE_BRANCH = 'duobrain/state';
@@ -1015,6 +1021,181 @@ export async function getWikiNote({ repository = '.', path: wikiPath } = {}) {
   } finally {
     await handle?.close();
   }
+}
+
+/**
+ * List notes from the isolated shared wiki. Enumeration is limited to
+ * UUID-named Markdown files and every result passes through getWikiNote's
+ * containment, link, size, and validation checks.
+ */
+export async function listWikiNotes({ repository = '.' } = {}) {
+  const layout = await loadLayout(repository);
+  const wikiDirectory = path.join(layout.statePath, 'wiki');
+  let directoryInfo;
+  try {
+    directoryInfo = await lstat(wikiDirectory);
+  } catch (error) {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  }
+  if (directoryInfo.isSymbolicLink() || !directoryInfo.isDirectory()) {
+    throw new EngineError('The shared wiki directory is not a safe directory.', {
+      code: 'UNSAFE_WIKI_NOTE',
+    });
+  }
+  const storePath = await realpath(layout.statePath);
+  if (await realpath(wikiDirectory) !== path.join(storePath, 'wiki')) {
+    throw new EngineError('The shared wiki directory resolves outside the expected store path.', {
+      code: 'WIKI_PATH_ESCAPE',
+    });
+  }
+  let entries;
+  try {
+    entries = await readdir(wikiDirectory, { withFileTypes: true });
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      throw new EngineError('The shared wiki directory changed while it was being read.', {
+        code: 'UNSAFE_WIKI_NOTE',
+      });
+    }
+    throw error;
+  }
+  const notePaths = entries
+    .map((entry) => `wiki/${entry.name}`)
+    .filter((wikiPath) => WIKI_PATH_PATTERN.test(wikiPath))
+    .sort();
+  return Promise.all(notePaths.map((wikiPath) => getWikiNote({
+    repository: layout.repositoryPath,
+    path: wikiPath,
+  })));
+}
+
+export async function searchSharedWiki({ repository = '.', query = '', filters = {} } = {}) {
+  const notes = await listWikiNotes({ repository });
+  return searchWikiNotes({ notes, query, filters });
+}
+
+export async function traceSharedWiki({ repository = '.', roots = [] } = {}) {
+  if (!Array.isArray(roots) || roots.some((root) => typeof root !== 'string' || !WIKI_PATH_PATTERN.test(root))) {
+    throw new EngineError('Lineage roots must use wiki/<uuid>.md.', {
+      code: 'INVALID_WIKI_PATH',
+    });
+  }
+  const notes = await listWikiNotes({ repository });
+  return traceWikiLineage({ notes, roots });
+}
+
+function assertComparisonManifest(manifest, identity, config) {
+  if (
+    manifest === null
+    || typeof manifest !== 'object'
+    || Array.isArray(manifest)
+    || manifest.left === null
+    || typeof manifest.left !== 'object'
+    || Array.isArray(manifest.left)
+    || manifest.right === null
+    || typeof manifest.right !== 'object'
+    || Array.isArray(manifest.right)
+    || !Array.isArray(manifest.artifacts)
+  ) {
+    throw new EngineError('Comparison manifest requires left, right, and artifacts.', {
+      code: 'INVALID_COMPARISON_MANIFEST',
+    });
+  }
+  const other = config.participants.find((participant) => participant !== identity.participant);
+  if (manifest.left.participant !== identity.participant || manifest.right.participant !== other) {
+    throw new EngineError('Comparison must run from the local participant to the other configured participant.', {
+      code: 'INVALID_COMPARISON_PARTICIPANTS',
+    });
+  }
+  for (const [sideName, side] of [['left', manifest.left], ['right', manifest.right]]) {
+    if (!Array.isArray(side.noteRefs) || side.noteRefs.some(
+      (wikiPath) => typeof wikiPath !== 'string' || !WIKI_PATH_PATTERN.test(wikiPath),
+    )) {
+      throw new EngineError(`${sideName}.noteRefs must contain only wiki/<uuid>.md paths.`, {
+        code: 'INVALID_COMPARISON_MANIFEST',
+      });
+    }
+  }
+}
+
+function identicalInformationRequest(ticket, candidate) {
+  return ticket.kind === 'information'
+    && NONTERMINAL_TICKET_STATUSES.has(ticket.status)
+    && ticket.requester === candidate.requester
+    && ticket.assignee === candidate.assignee
+    && ticket.title === candidate.title
+    && ticket.body === candidate.body;
+}
+
+/**
+ * Compare explicitly selected method records using shared wiki notes. Artifact
+ * refs are identifiers only; content is compared only from manifest artifacts.
+ * Missing evidence remains a dry proposal unless requestMissing is true.
+ */
+export async function compareSharedMethods({
+  repository = '.',
+  manifest,
+  requestMissing = false,
+  actorKind = 'ai',
+} = {}) {
+  const layout = await loadLayout(repository);
+  const identity = await loadIdentity(layout);
+  const config = await loadConfig(layout);
+  assertComparisonManifest(manifest, identity, config);
+  const notes = await listWikiNotes({ repository: layout.repositoryPath });
+  const comparison = compareKnowledgeMethods({
+    notes,
+    left: manifest.left,
+    right: manifest.right,
+    artifacts: manifest.artifacts,
+  });
+  const candidate = comparison.ticketCandidate;
+  if (!requestMissing || candidate === null) {
+    return {
+      comparison,
+      missingRequest: {
+        action: candidate === null ? 'none' : 'proposed',
+        ticketCandidate: candidate,
+      },
+    };
+  }
+  if (candidate.requester !== identity.participant) {
+    throw new EngineError('The missing-information request must originate from the local participant.', {
+      code: 'TICKET_ROLE_VIOLATION',
+    });
+  }
+  const snapshot = await buildSnapshot(layout);
+  const existing = snapshot.tickets.find((ticket) => identicalInformationRequest(ticket, candidate));
+  if (existing) {
+    return {
+      comparison,
+      missingRequest: {
+        action: 'reused',
+        ticketId: existing.id,
+        ticketCandidate: candidate,
+      },
+    };
+  }
+  const created = await createTicket({
+    repository: layout.repositoryPath,
+    kind: candidate.kind,
+    title: candidate.title,
+    body: candidate.body,
+    assignee: candidate.assignee,
+    actorKind,
+  });
+  return {
+    comparison,
+    missingRequest: {
+      action: 'created',
+      ticketId: created.event.entityId,
+      ticketCandidate: candidate,
+      event: created.event,
+      commit: created.commit,
+      sync: created.sync,
+    },
+  };
 }
 
 function validateNullablePlanString(value, label) {
