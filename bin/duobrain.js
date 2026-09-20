@@ -18,6 +18,7 @@ import {
   resumeSession,
   resolveTicket,
   respondToTicket,
+  setPlan,
   startSession,
   syncStore,
 } from '../src/engine/index.js';
@@ -42,6 +43,7 @@ Usage:
   duobrain ticket-close --ticket <uuid> --reason <cancelled|duplicate> --body <text>
   duobrain ticket-reopen --ticket <uuid> --body <text> [--actor <human|ai>]
   duobrain note-add --file <markdown-path> [--id <uuid>]
+  duobrain plan-set --file <json-path> [--actor <human|ai>]
   duobrain overlap --scope <path,path> [--base-commit <ref>]
   duobrain worktree-prepare --directory <path> [--branch <name>] [--base-commit <ref>]
   duobrain sync [--repository <path>]
@@ -65,6 +67,7 @@ const COMMAND_HELP = {
   'ticket-close': 'Usage: duobrain ticket-close --ticket <uuid> --reason <cancelled|duplicate> --body <text> [--actor <human|ai>] [--repository <path>]',
   'ticket-reopen': 'Usage: duobrain ticket-reopen --ticket <uuid> --body <text> [--actor <human|ai>] [--repository <path>]',
   'note-add': 'Usage: duobrain note-add --file <markdown-path> [--id <uuid>] [--repository <path>]',
+  'plan-set': 'Usage: duobrain plan-set --file <json-path> [--actor <human|ai>] [--repository <path>]',
   overlap: 'Usage: duobrain overlap --scope <path,path> [--base-commit <ref>] [--repository <path>]',
   'worktree-prepare': 'Usage: duobrain worktree-prepare --directory <path> [--branch <name>] [--base-commit <ref>] [--repository <path>]',
   sync: 'Usage: duobrain sync [--repository <path>]',
@@ -214,6 +217,12 @@ async function main() {
       repository,
       markdown: await readFile(requireOption(options, 'file'), 'utf8'),
       id: options.id,
+    });
+  } else if (command === 'plan-set') {
+    result = await setPlan({
+      repository,
+      plan: JSON.parse(await readFile(requireOption(options, 'file'), 'utf8')),
+      actorKind: options.actor ?? 'human',
     });
   } else if (command === 'overlap') {
     result = await assessOverlap({
