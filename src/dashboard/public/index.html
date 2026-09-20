@@ -78,6 +78,37 @@
         </div>
       </section>
 
+      <section aria-labelledby="wiki-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">SHARED WIKI</p><h2 id="wiki-title">공유 위키 탐색</h2></div>
+          <span id="wiki-count" class="count"></span>
+        </div>
+        <p class="wiki-disclaimer">공유 저장소의 위키 UUID 기록만 읽습니다. 기록된 컨텍스트 차이와 계보는 원인이나 성과를 증명하지 않습니다.</p>
+        <div class="wiki-toolbar">
+          <div class="tabs" role="tablist" aria-label="공유 위키 보기">
+            <button id="wiki-all-tab" class="tab active" type="button" role="tab" aria-selected="true">전체 기록</button>
+            <button id="wiki-search-tab" class="tab" type="button" role="tab" aria-selected="false">검색 결과</button>
+            <button id="wiki-refinement-tab" class="tab" type="button" role="tab" aria-selected="false">일일 정제</button>
+          </div>
+          <form id="wiki-search-form" class="wiki-search-form">
+            <label class="search">검색 <input id="wiki-query" type="search" maxlength="500" placeholder="제목, 본문, 컨텍스트"></label>
+            <label>참여자 <input id="wiki-participant" type="text" maxlength="100" placeholder="전체"></label>
+            <label>상태 <select id="wiki-status"><option value="">전체</option><option value="personal">개인</option><option value="proposed">제안</option><option value="agreed">합의</option><option value="superseded">대체됨</option></select></label>
+            <label>종류 <select id="wiki-record-type"><option value="">전체</option><option value="source-note">소스 노트</option><option value="summary">요약</option></select></label>
+            <label class="check"><input id="wiki-include-superseded" type="checkbox" checked> 대체 기록 포함</label>
+            <button class="wiki-submit" type="submit">검색</button>
+          </form>
+        </div>
+        <div id="wiki-state" class="wiki-state"></div>
+        <div id="wiki-records" class="wiki-list"></div>
+        <aside class="comparison-guide">
+          <strong>방법 비교는 CLI에서 명시적으로 실행</strong>
+          <code>duobrain method-compare --file comparison.json</code>
+          <p>브라우저에는 민감할 수 있는 artifact manifest를 넣지 않습니다. 아래 기록은 source-note의 promptRef/harnessRef 차이와 lineage만 읽기 전용으로 표시합니다.</p>
+          <div id="wiki-context-differences"></div>
+        </aside>
+      </section>
+
       <section aria-labelledby="tickets-title">
         <div class="section-heading">
           <div><p class="eyebrow">ACTIVE REQUESTS</p><h2 id="tickets-title">진행 중 요청</h2></div>

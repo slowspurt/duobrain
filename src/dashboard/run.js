@@ -1,5 +1,5 @@
 import { startDashboard } from './index.js';
-import { createSnapshotGetter, createWikiNoteGetter, sampleSnapshotUrl } from './source.js';
+import { createSnapshotGetter, createWikiNoteGetter, createWikiToolGetters, sampleSnapshotUrl } from './source.js';
 
 function usage() {
   return `Usage: node src/dashboard/run.js [--repository <path>] [--port <number>]
@@ -46,6 +46,7 @@ if (options?.help) {
       port,
       getSnapshot: createSnapshotGetter(options),
       getWikiNote: createWikiNoteGetter(options),
+      ...createWikiToolGetters(options),
     });
 
     server.once('listening', () => {

@@ -17,6 +17,9 @@ const securityHeaders = {
 
 const wikiPathPattern = /^wiki\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.md$/i;
 const maxWikiNoteBytes = 1024 * 1024;
+const maxWikiQueryLength = 500;
+const wikiStatuses = new Set(['personal', 'proposed', 'agreed', 'superseded']);
+const wikiRecordTypes = new Set(['source-note', 'summary']);
 
 function send(response, status, contentType, body, method = 'GET') {
   response.writeHead(status, {
@@ -40,7 +43,35 @@ function wikiErrorResponse(error) {
   return [503, { error: 'wiki_note_unavailable', message: '근거 노트를 불러오지 못했습니다.' }];
 }
 
-export function startDashboard({ getSnapshot, getWikiNote, port = 0 } = {}) {
+function wikiToolUnavailable(response, method) {
+  send(response, 503, 'application/json; charset=utf-8', JSON.stringify({
+    error: 'wiki_tools_unavailable',
+    message: '공유 위키 탐색 기능을 사용할 수 없습니다.',
+  }), method);
+}
+
+function wikiToolFailure(response, method) {
+  send(response, 503, 'application/json; charset=utf-8', JSON.stringify({
+    error: 'wiki_tools_unavailable',
+    message: '공유 위키 기록을 불러오지 못했습니다.',
+  }), method);
+}
+
+function badWikiRequest(response, method, message) {
+  send(response, 400, 'application/json; charset=utf-8', JSON.stringify({
+    error: 'invalid_wiki_query',
+    message,
+  }), method);
+}
+
+export function startDashboard({
+  getSnapshot,
+  getWikiNote,
+  listWikiNotes,
+  searchSharedWiki,
+  traceSharedWiki,
+  port = 0,
+} = {}) {
   if (typeof getSnapshot !== 'function') {
     throw new TypeError('getSnapshot must be a function');
   }
@@ -56,9 +87,11 @@ export function startDashboard({ getSnapshot, getWikiNote, port = 0 } = {}) {
       return;
     }
 
+    let requestUrl;
     let pathname;
     try {
-      pathname = new URL(request.url ?? '/', 'http://127.0.0.1').pathname;
+      requestUrl = new URL(request.url ?? '/', 'http://127.0.0.1');
+      pathname = requestUrl.pathname;
     } catch {
       send(response, 400, 'application/json; charset=utf-8', JSON.stringify({ error: 'bad_request' }), method);
       return;
@@ -84,7 +117,7 @@ export function startDashboard({ getSnapshot, getWikiNote, port = 0 } = {}) {
     }
 
     if (pathname === '/api/wiki') {
-      const paths = new URL(request.url ?? '/', 'http://127.0.0.1').searchParams.getAll('path');
+      const paths = requestUrl.searchParams.getAll('path');
       if (paths.length !== 1 || !wikiPathPattern.test(paths[0])) {
         const [status, body] = wikiErrorResponse({ code: 'INVALID_WIKI_PATH' });
         send(response, status, 'application/json; charset=utf-8', JSON.stringify(body), method);
@@ -122,6 +155,85 @@ export function startDashboard({ getSnapshot, getWikiNote, port = 0 } = {}) {
       } catch (error) {
         const [status, body] = wikiErrorResponse(error);
         send(response, status, 'application/json; charset=utf-8', JSON.stringify(body), method);
+      }
+      return;
+    }
+
+    if (pathname === '/api/wiki/notes') {
+      if (typeof listWikiNotes !== 'function') return wikiToolUnavailable(response, method);
+      try {
+        const notes = await listWikiNotes();
+        if (!Array.isArray(notes)) throw new TypeError('invalid wiki list result');
+        send(response, 200, 'application/json; charset=utf-8', JSON.stringify({ notes }), method);
+      } catch {
+        wikiToolFailure(response, method);
+      }
+      return;
+    }
+
+    if (pathname === '/api/wiki/search') {
+      if (typeof searchSharedWiki !== 'function') return wikiToolUnavailable(response, method);
+      const params = requestUrl.searchParams;
+      const queries = params.getAll('q');
+      if (queries.length > 1 || (queries[0]?.length ?? 0) > maxWikiQueryLength) {
+        return badWikiRequest(response, method, '검색어는 하나이며 500자 이하여야 합니다.');
+      }
+      const filters = {};
+      for (const key of ['participant', 'status', 'recordType', 'includeSuperseded']) {
+        if (params.getAll(key).length > 1) return badWikiRequest(response, method, '필터는 항목별로 하나만 지정할 수 있습니다.');
+      }
+      const participant = params.get('participant');
+      const status = params.get('status');
+      const recordType = params.get('recordType');
+      const includeSuperseded = params.get('includeSuperseded');
+      if (participant !== null) {
+        if (!participant.trim() || participant.length > 100) return badWikiRequest(response, method, '참여자 필터가 올바르지 않습니다.');
+        filters.participant = participant;
+      }
+      if (status !== null) {
+        if (!wikiStatuses.has(status)) return badWikiRequest(response, method, '상태 필터가 올바르지 않습니다.');
+        filters.status = status;
+      }
+      if (recordType !== null) {
+        if (!wikiRecordTypes.has(recordType)) return badWikiRequest(response, method, '기록 종류 필터가 올바르지 않습니다.');
+        filters.recordType = recordType;
+      }
+      if (includeSuperseded !== null) {
+        if (includeSuperseded !== 'true' && includeSuperseded !== 'false') {
+          return badWikiRequest(response, method, '대체된 기록 포함 필터가 올바르지 않습니다.');
+        }
+        filters.includeSuperseded = includeSuperseded === 'true';
+      }
+      try {
+        const result = await searchSharedWiki({ query: queries[0] ?? '', filters });
+        if (result === null || typeof result !== 'object' || !Array.isArray(result.results) || !Array.isArray(result.issues)) {
+          throw new TypeError('invalid wiki search result');
+        }
+        send(response, 200, 'application/json; charset=utf-8', JSON.stringify(result), method);
+      } catch {
+        wikiToolFailure(response, method);
+      }
+      return;
+    }
+
+    if (pathname === '/api/wiki/lineage') {
+      if (typeof traceSharedWiki !== 'function') return wikiToolUnavailable(response, method);
+      const roots = requestUrl.searchParams.getAll('root');
+      if (roots.length === 0 || roots.length > 20 || roots.some((root) => !wikiPathPattern.test(root))) {
+        return badWikiRequest(response, method, '1~20개의 올바른 위키 루트 경로가 필요합니다.');
+      }
+      try {
+        const result = await traceSharedWiki({ roots });
+        if (
+          result === null
+          || typeof result !== 'object'
+          || !Array.isArray(result.nodes)
+          || !Array.isArray(result.edges)
+          || !Array.isArray(result.issues)
+        ) throw new TypeError('invalid wiki lineage result');
+        send(response, 200, 'application/json; charset=utf-8', JSON.stringify(result), method);
+      } catch {
+        wikiToolFailure(response, method);
       }
       return;
     }

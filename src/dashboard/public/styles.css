@@ -129,12 +129,38 @@ main { display: grid; gap: 52px; padding: 24px 0 70px; }
 .evidence-note { margin-top: 2px; }
 footer { padding: 24px 0 44px; color: #727973; border-top: 1px solid #c8c4b8; font-size: .78rem; }
 
+.wiki-disclaimer { margin: -12px 0 18px; color: #5f5340; font-size: .85rem; line-height: 1.55; }
+.wiki-toolbar { display: grid; gap: 14px; margin-bottom: 16px; }
+.wiki-search-form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; padding: 14px; background: #e9e5da; border: 1px solid #d2ccbe; border-radius: 9px; }
+.wiki-search-form label { display: grid; gap: 5px; color: #52605a; font-size: .75rem; font-weight: 700; }
+.wiki-search-form .check { display: flex; align-items: center; padding-bottom: 8px; }
+.wiki-search-form input, .wiki-search-form select { min-height: 36px; padding: 7px 9px; border: 1px solid #bdb8ac; border-radius: 6px; background: #fffefb; }
+.wiki-search-form .search { flex: 1 1 230px; }
+.wiki-submit { min-height: 36px; padding: 7px 16px; color: #fff; background: #25493c; border: 0; border-radius: 6px; font-weight: 750; cursor: pointer; }
+.wiki-state { display: grid; gap: 6px; margin-bottom: 10px; }
+.sample-wiki { padding: 12px; color: #5e4b18; background: #fff2b9; border-radius: 7px; font-size: .83rem; }
+.wiki-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.wiki-card { min-width: 0; padding: 18px; background: #fffefb; border: 1px solid #d7d2c7; border-radius: 9px; box-shadow: 0 4px 16px rgba(32, 42, 38, .04); }
+.wiki-card-heading { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+.wiki-card-heading h3 { font-size: 1rem; }
+.wiki-path { display: block; margin: 10px 0; overflow-wrap: anywhere; color: #31584a; font-size: .72rem; }
+.work-context { padding: 10px; background: #f3f0e8; border-radius: 6px; color: #4f5b56; font: .73rem/1.55 ui-monospace, monospace; overflow-wrap: anywhere; }
+.refinement-run { margin-top: 10px; color: #665229; font-size: .78rem; line-height: 1.5; }
+.wiki-actions { display: flex; gap: 8px; margin-top: 12px; }
+.lineage-content { display: grid; gap: 7px; margin-top: 10px; padding: 10px; background: #f7f4ec; border-radius: 7px; }
+.lineage-edge { overflow-wrap: anywhere; color: #35443e; font: .72rem/1.5 ui-monospace, monospace; }
+.missing-copy { color: #7d2631; }
+.comparison-guide { display: grid; gap: 8px; margin-top: 18px; padding: 16px; color: #4c504d; background: #e7e2d6; border-left: 4px solid #86734a; font-size: .8rem; line-height: 1.5; }
+.comparison-guide code { width: fit-content; max-width: 100%; padding: 6px 8px; overflow-wrap: anywhere; color: #243a32; background: #fffefb; border-radius: 4px; }
+#wiki-context-differences { display: grid; gap: 3px; padding-top: 5px; border-top: 1px solid #c7c0b1; font-family: ui-monospace, monospace; overflow-wrap: anywhere; }
+
 @media (max-width: 760px) {
   .topbar { align-items: start; flex-direction: column; padding-top: 36px; }
   .source-state { align-items: flex-start; }
   .delivery-panel { grid-template-columns: 1fr; }
   .goal-grid, .people-grid, .assignment-grid { grid-template-columns: 1fr; }
   .time-overview, .analysis-grid, .session-times { grid-template-columns: 1fr; }
+  .wiki-list { grid-template-columns: 1fr; }
   .goal-card + .goal-card { border-left: 0; border-top: 1px solid #d8d4c9; }
   .ticket-summary { grid-template-columns: 1fr; gap: 12px; }
   .receipt, .ticket-summary > .ticket-goal { grid-column: auto; }
