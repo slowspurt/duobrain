@@ -20,7 +20,7 @@ node bin/duobrain.js sync
 ```
 
 Use `duobrain --help` or `duobrain <command> --help` for the complete option list.
-Commands print JSON. `start` and `end` first create an immutable event and commit it
+Commands print JSON. Mutating commands first create an immutable record and commit it
 locally in the isolated checkout, then attempt sync. A transport or push failure is
 reported as `pending` with exit code 2; rerun `sync`. Validation or history conflicts
 are errors with exit code 1. No force push is used.
@@ -28,6 +28,43 @@ are errors with exit code 1. No force push is used.
 `goal`, `branch`, `baseCommit`, `blockers`, and `next` are recorded only when supplied;
 unknown snapshot goals remain `null`. Open sessions have `endedAt` and `elapsedMs` set
 to `null`; elapsed time is derived only after a recorded end event.
+
+### Two-clone information flow
+
+After both clones run `init`, Alice creates a request and saves its returned
+`event.entityId` as the ticket ID:
+
+```sh
+# Alice's clone
+duobrain ticket-create --kind information --title "Export handoff" \
+  --body "Share the passing tests, failures, and next action" --actor ai
+
+# Bob's clone
+duobrain sync
+duobrain ticket-ack --ticket <ticket-uuid> --actor ai
+duobrain note-add --file ./handoff-note.md
+duobrain ticket-respond --ticket <ticket-uuid> --actor ai \
+  --body "CSV passes; the SRT multiline fixture still fails." \
+  --evidence wiki/<note-uuid>.md
+
+# Alice's clone
+duobrain sync
+duobrain ticket-resolve --ticket <ticket-uuid> \
+  --body "The response and evidence cover the handoff facts."
+```
+
+`handoff-note.md` may use the structured format documented in
+`docs/wiki/knowledge-records.md`. `note-add` validates it through the wiki parser and
+stores it immutably in the shared checkout. A legacy Markdown note needs an explicit
+`--id <uuid>`. Retry an identical note ID and content safely; different content at the
+same path is rejected.
+
+Ticket commands are `ticket-create`, `ticket-ack`, `ticket-needs-information`,
+`ticket-respond`, `ticket-resolve`, `ticket-close`, and `ticket-reopen`. Information
+responses require one or more existing `wiki/<uuid>.md` paths. Feedback responses
+require the assignee's `--actor human`. Only the requester can resolve, close, or
+reopen. Reopening clears the projected evidence and requires a new response before
+another resolution. `closed` remains distinct from `resolved`.
 
 ## Read API
 
@@ -41,9 +78,16 @@ const snapshot = await getSnapshot({ repository: '/path/to/product/clone' });
 
 `repository` defaults to the current directory and may be any path inside the product
 Git worktree. The result matches the shared snapshot interface: `sample` is `false`,
-project goals are `null` in E1, tickets are empty until E2, and concurrent entity
-histories are listed in `conflicts`. `getEngineStatus({repository})` additionally
+project goals are `null`, ticket records include their event `history`, and concurrent
+entity histories are listed in `conflicts`. `getEngineStatus({repository})` additionally
 returns the local participant, isolated-store path, and shared-store commit.
+
+The E2 write API exports `createTicket`, `acknowledgeTicket`,
+`requestTicketInformation`, `respondToTicket`, `resolveTicket`, `closeTicket`,
+`reopenTicket`, and `addWikiNote`. Each accepts `{repository, ...}` and defaults
+`repository` to the current directory. Event operations return `{event, commit, sync}`;
+`addWikiNote` returns its shared `path`, commit when newly created, validation result,
+and sync result.
 
 ## Synchronization guarantees
 

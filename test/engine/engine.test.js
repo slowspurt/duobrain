@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { chmod, mkdtemp, readFile, rename, rm, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -7,18 +8,36 @@ import test from 'node:test';
 import { promisify } from 'node:util';
 
 import {
+  acknowledgeTicket,
+  addWikiNote,
+  closeTicket,
+  createTicket,
   endSession,
   getSnapshot,
   initSharedStore,
+  reopenTicket,
+  requestTicketInformation,
+  resolveTicket,
+  respondToTicket,
   startSession,
   syncStore,
 } from '../../src/engine/index.js';
 
 const execFileAsync = promisify(execFile);
+const cliPath = path.resolve('bin/duobrain.js');
 
 async function git(cwd, ...args) {
   const { stdout } = await execFileAsync('git', ['-C', cwd, ...args], { encoding: 'utf8' });
   return stdout.trim();
+}
+
+async function duobrain(repository, ...args) {
+  const result = await execFileAsync(
+    process.execPath,
+    [cliPath, ...args, '--repository', repository],
+    { encoding: 'utf8' },
+  );
+  return JSON.parse(result.stdout);
 }
 
 async function fixture() {
@@ -39,6 +58,25 @@ async function fixture() {
   await execFileAsync('git', ['clone', remote, alice]);
   await execFileAsync('git', ['clone', remote, bob]);
   return { root, remote, alice, bob };
+}
+
+function structuredNote({ id, participant, title = 'Handoff facts' }) {
+  const metadata = {
+    schemaVersion: 1,
+    id,
+    recordType: 'source-note',
+    title,
+    status: 'personal',
+    observedAt: '2026-09-20T01:00:00.000Z',
+    author: { participant, kind: 'ai' },
+    workContext: { promptRef: null, harnessRef: null },
+    sources: [{ kind: 'observation', ref: 'test-observation' }],
+    summarizes: [],
+    previousSummary: null,
+    decisionEvidence: [],
+    supersedes: [],
+  };
+  return `\`\`\`duobrain-wiki\n${JSON.stringify(metadata, null, 2)}\n\`\`\`\n\nCSV passes; the SRT multiline fixture still fails.\n`;
 }
 
 test('two clones exchange session start/end without touching product changes', async (t) => {
@@ -151,6 +189,304 @@ test('a rejected push keeps the local event and succeeds on explicit retry', asy
   assert.equal((await getSnapshot({ repository: setup.bob })).sessions[0].id, started.event.id);
 });
 
+test('two clones complete an information ticket with immutable wiki evidence', async (t) => {
+  const setup = await fixture();
+  t.after(() => rm(setup.root, { recursive: true, force: true }));
+  await initSharedStore({
+    repository: setup.alice,
+    participants: ['alice', 'bob'],
+    participant: 'alice',
+  });
+  await initSharedStore({
+    repository: setup.bob,
+    participants: ['alice', 'bob'],
+    participant: 'bob',
+  });
+
+  const created = await createTicket({
+    repository: setup.alice,
+    kind: 'information',
+    title: 'Export handoff',
+    body: 'Share passing tests, remaining failures, and the next action.',
+    actorKind: 'ai',
+  });
+  const ticketId = created.event.entityId;
+  await assert.rejects(
+    acknowledgeTicket({ repository: setup.alice, ticketId }),
+    (error) => error.code === 'TICKET_ROLE_VIOLATION',
+  );
+
+  await syncStore({ repository: setup.bob });
+  await acknowledgeTicket({ repository: setup.bob, ticketId, actorKind: 'ai' });
+  await requestTicketInformation({
+    repository: setup.bob,
+    ticketId,
+    body: 'Identify the source revision for the reported test result.',
+    actorKind: 'ai',
+  });
+  await assert.rejects(
+    respondToTicket({
+      repository: setup.bob,
+      ticketId,
+      body: 'An unsupported answer.',
+      actorKind: 'ai',
+    }),
+    (error) => error.code === 'MISSING_EVIDENCE',
+  );
+
+  const noteId = randomUUID();
+  const note = await addWikiNote({
+    repository: setup.bob,
+    markdown: structuredNote({ id: noteId, participant: 'bob' }),
+  });
+  assert.equal(note.path, `wiki/${noteId}.md`);
+  assert.equal(note.validation.valid, true);
+  const responded = await respondToTicket({
+    repository: setup.bob,
+    ticketId,
+    body: 'CSV passes; the SRT multiline fixture still fails.',
+    evidence: [note.path],
+    actorKind: 'ai',
+  });
+  assert.equal(responded.sync.status, 'synced');
+  await assert.rejects(
+    resolveTicket({ repository: setup.bob, ticketId, body: 'Assignee cannot resolve.' }),
+    (error) => error.code === 'TICKET_ROLE_VIOLATION',
+  );
+
+  await syncStore({ repository: setup.alice });
+  let snapshot = await getSnapshot({ repository: setup.alice });
+  assert.equal(snapshot.tickets[0].status, 'answered');
+  assert.deepEqual(snapshot.tickets[0].evidence, [note.path]);
+  assert.deepEqual(
+    snapshot.tickets[0].history.map((event) => event.type),
+    ['ticket.created', 'ticket.acknowledged', 'ticket.needs_information', 'ticket.responded'],
+  );
+  await resolveTicket({
+    repository: setup.alice,
+    ticketId,
+    body: 'The response and evidence cover the requested handoff facts.',
+  });
+  await reopenTicket({
+    repository: setup.alice,
+    ticketId,
+    body: 'A new result needs a fresh response.',
+  });
+  snapshot = await getSnapshot({ repository: setup.alice });
+  assert.equal(snapshot.tickets[0].status, 'open');
+  assert.deepEqual(snapshot.tickets[0].evidence, []);
+  await assert.rejects(
+    resolveTicket({ repository: setup.alice, ticketId, body: 'Old response is not enough.' }),
+    (error) => error.code === 'INVALID_TRANSITION',
+  );
+
+  await syncStore({ repository: setup.bob });
+  await respondToTicket({
+    repository: setup.bob,
+    ticketId,
+    body: 'The refreshed result is recorded in the same source note.',
+    evidence: [note.path],
+    actorKind: 'ai',
+  });
+  await syncStore({ repository: setup.alice });
+  await resolveTicket({ repository: setup.alice, ticketId, body: 'Fresh response verified.' });
+  await syncStore({ repository: setup.bob });
+  assert.equal((await getSnapshot({ repository: setup.bob })).tickets[0].status, 'resolved');
+});
+
+test('feedback requires the assignee human and close is not resolution', async (t) => {
+  const setup = await fixture();
+  t.after(() => rm(setup.root, { recursive: true, force: true }));
+  await initSharedStore({
+    repository: setup.alice,
+    participants: ['alice', 'bob'],
+    participant: 'alice',
+  });
+  await initSharedStore({
+    repository: setup.bob,
+    participants: ['alice', 'bob'],
+    participant: 'bob',
+  });
+  const feedback = await createTicket({
+    repository: setup.alice,
+    kind: 'feedback',
+    title: 'Choose onboarding copy',
+    body: 'Choose draft A or B.',
+    actorKind: 'ai',
+  });
+  await syncStore({ repository: setup.bob });
+  await assert.rejects(
+    respondToTicket({
+      repository: setup.bob,
+      ticketId: feedback.event.entityId,
+      body: 'AI cannot make this choice.',
+      actorKind: 'ai',
+    }),
+    (error) => error.code === 'HUMAN_RESPONSE_REQUIRED',
+  );
+  await respondToTicket({
+    repository: setup.bob,
+    ticketId: feedback.event.entityId,
+    body: 'Use draft B.',
+    actorKind: 'human',
+  });
+  await syncStore({ repository: setup.alice });
+  await resolveTicket({
+    repository: setup.alice,
+    ticketId: feedback.event.entityId,
+    body: 'Direct feedback received.',
+  });
+
+  const cancelled = await createTicket({
+    repository: setup.alice,
+    kind: 'information',
+    title: 'No longer needed',
+    body: 'This request will be cancelled.',
+  });
+  await closeTicket({
+    repository: setup.alice,
+    ticketId: cancelled.event.entityId,
+    reason: 'cancelled',
+    body: 'The dependent task was removed.',
+  });
+  const snapshot = await getSnapshot({ repository: setup.alice });
+  assert.equal(snapshot.tickets.find((ticket) => ticket.id === feedback.event.entityId).status, 'resolved');
+  assert.equal(snapshot.tickets.find((ticket) => ticket.id === cancelled.event.entityId).status, 'closed');
+});
+
+test('ticket push rejection is pending and explicit retry shares the same event', async (t) => {
+  const setup = await fixture();
+  t.after(() => rm(setup.root, { recursive: true, force: true }));
+  await initSharedStore({
+    repository: setup.alice,
+    participants: ['alice', 'bob'],
+    participant: 'alice',
+  });
+  const hook = path.join(setup.remote, 'hooks', 'pre-receive');
+  await writeFile(hook, '#!/bin/sh\necho "reject ticket once" >&2\nexit 1\n');
+  await chmod(hook, 0o755);
+  const created = await createTicket({
+    repository: setup.alice,
+    kind: 'information',
+    title: 'Pending delivery',
+    body: 'Keep this exact event for retry.',
+  });
+  assert.equal(created.sync.status, 'pending');
+  await unlink(hook);
+  assert.equal((await syncStore({ repository: setup.alice })).status, 'synced');
+  await initSharedStore({
+    repository: setup.bob,
+    participants: ['alice', 'bob'],
+    participant: 'bob',
+  });
+  const remoteTicket = (await getSnapshot({ repository: setup.bob })).tickets[0];
+  assert.equal(remoteTicket.id, created.event.entityId);
+  assert.equal(remoteTicket.history[0].id, created.event.id);
+  assert.equal(remoteTicket.history.length, 1);
+});
+
+test('same-previous ticket branches are visible conflicts and block mutation', async (t) => {
+  const setup = await fixture();
+  t.after(() => rm(setup.root, { recursive: true, force: true }));
+  await initSharedStore({
+    repository: setup.alice,
+    participants: ['alice', 'bob'],
+    participant: 'alice',
+  });
+  await initSharedStore({
+    repository: setup.bob,
+    participants: ['alice', 'bob'],
+    participant: 'bob',
+  });
+  const created = await createTicket({
+    repository: setup.alice,
+    kind: 'feedback',
+    title: 'Concurrent decision',
+    body: 'This will branch from the same previous event.',
+  });
+  await syncStore({ repository: setup.bob });
+  await closeTicket({
+    repository: setup.alice,
+    ticketId: created.event.entityId,
+    reason: 'cancelled',
+    body: 'Requester cancelled concurrently.',
+    sync: false,
+  });
+  await acknowledgeTicket({
+    repository: setup.bob,
+    ticketId: created.event.entityId,
+    sync: false,
+  });
+  await syncStore({ repository: setup.alice });
+  await syncStore({ repository: setup.bob });
+  await syncStore({ repository: setup.alice });
+
+  const snapshot = await getSnapshot({ repository: setup.alice });
+  assert.equal(snapshot.tickets[0].status, 'open');
+  assert.equal(snapshot.conflicts.length, 1);
+  assert.equal(snapshot.conflicts[0].entityId, created.event.entityId);
+  await assert.rejects(
+    closeTicket({
+      repository: setup.alice,
+      ticketId: created.event.entityId,
+      reason: 'cancelled',
+      body: 'Cannot mutate a conflicted ticket.',
+    }),
+    (error) => error.code === 'ENTITY_CONFLICT',
+  );
+});
+
+test('documented CLI options run the normal two-clone ticket flow', async (t) => {
+  const setup = await fixture();
+  t.after(() => rm(setup.root, { recursive: true, force: true }));
+  await duobrain(setup.alice, 'init', '--participants', 'alice,bob', '--participant', 'alice');
+  await duobrain(setup.bob, 'init', '--participants', 'alice,bob', '--participant', 'bob');
+  const created = await duobrain(
+    setup.alice,
+    'ticket-create',
+    '--kind',
+    'information',
+    '--title',
+    'Export handoff',
+    '--body',
+    'Share the passing tests and next action.',
+    '--actor',
+    'ai',
+  );
+  const ticketId = created.event.entityId;
+  await duobrain(setup.bob, 'sync');
+  await duobrain(setup.bob, 'ticket-ack', '--ticket', ticketId, '--actor', 'ai');
+
+  const noteId = randomUUID();
+  const noteFile = path.join(setup.root, 'handoff-note.md');
+  await writeFile(noteFile, structuredNote({ id: noteId, participant: 'bob' }));
+  const note = await duobrain(setup.bob, 'note-add', '--file', noteFile);
+  await duobrain(
+    setup.bob,
+    'ticket-respond',
+    '--ticket',
+    ticketId,
+    '--body',
+    'CSV passes; the SRT multiline fixture still fails.',
+    '--evidence',
+    note.path,
+    '--actor',
+    'ai',
+  );
+  await duobrain(setup.alice, 'sync');
+  await duobrain(
+    setup.alice,
+    'ticket-resolve',
+    '--ticket',
+    ticketId,
+    '--body',
+    'The response and evidence cover the request.',
+  );
+  const status = await duobrain(setup.alice, 'status');
+  assert.equal(status.snapshot.tickets[0].status, 'resolved');
+  assert.equal(status.snapshot.tickets[0].history.length, 4);
+});
+
 test('configuration requires exactly two distinct participants', async (t) => {
   const setup = await fixture();
   t.after(() => rm(setup.root, { recursive: true, force: true }));
@@ -169,10 +505,14 @@ test('configuration requires exactly two distinct participants', async (t) => {
 });
 
 test('CLI exposes top-level and command help', async () => {
-  const cli = path.resolve('bin/duobrain.js');
-  const top = await execFileAsync(process.execPath, [cli, '--help'], { encoding: 'utf8' });
-  const command = await execFileAsync(process.execPath, [cli, 'start', '--help'], { encoding: 'utf8' });
+  const top = await execFileAsync(process.execPath, [cliPath, '--help'], { encoding: 'utf8' });
+  const command = await execFileAsync(process.execPath, [cliPath, 'start', '--help'], { encoding: 'utf8' });
+  const ticket = await execFileAsync(process.execPath, [cliPath, 'ticket-respond', '--help'], { encoding: 'utf8' });
+  const note = await execFileAsync(process.execPath, [cliPath, 'note-add', '--help'], { encoding: 'utf8' });
   assert.match(top.stdout, /duobrain init/);
   assert.match(top.stdout, /duobrain status/);
+  assert.match(top.stdout, /ticket-needs-information/);
   assert.match(command.stdout, /--title/);
+  assert.match(ticket.stdout, /--evidence/);
+  assert.match(note.stdout, /--file/);
 });

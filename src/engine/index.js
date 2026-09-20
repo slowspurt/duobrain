@@ -4,9 +4,14 @@ import { mkdir, readFile, readdir, rename, stat, writeFile } from 'node:fs/promi
 import path from 'node:path';
 import { promisify } from 'node:util';
 
+import { parseWikiNote, validateWikiNote } from '../wiki/index.js';
+
 const execFileAsync = promisify(execFile);
 const STATE_BRANCH = 'duobrain/state';
 const NULL_GOALS = Object.freeze({ project: null, mediumTerm: null, currentPhase: null });
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const WIKI_PATH_PATTERN = /^wiki\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.md$/i;
+const NONTERMINAL_TICKET_STATUSES = new Set(['open', 'acknowledged', 'needs_information', 'answered']);
 
 export class EngineError extends Error {
   constructor(message, { code = 'ENGINE_ERROR', cause } = {}) {
@@ -375,6 +380,418 @@ async function recordEvent(layout, event, sync) {
   return { event, commit, sync: syncResult };
 }
 
+function assertUuid(value, label) {
+  if (typeof value !== 'string' || !UUID_PATTERN.test(value)) {
+    throw new EngineError(`${label} must be a UUID.`, { code: 'INVALID_INPUT' });
+  }
+}
+
+function createEvent({ identity, entityId, type, previous, data, actorKind }) {
+  return {
+    schemaVersion: 1,
+    id: randomUUID(),
+    at: new Date().toISOString(),
+    actor: { participant: identity.participant, kind: actorKind },
+    entityId,
+    type,
+    previous,
+    data,
+  };
+}
+
+function ticketProjection(root, history) {
+  let status = 'open';
+  let evidence = [];
+  let response = null;
+  for (const event of history) {
+    if (event.type === 'ticket.acknowledged') status = 'acknowledged';
+    if (event.type === 'ticket.needs_information') status = 'needs_information';
+    if (event.type === 'ticket.responded') {
+      status = 'answered';
+      evidence = event.data.evidence;
+      response = event;
+    }
+    if (event.type === 'ticket.resolved') status = 'resolved';
+    if (event.type === 'ticket.closed') status = 'closed';
+    if (event.type === 'ticket.reopened') {
+      status = 'open';
+      evidence = [];
+      response = null;
+    }
+  }
+  return {
+    ticket: {
+      id: root.entityId,
+      kind: root.data.kind,
+      title: root.data.title,
+      body: root.data.body,
+      requester: root.actor.participant,
+      assignee: root.data.assignee,
+      status,
+      goal: root.data.goal ?? null,
+      evidence,
+      history: [root, ...history].map((event) => ({
+        id: event.id,
+        type: event.type,
+        at: event.at,
+        actor: event.actor,
+        data: event.data,
+      })),
+    },
+    response,
+    lastEvent: history.at(-1) ?? root,
+  };
+}
+
+async function getTicketState(layout, ticketId) {
+  assertUuid(ticketId, 'ticketId');
+  const entityEvents = (await readEvents(layout)).filter((event) => event.entityId === ticketId);
+  const roots = entityEvents.filter(
+    (event) => event.type === 'ticket.created' && event.previous === null,
+  );
+  if (roots.length !== 1) {
+    throw new EngineError(`Unknown or invalid ticket: ${ticketId}`, { code: 'UNKNOWN_TICKET' });
+  }
+  const collected = collectEntityHistory(roots[0], entityEvents);
+  const projected = ticketProjection(roots[0], collected.history);
+  return { ...projected, conflicts: collected.conflicts };
+}
+
+function assertActorKind(actorKind) {
+  if (!['human', 'ai'].includes(actorKind)) {
+    throw new EngineError('actorKind must be human or ai.', { code: 'INVALID_INPUT' });
+  }
+}
+
+async function ticketContext(repository, ticketId) {
+  const layout = await loadLayout(repository);
+  const identity = await loadIdentity(layout);
+  const state = await getTicketState(layout, ticketId);
+  if (state.conflicts.length > 0) {
+    throw new EngineError('The ticket has a concurrent history conflict.', {
+      code: 'ENTITY_CONFLICT',
+    });
+  }
+  return { layout, identity, state };
+}
+
+function assertTicketRole(ticket, identity, role) {
+  if (ticket[role] !== identity.participant) {
+    throw new EngineError(`Only the ticket ${role} can perform this transition.`, {
+      code: 'TICKET_ROLE_VIOLATION',
+    });
+  }
+}
+
+function assertTicketStatus(ticket, allowed) {
+  if (!allowed.has(ticket.status)) {
+    throw new EngineError(`Ticket status ${ticket.status} does not allow this transition.`, {
+      code: 'INVALID_TRANSITION',
+    });
+  }
+}
+
+async function appendTicketEvent({
+  repository,
+  ticketId,
+  type,
+  data,
+  role,
+  allowedStatuses,
+  actorKind,
+  sync,
+}) {
+  assertActorKind(actorKind);
+  const { layout, identity, state } = await ticketContext(repository, ticketId);
+  assertTicketRole(state.ticket, identity, role);
+  assertTicketStatus(state.ticket, allowedStatuses);
+  const event = createEvent({
+    identity,
+    entityId: ticketId,
+    type,
+    previous: state.lastEvent.id,
+    data,
+    actorKind,
+  });
+  return recordEvent(layout, event, sync);
+}
+
+export async function createTicket({
+  repository = '.',
+  kind,
+  title,
+  body,
+  assignee,
+  goal = null,
+  actorKind = 'human',
+  sync = true,
+} = {}) {
+  if (!['information', 'feedback'].includes(kind)) {
+    throw new EngineError('kind must be information or feedback.', { code: 'INVALID_INPUT' });
+  }
+  assertString(title, 'title');
+  assertString(body, 'body');
+  assertActorKind(actorKind);
+  const layout = await loadLayout(repository);
+  const identity = await loadIdentity(layout);
+  const config = await loadConfig(layout);
+  const other = config.participants.find((participant) => participant !== identity.participant);
+  const selectedAssignee = assignee ?? other;
+  if (selectedAssignee !== other) {
+    throw new EngineError('Ticket assignee must be the other configured participant.', {
+      code: 'INVALID_ASSIGNEE',
+    });
+  }
+  const id = randomUUID();
+  const event = createEvent({
+    identity,
+    entityId: id,
+    type: 'ticket.created',
+    previous: null,
+    data: {
+      kind,
+      title,
+      body,
+      assignee: selectedAssignee,
+      goal: normalizeOptional(goal, 'goal'),
+    },
+    actorKind,
+  });
+  return recordEvent(layout, event, sync);
+}
+
+export async function acknowledgeTicket({
+  repository = '.',
+  ticketId,
+  actorKind = 'human',
+  sync = true,
+} = {}) {
+  return appendTicketEvent({
+    repository,
+    ticketId,
+    type: 'ticket.acknowledged',
+    data: {},
+    role: 'assignee',
+    allowedStatuses: new Set(['open']),
+    actorKind,
+    sync,
+  });
+}
+
+export async function requestTicketInformation({
+  repository = '.',
+  ticketId,
+  body,
+  actorKind = 'human',
+  sync = true,
+} = {}) {
+  assertString(body, 'body');
+  return appendTicketEvent({
+    repository,
+    ticketId,
+    type: 'ticket.needs_information',
+    data: { body },
+    role: 'assignee',
+    allowedStatuses: NONTERMINAL_TICKET_STATUSES,
+    actorKind,
+    sync,
+  });
+}
+
+async function validateEvidence(layout, evidence) {
+  if (!Array.isArray(evidence)) {
+    throw new EngineError('evidence must be an array of wiki paths.', { code: 'INVALID_INPUT' });
+  }
+  for (const evidencePath of evidence) {
+    if (typeof evidencePath !== 'string' || !WIKI_PATH_PATTERN.test(evidencePath)) {
+      throw new EngineError('Evidence paths must use wiki/<uuid>.md.', {
+        code: 'INVALID_EVIDENCE',
+      });
+    }
+    const absolutePath = path.join(layout.statePath, evidencePath);
+    if (!(await exists(absolutePath))) {
+      throw new EngineError(`Evidence does not exist in the shared store: ${evidencePath}`, {
+        code: 'MISSING_EVIDENCE',
+      });
+    }
+    const validation = validateWikiNote(await readFile(absolutePath, 'utf8'), { path: evidencePath });
+    if (!validation.valid) {
+      throw new EngineError(`Evidence note is invalid: ${evidencePath}`, {
+        code: 'INVALID_EVIDENCE',
+      });
+    }
+  }
+}
+
+export async function respondToTicket({
+  repository = '.',
+  ticketId,
+  body,
+  evidence = [],
+  actorKind = 'human',
+  sync = true,
+} = {}) {
+  assertString(body, 'body');
+  assertActorKind(actorKind);
+  const context = await ticketContext(repository, ticketId);
+  assertTicketRole(context.state.ticket, context.identity, 'assignee');
+  assertTicketStatus(context.state.ticket, NONTERMINAL_TICKET_STATUSES);
+  if (context.state.ticket.kind === 'information' && evidence.length === 0) {
+    throw new EngineError('Information responses require at least one shared wiki note.', {
+      code: 'MISSING_EVIDENCE',
+    });
+  }
+  if (context.state.ticket.kind === 'feedback' && actorKind !== 'human') {
+    throw new EngineError('Feedback responses require human attribution.', {
+      code: 'HUMAN_RESPONSE_REQUIRED',
+    });
+  }
+  await validateEvidence(context.layout, evidence);
+  const event = createEvent({
+    identity: context.identity,
+    entityId: ticketId,
+    type: 'ticket.responded',
+    previous: context.state.lastEvent.id,
+    data: { body, evidence },
+    actorKind,
+  });
+  return recordEvent(context.layout, event, sync);
+}
+
+export async function resolveTicket({
+  repository = '.',
+  ticketId,
+  body,
+  actorKind = 'human',
+  sync = true,
+} = {}) {
+  assertString(body, 'body');
+  assertActorKind(actorKind);
+  const context = await ticketContext(repository, ticketId);
+  assertTicketRole(context.state.ticket, context.identity, 'requester');
+  assertTicketStatus(context.state.ticket, new Set(['answered']));
+  if (!context.state.response) {
+    throw new EngineError('A current response is required before resolution.', {
+      code: 'INVALID_TRANSITION',
+    });
+  }
+  if (context.state.ticket.kind === 'information') {
+    await validateEvidence(context.layout, context.state.response.data.evidence);
+  }
+  if (
+    context.state.ticket.kind === 'feedback'
+    && context.state.response.actor.kind !== 'human'
+  ) {
+    throw new EngineError('A human feedback response is required before resolution.', {
+      code: 'HUMAN_RESPONSE_REQUIRED',
+    });
+  }
+  const event = createEvent({
+    identity: context.identity,
+    entityId: ticketId,
+    type: 'ticket.resolved',
+    previous: context.state.lastEvent.id,
+    data: { body },
+    actorKind,
+  });
+  return recordEvent(context.layout, event, sync);
+}
+
+export async function closeTicket({
+  repository = '.',
+  ticketId,
+  reason,
+  body,
+  actorKind = 'human',
+  sync = true,
+} = {}) {
+  if (!['cancelled', 'duplicate'].includes(reason)) {
+    throw new EngineError('reason must be cancelled or duplicate.', { code: 'INVALID_INPUT' });
+  }
+  assertString(body, 'body');
+  return appendTicketEvent({
+    repository,
+    ticketId,
+    type: 'ticket.closed',
+    data: { reason, body },
+    role: 'requester',
+    allowedStatuses: NONTERMINAL_TICKET_STATUSES,
+    actorKind,
+    sync,
+  });
+}
+
+export async function reopenTicket({
+  repository = '.',
+  ticketId,
+  body,
+  actorKind = 'human',
+  sync = true,
+} = {}) {
+  assertString(body, 'body');
+  return appendTicketEvent({
+    repository,
+    ticketId,
+    type: 'ticket.reopened',
+    data: { body },
+    role: 'requester',
+    allowedStatuses: new Set(['resolved', 'closed']),
+    actorKind,
+    sync,
+  });
+}
+
+export async function addWikiNote({
+  repository = '.',
+  markdown,
+  id,
+  sync = true,
+} = {}) {
+  assertString(markdown, 'markdown');
+  const layout = await loadLayout(repository);
+  const identity = await loadIdentity(layout);
+  const parsed = parseWikiNote(markdown);
+  const noteId = parsed.format === 'structured' ? parsed.metadata.id : id;
+  assertUuid(noteId, 'id');
+  const relativePath = `wiki/${noteId}.md`;
+  const validation = validateWikiNote(parsed, { path: relativePath });
+  if (!validation.valid) {
+    throw new EngineError(
+      `Wiki note is invalid: ${validation.errors.map((error) => error.code).join(', ')}`,
+      { code: 'INVALID_WIKI_NOTE' },
+    );
+  }
+  if (
+    parsed.format === 'structured'
+    && parsed.metadata.author.participant !== identity.participant
+  ) {
+    throw new EngineError('Structured note author must match the local participant.', {
+      code: 'WIKI_AUTHOR_MISMATCH',
+    });
+  }
+  const notePath = path.join(layout.statePath, relativePath);
+  if (await exists(notePath)) {
+    if (await readFile(notePath, 'utf8') !== markdown) {
+      throw new EngineError(`Immutable wiki note already exists with different content: ${relativePath}`, {
+        code: 'IMMUTABLE_NOTE_CONFLICT',
+      });
+    }
+    const syncResult = sync
+      ? await syncStore({ repository: layout.repositoryPath })
+      : await setSyncStatus(layout, 'pending', 'Existing note has not been synchronized.');
+    return { created: false, path: relativePath, sync: syncResult, validation };
+  }
+  await mkdir(path.dirname(notePath), { recursive: true });
+  await writeFile(notePath, markdown, 'utf8');
+  await git(layout.statePath, ['add', '--', relativePath]);
+  await git(layout.statePath, ['commit', '-m', `Record wiki note ${noteId}`]);
+  const commit = (await git(layout.statePath, ['rev-parse', 'HEAD'])).stdout;
+  const syncResult = sync
+    ? await syncStore({ repository: layout.repositoryPath })
+    : await setSyncStatus(layout, 'pending', 'Local wiki note is committed but has not been pushed.');
+  return { created: true, path: relativePath, commit, sync: syncResult, validation };
+}
+
 export async function startSession({
   repository = '.',
   title,
@@ -515,11 +932,12 @@ function collectEntityHistory(root, events) {
 async function buildSnapshot(layout) {
   const config = await loadConfig(layout);
   const events = await readEvents(layout);
-  const roots = events.filter((event) => event.type === 'session.started' && event.previous === null);
+  const sessionRoots = events.filter((event) => event.type === 'session.started' && event.previous === null);
   const sessions = [];
+  const tickets = [];
   const conflicts = [];
 
-  for (const root of roots) {
+  for (const root of sessionRoots) {
     const entityEvents = events.filter((event) => event.entityId === root.entityId);
     const collected = collectEntityHistory(root, entityEvents);
     conflicts.push(...collected.conflicts);
@@ -561,6 +979,19 @@ async function buildSnapshot(layout) {
   }
   sessions.sort((left, right) => left.startedAt.localeCompare(right.startedAt));
 
+  const ticketRoots = events.filter((event) => event.type === 'ticket.created' && event.previous === null);
+  for (const root of ticketRoots) {
+    const entityEvents = events.filter((event) => event.entityId === root.entityId);
+    const collected = collectEntityHistory(root, entityEvents);
+    conflicts.push(...collected.conflicts);
+    tickets.push(ticketProjection(root, collected.history).ticket);
+  }
+  tickets.sort((left, right) => {
+    const leftAt = left.history[0]?.at ?? '';
+    const rightAt = right.history[0]?.at ?? '';
+    return leftAt.localeCompare(rightAt);
+  });
+
   const sync = (await exists(layout.statusPath))
     ? await readJson(layout.statusPath)
     : { status: 'unknown', lastSyncedAt: null, message: null };
@@ -570,7 +1001,7 @@ async function buildSnapshot(layout) {
     participants: config.participants,
     goals: { ...NULL_GOALS },
     sessions,
-    tickets: [],
+    tickets,
     sync: {
       status: sync.status ?? 'unknown',
       lastSyncedAt: sync.lastSyncedAt ?? null,
