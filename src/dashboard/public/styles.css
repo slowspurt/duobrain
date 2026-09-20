@@ -1,0 +1,61 @@
+:root {
+  font-family: Inter, Pretendard, "Noto Sans KR", system-ui, sans-serif;
+  color: #17201d;
+  background: #f3f0e8;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; min-width: 320px; }
+.topbar, main, footer { width: min(1120px, calc(100% - 40px)); margin-inline: auto; }
+.topbar { display: flex; justify-content: space-between; align-items: end; gap: 24px; padding: 54px 0 30px; border-bottom: 1px solid #c8c4b8; }
+h1, h2, h3, p { margin: 0; }
+h1 { max-width: 720px; margin-top: 8px; font-family: Georgia, "Noto Serif KR", serif; font-size: clamp(2.25rem, 6vw, 5rem); font-weight: 500; line-height: .98; letter-spacing: -.05em; }
+h2 { margin-top: 4px; font-size: 1.55rem; letter-spacing: -.025em; }
+h3 { font-size: 1.05rem; line-height: 1.45; }
+.eyebrow, .label { color: #64716a; font-size: .72rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+main { display: grid; gap: 52px; padding: 24px 0 70px; }
+.notice, .error-panel { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 12px; }
+.notice { color: #554516; background: #fff2b9; border: 1px solid #e4cf72; }
+.error-panel { flex-wrap: wrap; color: #721d28; background: #ffe7e8; border: 1px solid #efb7bc; }
+.error-panel button { margin-left: auto; padding: 8px 12px; color: inherit; background: white; border: 1px solid currentColor; border-radius: 8px; cursor: pointer; }
+.section-heading, .person-heading, .ticket-meta { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.section-heading { margin-bottom: 18px; }
+.caption { color: #6c746f; font-size: .82rem; }
+.goal-grid { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid #c8c4b8; border-radius: 18px; overflow: hidden; background: #fbfaf6; }
+.goal-card { min-height: 160px; padding: 24px; }
+.goal-card + .goal-card { border-left: 1px solid #d8d4c9; }
+.goal-copy { margin-top: 20px; font-family: Georgia, "Noto Serif KR", serif; font-size: 1.25rem; line-height: 1.45; }
+.people-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.person-card, .ticket-card { padding: 24px; background: #fbfaf6; border: 1px solid #d0ccc1; border-radius: 16px; }
+.session-title { margin-top: 28px; font-size: 1.25rem; font-weight: 700; }
+.recorded-time, .route, .ticket-goal { margin-top: 7px; color: #6c746f; font-size: .82rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 20px; }
+.chip, .kind, .status, .count { display: inline-flex; width: fit-content; padding: 5px 9px; border-radius: 999px; font-size: .75rem; font-weight: 700; }
+.chip { background: #e8ebe6; }
+.chip.muted, .count { color: #64716a; background: #e5e2d9; }
+.blockers { margin-top: 24px; padding-top: 18px; border-top: 1px solid #ddd9cf; }
+.blockers > p:last-child { margin-top: 8px; line-height: 1.55; }
+.empty { color: #7a817d; font-size: .9rem; line-height: 1.55; }
+.person-card > .empty { margin-top: 28px; }
+.ticket-list { display: grid; gap: 10px; }
+.ticket-card { display: grid; grid-template-columns: 155px minmax(200px, 1fr) minmax(240px, 1.4fr) 110px; align-items: center; gap: 20px; }
+.ticket-meta { justify-content: flex-start; }
+.ticket-body { color: #4e5853; font-size: .9rem; line-height: 1.5; }
+.kind { color: #245242; background: #dcece5; }
+.kind.feedback { color: #593b70; background: #eadff1; }
+.status.active, .status.acknowledged, .status.synced { color: #17563d; background: #d9eee4; }
+.status.open, .status.unknown { color: #725b19; background: #f5eabd; }
+.status.pending, .status.paused, .status.needs_information { color: #794914; background: #f7dfc3; }
+.status.error { color: #7d2631; background: #f7d7da; }
+footer { padding: 24px 0 44px; color: #727973; border-top: 1px solid #c8c4b8; font-size: .78rem; }
+
+@media (max-width: 760px) {
+  .topbar { align-items: start; flex-direction: column; padding-top: 36px; }
+  .goal-grid, .people-grid { grid-template-columns: 1fr; }
+  .goal-card + .goal-card { border-left: 0; border-top: 1px solid #d8d4c9; }
+  .ticket-card { grid-template-columns: 1fr; gap: 12px; }
+  .section-heading { align-items: end; }
+  .caption { max-width: 180px; text-align: right; }
+}
