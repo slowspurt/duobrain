@@ -1,0 +1,5 @@
+# Independent website and demo repository
+/duobrain-web/
+
+# Internal planning repository (managed separately)
+/.private/

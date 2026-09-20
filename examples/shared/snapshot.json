@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "sample": true,
+  "participants": ["alice", "bob"],
+  "goals": {
+    "project": "두 사람이 사용할 독서 기록 앱 만들기",
+    "mediumTerm": "책 등록과 독서 기록을 연결한 첫 사용 흐름 완성",
+    "currentPhase": "책 등록 API와 입력 화면 연결"
+  },
+  "sessions": [
+    {
+      "id": "10000000-0000-4000-8000-000000000001",
+      "participant": "bob",
+      "title": "책 등록 API 응답 정리",
+      "scope": ["src/api/books"],
+      "goal": "입력 화면에서 사용할 응답 필드 정리",
+      "status": "active",
+      "startedAt": "2026-09-20T00:00:00.000Z",
+      "endedAt": null,
+      "elapsedMs": null,
+      "blockers": ["선택 필드 처리 방식에 대한 의견 필요"],
+      "next": "응답 예시를 공유하고 Alice에게 연결 방식 확인",
+      "history": []
+    }
+  ],
+  "tickets": [
+    {
+      "id": "20000000-0000-4000-8000-000000000001",
+      "kind": "information",
+      "title": "B는 책 등록 실패 응답을 어떻게 처리했어?",
+      "body": "입력 화면을 연결하려고 해. 실패 응답의 형태와 결정 근거를 공유해줘.",
+      "requester": "alice",
+      "assignee": "bob",
+      "status": "open",
+      "goal": "책 등록 API와 입력 화면 연결",
+      "evidence": [],
+      "history": []
+    }
+  ],
+  "sync": {"status": "unknown", "lastSyncedAt": null, "message": "화면 개발용 예시이며 실제 동기화 상태가 아닙니다."},
+  "conflicts": []
+}

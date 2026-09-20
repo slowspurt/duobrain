@@ -1,0 +1,10 @@
+{
+  "name": "duobrain",
+  "version": "0.1.0-alpha.1",
+  "private": true,
+  "description": "Git-backed collaboration records and tickets for two people and their AI agents",
+  "type": "module",
+  "bin": { "duobrain": "bin/duobrain.js" },
+  "scripts": { "test": "node --test", "start": "node bin/duobrain.js" },
+  "engines": { "node": ">=22" }
+}
