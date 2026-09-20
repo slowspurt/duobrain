@@ -85,11 +85,24 @@ function explicitSessionFields(session) {
     ...(Array.isArray(session?.blockers) ? session.blockers : []),
     ...(Array.isArray(ended?.data?.blockers) ? ended.data.blockers : []),
   ].filter((value) => typeof value === 'string' && value.trim());
+  const field = (name, event) => {
+    if (Object.hasOwn(session ?? {}, name)) return typeof session[name] === 'string' ? session[name] : null;
+    return typeof event?.data?.[name] === 'string' ? event.data[name] : null;
+  };
+  const scopeChanges = history
+    .filter((event) => event?.type === 'session.scope_updated')
+    .map((event) => ({
+      at: event.at ?? null,
+      scope: Array.isArray(event?.data?.scope) ? [...event.data.scope] : null,
+      reason: typeof event?.data?.reason === 'string' ? event.data.reason : null,
+      previous: event.previous ?? null,
+    }));
   return {
-    summary: typeof session?.summary === 'string' ? session.summary : typeof ended?.data?.summary === 'string' ? ended.data.summary : null,
-    branch: typeof session?.branch === 'string' ? session.branch : typeof started?.data?.branch === 'string' ? started.data.branch : null,
-    baseCommit: typeof session?.baseCommit === 'string' ? session.baseCommit : typeof started?.data?.baseCommit === 'string' ? started.data.baseCommit : null,
+    summary: field('summary', ended),
+    branch: field('branch', started),
+    baseCommit: field('baseCommit', started),
     blockers: [...new Set(blockers)],
+    scopeChanges,
   };
 }
 
@@ -112,7 +125,14 @@ function sessionIntervals(session, conflicted, from, to) {
   let priorAt = null;
   let priorId = null;
   let recordedEnd = null;
+  let activeScopes = null;
   const active = [];
+  const scopedActive = [];
+  const recordActive = (end) => {
+    const interval = [activeStart, end];
+    active.push(interval);
+    scopedActive.push({ interval, scopes: activeScopes === null ? null : [...activeScopes] });
+  };
   for (const event of history) {
     const at = timestamp(event?.at);
     if (at === null || (priorAt !== null && at < priorAt)) return { status: 'unknown', reason: '시간 순서 오류', wall: null, active: null };
@@ -121,15 +141,23 @@ function sessionIntervals(session, conflicted, from, to) {
       if (at !== startedAt) return { status: 'unknown', reason: '시작 시각 불일치', wall: null, active: null };
       lifecycle = 'active';
       activeStart = at;
+      activeScopes = Array.isArray(event?.data?.scope) ? [...event.data.scope] : null;
     } else if (event?.type === 'session.paused' && lifecycle === 'active') {
-      active.push([activeStart, at]);
+      recordActive(at);
       lifecycle = 'paused';
       activeStart = null;
     } else if (event?.type === 'session.resumed' && lifecycle === 'paused') {
       lifecycle = 'active';
       activeStart = at;
+    } else if (event?.type === 'session.scope_updated' && (lifecycle === 'active' || lifecycle === 'paused')) {
+      if (!Array.isArray(event?.data?.scope)) return { status: 'unknown', reason: '범위 이력 오류', wall: null, active: null, scopedActive: null };
+      if (lifecycle === 'active') {
+        recordActive(at);
+        activeStart = at;
+      }
+      activeScopes = [...event.data.scope];
     } else if (event?.type === 'session.ended' && (lifecycle === 'active' || lifecycle === 'paused')) {
-      if (lifecycle === 'active') active.push([activeStart, at]);
+      if (lifecycle === 'active') recordActive(at);
       lifecycle = 'ended';
       recordedEnd = at;
     } else {
@@ -141,7 +169,10 @@ function sessionIntervals(session, conflicted, from, to) {
   if (lifecycle !== 'ended' || recordedEnd !== endedAt) return { status: 'unknown', reason: '종료 시각 불일치', wall: null, active: null };
   const clippedWall = clipped(wall, from, to);
   const clippedActive = active.map((interval) => clipped(interval, from, to)).filter(Boolean);
-  return { status: 'known', reason: null, wall: clippedWall, active: clippedActive };
+  const clippedScopedActive = scopedActive
+    .map(({ interval, scopes }) => ({ interval: clipped(interval, from, to), scopes }))
+    .filter(({ interval }) => interval !== null);
+  return { status: 'known', reason: null, wall: clippedWall, active: clippedActive, scopedActive: clippedScopedActive };
 }
 
 export function aggregateSessions(sessions, { conflicts = [], from, to } = {}) {
@@ -166,6 +197,7 @@ export function aggregateSessions(sessions, { conflicts = [], from, to } = {}) {
       recordedActiveMs: timing.active ? totalIntervals(timing.active) : null,
       wallInterval: timing.wall,
       activeIntervals: timing.active,
+      scopedActiveIntervals: timing.scopedActive ?? null,
     };
   }).filter((session) => {
     const start = timestamp(session.startedAt);
@@ -186,11 +218,14 @@ export function aggregateSessions(sessions, { conflicts = [], from, to } = {}) {
       if (!participantUnknown.has(session.participant)) participantUnknown.set(session.participant, 0);
       if (session.activeIntervals) participantIntervals.get(session.participant).push(...session.activeIntervals);
       else participantUnknown.set(session.participant, participantUnknown.get(session.participant) + 1);
-      if (session.activeIntervals) {
-        for (const scope of session.scope) {
-          const key = `${session.participant}\u0000${scope}`;
-          if (!scopeIntervals.has(key)) scopeIntervals.set(key, { participant: session.participant, scope, intervals: [] });
-          scopeIntervals.get(key).intervals.push(...session.activeIntervals);
+      if (session.scopedActiveIntervals) {
+        for (const segment of session.scopedActiveIntervals) {
+          const scopes = segment.scopes === null ? [null] : segment.scopes;
+          for (const scope of scopes) {
+            const key = `${session.participant}\u0000${scope ?? ''}`;
+            if (!scopeIntervals.has(key)) scopeIntervals.set(key, { participant: session.participant, scope, intervals: [] });
+            scopeIntervals.get(key).intervals.push(segment.interval);
+          }
         }
       }
     }
@@ -205,7 +240,7 @@ export function aggregateSessions(sessions, { conflicts = [], from, to } = {}) {
   }));
   const scopeTotals = [...scopeIntervals.values()]
     .map(({ participant, scope, intervals }) => ({ participant, scope, recordedActiveMs: totalIntervals(intervals) }))
-    .sort((left, right) => left.participant.localeCompare(right.participant) || left.scope.localeCompare(right.scope));
+    .sort((left, right) => left.participant.localeCompare(right.participant) || (left.scope ?? '').localeCompare(right.scope ?? ''));
 
   return {
     sessions: projected.sort((left, right) => (timestamp(right.startedAt) ?? -Infinity) - (timestamp(left.startedAt) ?? -Infinity)),
@@ -215,4 +250,32 @@ export function aggregateSessions(sessions, { conflicts = [], from, to } = {}) {
     unknownSessionCount: projected.filter((session) => session.timeStatus !== 'known').length,
     blockers,
   };
+}
+
+export function planPresentation(snapshot = {}) {
+  const plan = snapshot?.plan;
+  if (plan && typeof plan === 'object') {
+    return {
+      state: plan.status === 'agreed' ? 'agreed' : 'proposed',
+      label: plan.status === 'agreed' ? '공동 합의' : '제안',
+      plan,
+      conflicts: [],
+    };
+  }
+  const knownIds = new Set([
+    ...(Array.isArray(snapshot?.sessions) ? snapshot.sessions.map((item) => item?.id) : []),
+    ...(Array.isArray(snapshot?.tickets) ? snapshot.tickets.map((item) => item?.id) : []),
+  ]);
+  const planConflicts = (Array.isArray(snapshot?.conflicts) ? snapshot.conflicts : []).filter(
+    (conflict) => conflict?.entityId === 'plan'
+      || Array.isArray(conflict?.candidateEntityIds)
+      || /plan/i.test(conflict?.message ?? '')
+      || (
+        typeof conflict?.entityId === 'string'
+        && !knownIds.has(conflict.entityId)
+        && !/(session|ticket|requester clarification)/i.test(conflict?.message ?? '')
+      ),
+  );
+  if (planConflicts.length) return { state: 'conflict', label: '충돌', plan: null, conflicts: planConflicts };
+  return { state: 'none', label: '계획 없음', plan: null, conflicts: [] };
 }

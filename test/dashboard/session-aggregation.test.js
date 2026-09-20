@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { aggregateSessions } from '../../src/dashboard/public/model.js';
+import { aggregateSessions, planPresentation } from '../../src/dashboard/public/model.js';
 
 const hour = 60 * 60 * 1000;
 const at = (hours) => new Date(Date.parse('2026-09-20T00:00:00.000Z') + (hours * hour)).toISOString();
@@ -19,7 +19,7 @@ function endedSession({
   history,
 } = {}) {
   const defaultHistory = [
-    event(`${id}-start`, 'session.started', start, null, { branch: 'feature/example', baseCommit: 'abc123' }),
+    event(`${id}-start`, 'session.started', start, null, { scope, branch: 'feature/example', baseCommit: 'abc123' }),
     event(`${id}-end`, 'session.ended', end, `${id}-start`, { summary: 'Recorded result', blockers: ['Explicit blocker'] }),
   ];
   return {
@@ -145,4 +145,60 @@ test('does not include sessions outside the selected period', () => {
   ], { from: at(2), to: at(5) });
   assert.deepEqual(result.sessions.map((session) => session.id), ['inside']);
   assert.equal(result.projectWallClockMs, hour);
+});
+
+test('scope updates preserve lifecycle and split active time by recorded scope', () => {
+  const session = endedSession({
+    id: 'scope-change',
+    end: 6,
+    scope: ['src/final'],
+    history: [
+      event('start', 'session.started', 0, null, { scope: ['src/old'], branch: 'feature/old', baseCommit: 'base-old' }),
+      event('pause', 'session.paused', 1, 'start'),
+      event('scope-1', 'session.scope_updated', 2, 'pause', { scope: ['src/new'], reason: 'Move while paused', branch: null }),
+      event('resume', 'session.resumed', 3, 'scope-1'),
+      event('scope-2', 'session.scope_updated', 4, 'resume', { scope: ['src/final'], reason: 'Narrow active work' }),
+      event('end', 'session.ended', 6, 'scope-2', { summary: 'Done' }),
+    ],
+  });
+  session.branch = null;
+  session.baseCommit = null;
+  session.summary = 'Done';
+  const result = aggregateSessions([session]);
+  assert.equal(result.sessions[0].timeStatus, 'known');
+  assert.equal(result.sessions[0].recordedActiveMs, 4 * hour);
+  assert.equal(result.sessions[0].branch, null);
+  assert.equal(result.sessions[0].baseCommit, null);
+  assert.deepEqual(result.sessions[0].scopeChanges.map(({ scope, reason }) => [scope, reason]), [
+    [['src/new'], 'Move while paused'],
+    [['src/final'], 'Narrow active work'],
+  ]);
+  assert.deepEqual(result.scopeTotals.map(({ scope, recordedActiveMs }) => [scope, recordedActiveMs]), [
+    ['src/final', 2 * hour],
+    ['src/new', hour],
+    ['src/old', hour],
+  ]);
+});
+
+test('legacy scope history stays unattributed instead of using the final projected scope', () => {
+  const session = endedSession({
+    id: 'legacy-scope',
+    scope: ['src/final'],
+    history: [
+      event('start', 'session.started', 0, null),
+      event('end', 'session.ended', 2, 'start', { summary: 'Done' }),
+    ],
+  });
+  const result = aggregateSessions([session]);
+  assert.deepEqual(result.scopeTotals, [{ participant: 'alice', scope: null, recordedActiveMs: 2 * hour }]);
+});
+
+test('plan presentation distinguishes proposal, agreement, absence, and plan conflict', () => {
+  const proposed = { id: 'plan-id', status: 'proposed', assignments: [], evidence: [], history: [] };
+  assert.equal(planPresentation({ plan: proposed }).state, 'proposed');
+  assert.equal(planPresentation({ plan: { ...proposed, status: 'agreed' } }).state, 'agreed');
+  assert.equal(planPresentation({ plan: null, conflicts: [] }).state, 'none');
+  assert.equal(planPresentation({ plan: null, sessions: [{ id: 'session-id' }], conflicts: [{ entityId: 'session-id' }] }).state, 'none');
+  assert.equal(planPresentation({ plan: null, sessions: [], conflicts: [{ entityId: 'invalid-session', message: 'Invalid session root' }] }).state, 'none');
+  assert.equal(planPresentation({ plan: null, sessions: [], tickets: [], conflicts: [{ entityId: 'plan-id', message: 'Concurrent plan updates' }] }).state, 'conflict');
 });

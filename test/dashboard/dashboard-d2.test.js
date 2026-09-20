@@ -1,14 +1,26 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
+import { once } from 'node:events';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
 
-import { initSharedStore, startSession } from '../../src/engine/index.js';
 import {
+  endSession,
+  initSharedStore,
+  pauseSession,
+  resumeSession,
+  setPlan,
+  startSession,
+  updateSessionScope,
+} from '../../src/engine/index.js';
+import { startDashboard } from '../../src/dashboard/index.js';
+import {
+  aggregateSessions,
   filterTickets,
+  planPresentation,
   peerConfirmation,
   ticketEvidence,
   wikiValidationPresentation,
@@ -39,7 +51,7 @@ test('ticket model separates inbox, answered, resolved, and closed records', asy
   assert.equal(wikiValidationPresentation({ valid: false, errors: [{ code: 'INVALID' }], warnings: [] }).kind, 'failure');
 });
 
-test('repository source reads a real E1 session snapshot', async (t) => {
+test('live API exposes a real E4 plan and scope-updated session to the dashboard model', async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'duobrain-dashboard-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const remote = path.join(root, 'remote.git');
@@ -57,15 +69,75 @@ test('repository source reads a real E1 session snapshot', async (t) => {
   await execFileAsync('git', ['clone', remote, repository]);
 
   await initSharedStore({ repository, participants: ['alice', 'bob'], participant: 'alice' });
-  await startSession({ repository, title: 'Real engine session', scope: ['src/example'], sync: false });
-  const snapshot = await createSnapshotGetter({ repository })();
+  await setPlan({
+    repository,
+    plan: {
+      goals: { project: 'Ship safely', mediumTerm: 'Verify E4', currentPhase: 'Connect dashboard' },
+      assignments: [
+        { participant: 'alice', scope: ['src/dashboard'], next: 'Verify scope timing' },
+        { participant: 'bob', scope: ['src/engine'], next: 'Review projection' },
+      ],
+      status: 'proposed',
+      evidence: [],
+      body: 'Explicit E4 dashboard integration plan.',
+    },
+  });
+  const started = await startSession({
+    repository,
+    title: 'Real engine session',
+    scope: ['src/old'],
+    goal: 'Old goal',
+    branch: 'feature/old',
+    baseCommit: 'base-old',
+  });
+  const sessionId = started.event.entityId;
+  await pauseSession({ repository, sessionId, body: 'Changing the safe boundary.' });
+  await updateSessionScope({
+    repository,
+    sessionId,
+    scope: ['src/new'],
+    reason: 'Move to the independent boundary.',
+    goal: null,
+    branch: null,
+  });
+  await resumeSession({ repository, sessionId, body: 'Continue with the new boundary.' });
+  await endSession({ repository, sessionId, summary: 'Scope transition verified.', blockers: ['Recorded blocker'], next: 'Review dashboard' });
+
+  const server = startDashboard({ getSnapshot: createSnapshotGetter({ repository }), port: 0 });
+  await once(server, 'listening');
+  t.after(async () => {
+    server.close();
+    await once(server, 'close');
+  });
+  const { port } = server.address();
+  const response = await fetch(`http://127.0.0.1:${port}/api/snapshot`);
+  assert.equal(response.status, 200);
+  const snapshot = await response.json();
 
   assert.equal(snapshot.sample, false);
   assert.deepEqual(snapshot.participants, ['alice', 'bob']);
+  assert.equal(planPresentation(snapshot).state, 'proposed');
+  assert.equal(snapshot.plan.assignments[0].next, 'Verify scope timing');
+  assert.equal(snapshot.plan.history[0].data.body, 'Explicit E4 dashboard integration plan.');
   assert.equal(snapshot.sessions[0].title, 'Real engine session');
-  assert.equal(snapshot.sessions[0].status, 'active');
-  assert.equal(snapshot.sessions[0].endedAt, null);
-  assert.equal(snapshot.sessions[0].elapsedMs, null);
+  assert.equal(snapshot.sessions[0].status, 'ended');
+  assert.deepEqual(snapshot.sessions[0].scope, ['src/new']);
+  assert.equal(snapshot.sessions[0].goal, null);
+  assert.equal(snapshot.sessions[0].branch, null);
+  assert.equal(snapshot.sessions[0].baseCommit, 'base-old');
+  assert.deepEqual(snapshot.sessions[0].history.map((event) => event.type), [
+    'session.started',
+    'session.paused',
+    'session.scope_updated',
+    'session.resumed',
+    'session.ended',
+  ]);
+  const aggregate = aggregateSessions(snapshot.sessions, { conflicts: snapshot.conflicts });
+  assert.equal(aggregate.sessions[0].timeStatus, 'known');
+  assert.equal(aggregate.sessions[0].branch, null);
+  assert.equal(aggregate.sessions[0].baseCommit, 'base-old');
+  assert.deepEqual(aggregate.sessions[0].scopeChanges.map((change) => change.reason), ['Move to the independent boundary.']);
+  assert.deepEqual(aggregate.scopeTotals.map((item) => item.scope).sort(), ['src/new', 'src/old']);
   assert.deepEqual(snapshot.tickets, []);
 });
 
