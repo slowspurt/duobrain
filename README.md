@@ -3,94 +3,106 @@
 </p>
 
 <p align="center">
-  <a href="https://duobrain.pages.dev"><strong>Explore the demo ↗</strong></a> ·
+  <a href="https://duobrain.pages.dev"><strong>Try the demo ↗</strong></a> ·
   <a href="#get-started"><strong>Get started</strong></a> ·
   <a href="docs/agent-guidance/repository-onboarding.md">Full walkthrough</a> ·
   <a href="GETTING_STARTED.md">한국어</a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-local_alpha-d4fa6c?style=flat-square&amp;labelColor=11191e" alt="Status: local alpha" />
-  <img src="https://img.shields.io/badge/Node.js-22%2B-d4fa6c?style=flat-square&amp;labelColor=11191e" alt="Requires Node.js 22 or newer" />
-  <img src="https://img.shields.io/badge/participants-exactly_2-b5a2ff?style=flat-square&amp;labelColor=11191e" alt="Built for exactly two participants" />
+  <img src="https://img.shields.io/badge/status-local_alpha-c8ff3d?style=flat-square&amp;labelColor=10151b" alt="Status: local alpha" />
+  <img src="https://img.shields.io/badge/Node.js-22%2B-c8ff3d?style=flat-square&amp;labelColor=10151b" alt="Requires Node.js 22 or newer" />
+  <img src="https://img.shields.io/badge/participants-exactly_2-b5a2ff?style=flat-square&amp;labelColor=10151b" alt="Built for exactly two participants" />
 </p>
 
-**Less repeating. More building.**
+**Pick up the work, without retelling the story.**
 
-Your partner already figured it out. Their AI helped. The context is somewhere in their work—and you're about to ask them to explain it all again.
+Your partner figured something out with their AI. Now you need the reasoning, the prompt, or just a clear next step.
 
-**duobrain gives two people and their AIs a shared project memory.** Connect your existing Git project, give your AI the collaboration guide, and turn plans, decisions, work logs, prompts and harnesses into knowledge you can both use.
+**duobrain gives two people and their existing AIs a shared project memory, backed by Git.** Connect your project, give each AI the collaboration guide, and keep plans, decisions and handoffs useful beyond a single chat.
 
-From **what happened** to **why it happened** to **what you should do next**.
+## Start with a question
 
-## Ask the questions you already ask
-
-| You ask your AI | duobrain gives it a way to… |
+| Ask your AI… | Pick up… |
 | --- | --- |
-| “How did Bob do this?” | Find the shared work record, prompt and harness references, and compare captured evidence. |
-| “Where is Bob up to? What should I do next?” | Read the latest shared plan, work scope, blockers and handoff. |
-| “The plan changed. What does that mean for me?” | Check the revised goals and each person's assignment. |
-| “We don't have that detail. Can you get it?” | Leave a focused information request for the partner's next AI session. |
-| “I need Bob's opinion on this.” | Create a human-feedback ticket and keep the decision attributable. |
-| “Is this old note still the current guidance?” | Follow its sources, knowledge status and later summaries. |
+| “Where did Bob leave off?” | Shared goals, work scopes, blockers and the next step. |
+| “How did Bob get this working?” | Source notes and captured prompts or harnesses—the setup used to run and evaluate the AI. Compare the evidence you both shared. |
+| “Can you get the missing detail?” | An information request for your partner's next AI session, with a source-backed answer to follow. |
+| “What does Bob think?” | A feedback request that keeps your partner's own judgment attached to the decision. |
 
-When the evidence is there, your AI can use it. When it isn't, it can ask for the missing piece. Your partner's AI checks the request when they next work, shares permitted evidence, and leaves a record your AI can pick up after syncing.
+Your AI checks shared records first. If something is missing, it leaves a request. Your partner's AI can answer when they next use it; after syncing, yours can continue with the new evidence. **The handoff survives the conversation.**
 
-**The handoff survives the conversation.** Open questions stay in the inbox; resolved requests stay searchable in history.
+Keep the bigger picture in the **local dashboard**: goals, assignments, recent work, open requests and resolved history. The **shared wiki** keeps sources traceable, with optional **daily refinement** to revisit importance and recency while preserving original notes.
 
-## A small team deserves a clear picture
+> Want to see the idea first? The [web demo](https://duobrain.pages.dev) is a guided experience with example data. Follow the steps below to connect the local engine to your own project.
 
-- **Shared direction.** Project, medium-term and current-phase goals, with a scope and next step for each person.
-- **Work you can pick up.** Start and finish records, pauses, scope changes, overlap checks and worktree preparation.
-- **A wiki with receipts.** Source notes, decisions, captured methods and links back to the evidence.
-- **Requests that stay visible.** Information requests and direct human feedback, with separate inbox and history views.
-- **A dashboard for both of you.** Shared plans, recent work, recorded time, declared blockers and wiki exploration.
-- **A daily refresh.** Revisit importance and recency while keeping the original sources and unresolved requests.
+## The first-run experience we're building
 
-Built specifically for a pair. Use the AI tools you already work with; duobrain supplies the shared records and collaboration procedures.
+> **Planned onboarding.** The alpha already includes the CLI, local dashboard, AI guides, documentation and examples. The guided flow below—including GitHub account discovery and editable nicknames—is not yet implemented end to end. Use [Get started](#get-started) for the current setup.
+
+After downloading duobrain, tell your existing AI:
+
+**“Set this project up for collaboration with duobrain.”**
+
+From there, your AI guides you through four steps:
+
+1. **Make it yours.** Use your GitHub username when the signed-in account can be confirmed; otherwise, ask for it. Shared records belong to `@username`, while the dashboard shows **Nickname · @username**. A nickname is optional and defaults to your username. Change it later without losing the connection to your history.
+
+2. **Pick up the plan you already have.** Read the project brief and meeting notes first. Ask only for missing context: “How did you two originally divide the work?” Capture the existing roles, current stage and decisions without asking you to repeat what's already recorded.
+
+3. **Review a plan built for collaboration.** Prepare a concrete revision with each person's scope, step-by-step goals and handoff conditions: “I've organized your existing plan for the two of you. Here's what I'd change—please review it.” Keep existing agreements distinct from new AI proposals. One person's approval does not count as both people's agreement.
+
+4. **Start with a clear next step.** After your review, save and sync the permitted plan, record the agreed work session, and connect you to the dashboard: “You're ready. Start with the interface work; the API details you need from your partner are in the request inbox.” Only report shared setup as complete when the records have actually synced.
+
+**Joining second? Pick up where your partner left off.** Your AI reads the shared plan, helps you set your nickname and review your assigned scope, then gets you started. You don't repeat the full planning interview.
+
+Downloading alone won't launch an AI. The intended experience starts with one request to the AI you already use, which then guides you from the missing context to your first task.
 
 ## Get started
 
-You need **Node.js 22+**, **Git**, and two clones of the same product repository with permission to push to its `origin`. Keep the duobrain tool checkout separate from the project you're building. No `npm install` is needed.
+You'll need **Node.js 22+**, **Git**, and one clone per person of the same product repository. Both clones need the same `origin` remote and permission to push collaboration records to it. **No `npm install` needed.**
 
-### 1. Get duobrain
+### 1. Get the tool
 
-Each person runs:
+Each person clones duobrain into a folder **separate from the product project**:
 
 ```sh
 git clone https://github.com/slowspurt/duobrain.git
 cd duobrain
 ```
 
-Want a quick look first?
+Run the commands below from this duobrain checkout. Every `/path/to/...` is a placeholder: replace it with a real local path. `--repository` always points to **the product you're building**, not the duobrain tool folder.
+
+### 2. Connect your project
+
+Choose exactly two participant IDs. Use the **same IDs in the same order** on both machines, with a different local `--participant`.
 
 ```sh
-node src/dashboard/run.js
-```
-
-Open **http://127.0.0.1:4173** for the sample dashboard. The [web demo](https://duobrain.pages.dev) is a separate guided experience with example data; connecting your actual project comes next.
-
-### 2. Connect both project clones
-
-From each person's duobrain checkout, replace the product path below. Use the same participant IDs **in the same order** on both machines.
-
-```sh
-# Alice's machine
+# Alice's machine — use Alice's product path
 node bin/duobrain.js init \
   --repository /path/to/product \
   --participants alice,bob --participant alice
 ```
 
 ```sh
-# Bob's machine
+# Bob's machine — use Bob's product path
 node bin/duobrain.js init \
   --repository /path/to/product \
   --participants alice,bob --participant bob
 ```
 
-### 3. Give your AI the collaboration guide
+After both have initialized, each person checks the connection:
 
-Paste this into your existing AI's project instructions or first task. Replace the paths and your participant ID.
+```sh
+node bin/duobrain.js sync --repository /path/to/product
+node bin/duobrain.js status --repository /path/to/product
+```
+
+Check the JSON results before continuing. If delivery is `pending` (exit code `2`), fix the Git connection or push permissions and retry `sync` from the same product clone. Collaboration records use a separate `duobrain/state` branch; syncing them does not commit or merge your product code.
+
+### 3. Give your AI the guide
+
+Paste this into your existing AI's project instructions or first task. Fill in the paths and your identity; Bob should swap the two names.
 
 ```text
 Use duobrain for this two-person project.
@@ -102,34 +114,55 @@ Partner: bob
 
 Read guides/duobrain-ai.md and docs/agent-guidance/repository-onboarding.md
 from the tool checkout. Preserve the existing project instructions.
+Run the CLI from the tool checkout and always pass the product path
+with --repository.
 
-Sync the permitted collaboration records. Check our plan, current goals,
-work scopes and open requests. If the plan is incomplete, ask for the
-missing context or meeting notes. Keep proposals distinct from agreements.
+Within our existing authorization and sharing permissions, sync the
+collaboration records and check our plan, work scopes and open requests.
+Review existing goals and each person's scope. If context is missing,
+ask for it or for meeting notes. Propose plan changes for our review
+before starting agreed work. Keep proposals distinct from agreements
+and share only permitted material.
 
-Within our existing sharing permissions, record work starts and handoffs,
-answer information requests with evidence, and commit and push the records.
-Tell me what my partner has shared, what is blocked, and what I can do next.
+Record work starts and handoffs, answer information requests with evidence,
+and commit and push collaboration records. Keep human feedback attributable
+to the person who provided it. Tell me what my partner has shared,
+what is blocked, and what I can pick up next.
 ```
 
-Then try: **“Where is Bob up to, and what can I pick up?”**
+Try asking: **“Where did Bob leave off, and what can I pick up?”** On a fresh setup, share a permitted kickoff note first so your AI has something to work from. The [starting-plan recipe](docs/agent-guidance/repository-onboarding.md#2-share-and-record-the-starting-plan) walks through it.
 
-Your AI runs these procedures when you use it. Cloning duobrain does not start a background AI or install a tool-specific integration.
+Your existing AI follows this guide when you use it. Setup does not install an AI integration or start a background AI service.
 
-### 4. Open your project dashboard
+### 4. See your shared context
 
 ```sh
-node bin/duobrain.js sync --repository /path/to/product
 node src/dashboard/run.js --repository /path/to/product
 ```
 
-Open **http://127.0.0.1:4173**. Browse goals and assignments, recent work, blockers, the request inbox, resolved history and shared wiki. The dashboard reads your local records; sync to bring in your partner's latest updates.
+Open [localhost:4173](http://127.0.0.1:4173). The dashboard reads your local collaboration records; run `sync` to bring in your partner's updates. A recorded session shows what was shared, not whether your partner is online.
 
-## A few commands you'll actually use
+<details>
+<summary><strong>Just browsing? Run the sample dashboard locally</strong></summary>
 
-Run these from the duobrain checkout, with your product path. Your AI can run the same commands under your existing authorization.
+From the duobrain checkout, run without a product path:
 
-**Start with context.**
+```sh
+node src/dashboard/run.js
+```
+
+Open [localhost:4173](http://127.0.0.1:4173) to explore sample records. Stop it with Ctrl+C before starting the dashboard for your real project on the same port.
+
+</details>
+
+## Everyday commands
+
+Your AI can run these under your existing authorization. Run them from the duobrain checkout with your real product path. Commands return JSON; writes save collaboration records locally and attempt to push. For `pending` / exit code `2`, retry `sync` rather than creating the record again.
+
+<details>
+<summary><strong>Start work → leave a handoff</strong></summary>
+
+Sync and read the shared context before choosing a scope:
 
 ```sh
 node bin/duobrain.js sync --repository /path/to/product
@@ -138,7 +171,7 @@ node bin/duobrain.js start --repository /path/to/product \
   --title "Build the export screen" --scope src/export --actor ai
 ```
 
-Keep the returned `event.entityId` as your session ID. When you finish:
+Save the returned `event.entityId`. Replace `YOUR_SESSION_ID` with it when you finish:
 
 ```sh
 node bin/duobrain.js end --repository /path/to/product \
@@ -146,7 +179,12 @@ node bin/duobrain.js end --repository /path/to/product \
   --next "Confirm the empty-state behavior" --actor ai
 ```
 
-**Ask for a missing piece.**
+For parallel work, [check your partner's recorded scope](docs/agent-guidance/repository-onboarding.md#7-check-bs-recorded-work-before-parallel-work) before starting.
+
+</details>
+
+<details>
+<summary><strong>Ask for evidence or a person's feedback</strong></summary>
 
 ```sh
 node bin/duobrain.js ticket-create --repository /path/to/product \
@@ -154,9 +192,14 @@ node bin/duobrain.js ticket-create --repository /path/to/product \
   --body "Share the captured prompt, harness version and source note." --actor ai
 ```
 
-Use `--kind feedback` for a question that needs your partner's judgment. An answer stays open until the requester confirms it resolves the request. The [full walkthrough](docs/agent-guidance/repository-onboarding.md#4-work-one-complete-information-request) covers acknowledgment, source notes, responses and resolution.
+Use `--kind feedback` when the answer needs your partner's judgment. Feedback responses must come from the person or transcribe their explicitly confirmed words. An answer stays open until the requester resolves it.
 
-**Find and compare the evidence.**
+Follow the [complete request walkthrough](docs/agent-guidance/repository-onboarding.md#4-work-one-complete-information-request) for acknowledgment, evidence, response and resolution.
+
+</details>
+
+<details>
+<summary><strong>Find and compare shared methods</strong></summary>
 
 ```sh
 node bin/duobrain.js wiki-search --repository /path/to/product \
@@ -165,41 +208,34 @@ node bin/duobrain.js method-compare --repository /path/to/product \
   --file /path/to/comparison.json
 ```
 
-Prepare `comparison.json` using the [comparison example](docs/engine/README.md#shared-wiki-discovery-and-method-comparison). It identifies both people's notes and any captured prompt/harness text. Add `--request-missing` to create or reuse an information ticket for missing evidence within your agreed sharing scope.
+Create `comparison.json` from the [comparison example](docs/engine/README.md#shared-wiki-discovery-and-method-comparison), using your actual shared notes and captured prompt/harness text. Missing evidence stays unknown. Add `--request-missing --actor ai` to create or reuse an information request within your agreed sharing scope.
 
-**Keep the wiki useful.**
+</details>
+
+<details>
+<summary><strong>Set up daily wiki refinement</strong></summary>
+
+The first participant in the ordered pair configures the [schedule and policy](docs/engine/README.md#daily-wiki-refinement-execution), then uses an external scheduler to call:
 
 ```sh
 node bin/duobrain.js wiki-refine --repository /path/to/product \
   --file /path/to/daily-refinement.json --if-due
 ```
 
-The first participant sets up the [daily schedule and policy](docs/engine/README.md#daily-wiki-refinement-execution). An external scheduler calls this command; duobrain checks the configured time and avoids a second successful scheduled run on the same local date. [Cron setup →](docs/engine/README.md#external-cron-setup)
+Create the JSON file before running the command. duobrain checks the configured time and avoids a second successful scheduled run on the same local date. It does not install the scheduler. Follow the [cron recipe](docs/engine/README.md#external-cron-setup) to finish setup.
 
-Commands return JSON. Collaboration writes create their own records and attempt to push them; they do not commit your product code. **`pending` / exit code `2` means delivery needs a retry:** run `sync` from the same product clone. Use `node bin/duobrain.js --help` for all commands.
+</details>
 
-## Go a little further
+For all commands, run `node bin/duobrain.js --help` or read the [CLI reference](docs/engine/README.md). The [AI collaboration guide](guides/duobrain-ai.md) and [dashboard guide](docs/dashboard/README.md) are currently in Korean.
 
-| I want to… | Read this |
-| --- | --- |
-| Set up a real two-person workflow | [Repository onboarding](docs/agent-guidance/repository-onboarding.md) |
-| Give my AI the day-to-day procedures | [AI collaboration guide · 한국어](guides/duobrain-ai.md) |
-| Configure commands, comparison or scheduling | [CLI usage](docs/engine/README.md) |
-| Use the dashboard | [Dashboard guide · 한국어](docs/dashboard/README.md) |
-| See what has been verified | [Implementation status](docs/implementation-status.md) |
+## Help shape the alpha
 
-## Try it, test it, tell us where it breaks
+The local alpha has passed **77 tests**, including two-clone collaboration flows, plus a clean local-clone check. Acceptance testing with two people on separate machines and their existing AI tools is **still pending**. See [verification details](docs/implementation-status.md).
 
-This is a **local alpha**. The engine, wiki and dashboard currently pass **77 tests**, including two-clone collaboration flows. Testing with two people on separate machines and their existing AI tools is the next acceptance step.
+Try a small shared project and [tell us what happened](https://github.com/slowspurt/duobrain/issues): what you asked, what you expected and where the handoff fell short. Include a shareable example.
 
-```sh
-node --test test/engine/*.test.js test/wiki/*.test.js test/dashboard/*.test.js
-```
-
-Have a collaboration question duobrain should help answer? [Open an issue](https://github.com/slowspurt/duobrain/issues) with the situation, what you expected and what happened. Use a small, shareable example.
-
-License selection is pending; this repository is not yet a licensed open-source release.
+**License:** selection is pending. This is not yet a licensed open-source release.
 
 ---
 
-<p align="center"><strong>Build together. Keep the context together.</strong></p>
+<p align="center"><strong>Less repeating. More building. Together.</strong></p>
