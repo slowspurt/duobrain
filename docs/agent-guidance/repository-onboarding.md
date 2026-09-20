@@ -41,9 +41,9 @@ The note's `status` and sources state what is actually known. Its push result is
 
 Append this short instruction to each person's existing AI guidance file or first task prompt. It is an addition, not a replacement for repository-specific rules:
 
-> For two-person collaboration, read `guides/duobrain-ai.md` from the duobrain checkout and follow its evidence and ticket rules. Preserve the existing project instructions. Use the duobrain CLI only when I ask, pass the product repository with `--repository`, and report local commit, sync, peer acknowledgment, and resolution as separate facts.
+> For two-person collaboration, read `guides/duobrain-ai.md` from the duobrain checkout and follow its evidence and ticket rules. Preserve the existing project instructions. Follow the user's existing authorization for routine session briefings, synchronization, and information tickets; ask only for missing task facts, new human decisions, or expanded sharing scope. When using the CLI, pass the product repository with `--repository` and report local commit, sync, peer acknowledgment, and resolution as separate facts.
 
-The AI should then read the plan note, run `status` when asked to inspect collaboration state, and give the second participant a brief that distinguishes shared facts, open tickets, its safe scope, and unknowns. An old unclosed session is not proof that the other person is present.
+The AI should then read the plan note, perform an authorized routine briefing or synchronization when it is needed for that work, and give the second participant a brief that distinguishes shared facts, open tickets, its safe scope, and unknowns. An old unclosed session is not proof that the other person is present. This is a manual instruction for the existing AI, not an installed hook or background execution service.
 
 ## 4. Work one complete information request
 
@@ -82,7 +82,7 @@ Every mutating command records locally and then attempts sync. A `pending` resul
 
 ## 5. Keep direct human feedback attributable
 
-For approval, prioritization, taste, or review, create `ticket-create --kind feedback` with the decision question, options, impact, constraints, and relevant sources. An AI may prepare that context but must never write `--actor human` on the person's behalf. Only the actual assignee person may run the feedback response with `--actor human`:
+For approval, prioritization, taste, or review, create `ticket-create --kind feedback` with the decision question, options, impact, constraints, and relevant sources. An AI may prepare that context but must not invent, revise, or attribute its own recommendation as a person's feedback. `--actor human` is valid only when the response body was actually written or explicitly confirmed by the assignee person. That person may enter the command directly, or ask the AI to transcribe the exact confirmed response; the latter records a human's provided content, not an AI's judgment.
 
 ```sh
 node /Users/bob/tools/duobrain/bin/duobrain.js ticket-respond \
@@ -90,7 +90,7 @@ node /Users/bob/tools/duobrain/bin/duobrain.js ticket-respond \
   --body "I approve option A for the stated scope." --actor human
 ```
 
-Alice may resolve only after checking that human response. Resolution records that the request was sufficiently answered; it does not claim that every resulting product change is complete. `ticket-close --reason cancelled|duplicate` is not a resolution.
+The AI should preserve the person's wording and identify any separate AI summary or recommendation as AI-authored. Alice may resolve only after checking that human response. Resolution records that the request was sufficiently answered; it does not claim that every resulting product change is complete. `ticket-close --reason cancelled|duplicate` is not a resolution.
 
 ## 6. Start, hand off, and end without inventing blockers
 
