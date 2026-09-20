@@ -70,6 +70,29 @@ require the assignee's `--actor human`. Only the requester can resolve, close, o
 reopen. Reopening clears the projected evidence and requires a new response before
 another resolution. `closed` remains distinct from `resolved`.
 
+### Shared plan and goals
+
+Prepare the complete replacement projection as JSON, then explicitly record it:
+
+```sh
+duobrain plan-set --file ./plan.json --actor human
+```
+
+`setPlan({repository, plan, actorKind})` creates the only plan root or appends a
+`plan.updated` revision. Each JSON document must include all three nullable goals,
+exactly one assignment for each configured participant, complete scopes and next
+values, `body`, and optional `status`/`evidence`. Status defaults to `proposed`.
+Snapshot `plan` contains the current projection and full history; top-level `goals`
+mirrors it. With no plan or an ambiguous/invalid history, `plan` is `null` and goals
+remain unknown.
+
+An `agreed` plan requires existing valid structured wiki evidence whose cooperative
+metadata attributes a human record to each participant. This validates provenance
+shape only: the engine does not inspect prose to infer consent, certify identity, or
+claim that the evidence semantically covers the exact revised plan. The person or AI
+recording the revision must verify that coverage beforehand. Independent roots and
+same-predecessor updates remain visible conflicts and block later plan mutation.
+
 ### Overlap assessment and product worktrees
 
 ```sh

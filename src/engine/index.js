@@ -967,6 +967,231 @@ export async function getWikiNote({ repository = '.', path: wikiPath } = {}) {
   }
 }
 
+function validateNullablePlanString(value, label) {
+  if (value === null) return null;
+  assertString(value, label);
+  return value;
+}
+
+async function validatePlanData(layout, config, input) {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+    throw new EngineError('Plan input must be a JSON object.', { code: 'INVALID_PLAN' });
+  }
+  const goals = input.goals;
+  if (goals === null || typeof goals !== 'object' || Array.isArray(goals)) {
+    throw new EngineError('Plan goals must be an object.', { code: 'INVALID_PLAN' });
+  }
+  const normalizedGoals = {
+    project: validateNullablePlanString(goals.project, 'goals.project'),
+    mediumTerm: validateNullablePlanString(goals.mediumTerm, 'goals.mediumTerm'),
+    currentPhase: validateNullablePlanString(goals.currentPhase, 'goals.currentPhase'),
+  };
+  if (!Array.isArray(input.assignments) || input.assignments.length !== 2) {
+    throw new EngineError('Plan assignments must contain exactly two entries.', {
+      code: 'INVALID_PLAN',
+    });
+  }
+  const assignments = input.assignments.map((assignment, index) => {
+    if (assignment === null || typeof assignment !== 'object' || Array.isArray(assignment)) {
+      throw new EngineError(`assignments[${index}] must be an object.`, { code: 'INVALID_PLAN' });
+    }
+    if (!config.participants.includes(assignment.participant)) {
+      throw new EngineError(`assignments[${index}].participant is not configured.`, {
+        code: 'INVALID_PLAN',
+      });
+    }
+    if (
+      !Array.isArray(assignment.scope)
+      || assignment.scope.some((item) => typeof item !== 'string' || item.trim() === '')
+    ) {
+      throw new EngineError(`assignments[${index}].scope must contain non-empty strings.`, {
+        code: 'INVALID_PLAN',
+      });
+    }
+    return {
+      participant: assignment.participant,
+      scope: [...assignment.scope],
+      next: validateNullablePlanString(assignment.next, `assignments[${index}].next`),
+    };
+  });
+  if (new Set(assignments.map((assignment) => assignment.participant)).size !== 2) {
+    throw new EngineError('Plan assignments must contain each configured participant once.', {
+      code: 'INVALID_PLAN',
+    });
+  }
+  const status = input.status ?? 'proposed';
+  if (!['proposed', 'agreed'].includes(status)) {
+    throw new EngineError('Plan status must be proposed or agreed.', { code: 'INVALID_PLAN' });
+  }
+  const evidence = input.evidence ?? [];
+  if (!Array.isArray(evidence)) {
+    throw new EngineError('Plan evidence must be an array of wiki paths.', {
+      code: 'INVALID_PLAN',
+    });
+  }
+  await validateEvidence(layout, evidence);
+  if (status === 'agreed') {
+    const humanParticipants = new Set();
+    for (const evidencePath of evidence) {
+      const parsed = parseWikiNote(await readFile(path.join(layout.statePath, evidencePath), 'utf8'));
+      if (
+        parsed.format === 'structured'
+        && parsed.metadata.author.kind === 'human'
+        && config.participants.includes(parsed.metadata.author.participant)
+      ) {
+        humanParticipants.add(parsed.metadata.author.participant);
+      }
+    }
+    if (config.participants.some((participant) => !humanParticipants.has(participant))) {
+      throw new EngineError(
+        'Agreed plans require structured human evidence attributed to both participants.',
+        { code: 'PLAN_AGREEMENT_EVIDENCE_REQUIRED' },
+      );
+    }
+  }
+  assertString(input.body, 'body');
+  return {
+    goals: normalizedGoals,
+    assignments,
+    status,
+    evidence: [...evidence],
+    body: input.body,
+  };
+}
+
+async function validatePlanEvent(layout, config, event, expectedType) {
+  if (
+    event.schemaVersion !== 1
+    || !UUID_PATTERN.test(event.id ?? '')
+    || !UUID_PATTERN.test(event.entityId ?? '')
+    || validDateMs(event.at) === null
+    || event.type !== expectedType
+    || !config.participants.includes(event.actor?.participant)
+    || !['human', 'ai'].includes(event.actor?.kind)
+  ) {
+    throw new EngineError(`Invalid ${expectedType} event metadata.`, {
+      code: 'INVALID_PLAN_EVENT',
+    });
+  }
+  return validatePlanData(layout, config, event.data);
+}
+
+async function buildPlanState(layout, config, events) {
+  const planEvents = events.filter((event) => event.type?.startsWith('plan.'));
+  const roots = planEvents.filter((event) => event.type === 'plan.created' && event.previous === null);
+  if (planEvents.length === 0) return { plan: null, conflicts: [], root: null, lastEvent: null };
+  if (roots.length !== 1) {
+    return {
+      plan: null,
+      root: null,
+      lastEvent: null,
+      conflicts: [{
+        entityId: 'plan',
+        previous: null,
+        eventIds: roots.map((event) => event.id).sort(),
+        candidateEntityIds: roots.map((event) => event.entityId).sort(),
+        message: roots.length === 0
+          ? 'Plan updates exist without one valid root.'
+          : 'Multiple independent plan roots conflict.',
+      }],
+    };
+  }
+  const root = roots[0];
+  const entityEvents = planEvents.filter((event) => event.entityId === root.entityId);
+  const collected = collectEntityHistory(root, entityEvents);
+  const unreachable = planEvents.filter(
+    (event) => event.entityId !== root.entityId
+      || (event.id !== root.id && !collected.history.some((item) => item.id === event.id)),
+  );
+  if (collected.conflicts.length > 0 || unreachable.length > 0) {
+    return {
+      plan: null,
+      root,
+      lastEvent: null,
+      conflicts: [
+        ...collected.conflicts,
+        ...(unreachable.length > 0 ? [{
+          entityId: root.entityId,
+          previous: null,
+          eventIds: unreachable.map((event) => event.id).sort(),
+          message: 'Plan history contains an unreachable or unrelated event.',
+        }] : []),
+      ],
+    };
+  }
+  const chain = [root, ...collected.history];
+  try {
+    let projected = await validatePlanEvent(layout, config, root, 'plan.created');
+    for (const event of collected.history) {
+      projected = await validatePlanEvent(layout, config, event, 'plan.updated');
+    }
+    return {
+      root,
+      lastEvent: chain.at(-1),
+      conflicts: [],
+      plan: {
+        id: root.entityId,
+        ...projected,
+        history: chain.map((event) => ({
+          id: event.id,
+          type: event.type,
+          at: event.at,
+          actor: event.actor,
+          previous: event.previous,
+          data: event.data,
+        })),
+      },
+    };
+  } catch (error) {
+    return {
+      plan: null,
+      root,
+      lastEvent: null,
+      conflicts: [{
+        entityId: root.entityId,
+        previous: null,
+        eventIds: chain.map((event) => event.id),
+        message: `Invalid plan history: ${error.message}`,
+      }],
+    };
+  }
+}
+
+export async function setPlan({
+  repository = '.',
+  plan,
+  actorKind = 'human',
+  sync = true,
+} = {}) {
+  assertActorKind(actorKind);
+  const layout = await loadLayout(repository);
+  const identity = await loadIdentity(layout);
+  const config = await loadConfig(layout);
+  if (!config.participants.includes(identity.participant)) {
+    throw new EngineError('Local identity is not in shared configuration.', {
+      code: 'IDENTITY_MISMATCH',
+    });
+  }
+  const data = await validatePlanData(layout, config, plan);
+  const events = await readEvents(layout);
+  const current = await buildPlanState(layout, config, events);
+  if (current.conflicts.length > 0) {
+    throw new EngineError('The shared plan history is conflicted or invalid.', {
+      code: 'PLAN_CONFLICT',
+    });
+  }
+  const entityId = current.plan?.id ?? randomUUID();
+  const event = createEvent({
+    identity,
+    entityId,
+    type: current.plan ? 'plan.updated' : 'plan.created',
+    previous: current.lastEvent?.id ?? null,
+    data,
+    actorKind,
+  });
+  return recordEvent(layout, event, sync);
+}
+
 export async function startSession({
   repository = '.',
   title,
@@ -1173,6 +1398,8 @@ async function buildSnapshot(layout) {
   const sessions = [];
   const tickets = [];
   const conflicts = [];
+  const planState = await buildPlanState(layout, config, events);
+  conflicts.push(...planState.conflicts);
 
   for (const root of sessionRoots) {
     const entityEvents = events.filter((event) => event.entityId === root.entityId);
@@ -1243,7 +1470,8 @@ async function buildSnapshot(layout) {
     schemaVersion: 1,
     sample: false,
     participants: config.participants,
-    goals: { ...NULL_GOALS },
+    goals: planState.plan ? { ...planState.plan.goals } : { ...NULL_GOALS },
+    plan: planState.plan,
     sessions,
     tickets,
     sync: {
