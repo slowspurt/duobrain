@@ -53,6 +53,29 @@
         <div id="participants" class="people-grid"></div>
       </section>
 
+      <section aria-labelledby="time-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">RECORDED TIME</p><h2 id="time-title">최근 작업 시간과 병목</h2></div>
+          <label class="period-control">표시 기간
+            <select id="session-period">
+              <option value="7d">최근 7일</option>
+              <option value="30d" selected>최근 30일</option>
+              <option value="all">전체 기록</option>
+            </select>
+          </label>
+        </div>
+        <p class="time-disclaimer">기록 시각의 구간 집계이며 실제 근무·집중 시간이나 생산성 평가가 아닙니다.</p>
+        <div id="time-overview" class="time-overview"></div>
+        <div class="analysis-grid">
+          <div><h3>사람별 기록상 활동 구간</h3><div id="participant-time" class="metric-list"></div></div>
+          <div><h3>사람·범위별 기록 구간</h3><div id="scope-time" class="metric-list"></div><p class="caption">한 세션의 여러 범위와 겹친 세션은 서로 합산하지 않습니다.</p></div>
+        </div>
+        <div class="analysis-grid records-grid">
+          <div><h3>최근 세션 기록</h3><div id="session-records" class="session-list"></div></div>
+          <div><h3>명시적으로 기록된 병목</h3><div id="blocker-list" class="blocker-list"></div></div>
+        </div>
+      </section>
+
       <section aria-labelledby="tickets-title">
         <div class="section-heading">
           <div><p class="eyebrow">ACTIVE REQUESTS</p><h2 id="tickets-title">진행 중 요청</h2></div>
