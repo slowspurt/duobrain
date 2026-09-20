@@ -1,5 +1,5 @@
 import { startDashboard } from './index.js';
-import { createSnapshotGetter, sampleSnapshotUrl } from './source.js';
+import { createSnapshotGetter, createWikiNoteGetter, sampleSnapshotUrl } from './source.js';
 
 function usage() {
   return `Usage: node src/dashboard/run.js [--repository <path>] [--port <number>]
@@ -42,7 +42,11 @@ if (options?.help) {
     console.error('Port must be an integer between 0 and 65535.');
     process.exitCode = 1;
   } else {
-    const server = startDashboard({ port, getSnapshot: createSnapshotGetter(options) });
+    const server = startDashboard({
+      port,
+      getSnapshot: createSnapshotGetter(options),
+      getWikiNote: createWikiNoteGetter(options),
+    });
 
     server.once('listening', () => {
       const address = server.address();

@@ -44,6 +44,9 @@ Legacy text has unknown knowledge status and cannot establish or promote an `agr
 - `validateWikiNote(markdownOrParsed, {path?})` returns `{valid, errors, warnings, note}`. If `path` is provided, it checks the `wiki/<uuid>.md` shape and UUID match.
 - `renderWikiNote(metadata, body)` renders a structured candidate and performs no I/O.
 - `prepareTicketSupplement({ticket, context, notes})` validates and prepares an immutable source note, refreshed summary, and protocol-shaped ticket response candidate. It never writes files or invokes Git.
+- `searchWikiNotes({notes, query, filters})` searches only the supplied note text and metadata.
+- `traceWikiLineage({notes, roots})` returns reachable note nodes, typed reference edges, and explicit missing/cycle issues.
+- `compareKnowledgeMethods({notes, left, right, artifacts})` compares two recorded work contexts and may return an uncreated information-ticket candidate.
 
 See `examples/wiki/` for original observations, explicit agreement evidence, all four knowledge statuses, an agreed summary, and a legacy supplement.
 
@@ -64,3 +67,15 @@ Every candidate carries a deterministic `ticketSupplement` fingerprint. Reproces
 The planner traverses only the candidate-reachable note graph. Missing wiki sources, other missing relations, self-reference, and longer cycles are reported separately. It never edits input notes, and `preservedStatuses` reports the statuses (or `unknown` for legacy text) of existing summarized records. A refreshed proposed summary therefore does not rewrite or promote a prior personal or agreed record.
 
 An `agreed` candidate still requires `decisionEvidence`; W2 also requires each cited agreement note to be structured and human-authored. A feedback ticket authored by AI returns `HUMAN_FEEDBACK_REQUIRED`, no response candidate, and `satisfiesTicket: false`. This matches protocol v1: AI can prepare context, but it cannot impersonate the requested human judgment.
+
+## Method search and comparison
+
+W3 accepts in-memory data supplied by its caller. It does not read arbitrary files, contact the web, create tickets, or mutate Git. A comparison side is `{label, participant, workRef?, noteRefs}`. Every note entry is `{path, markdown}`. Captured materials use `{ref, kind, version, text?}`, where kind is `prompt`, `harness`, or `source`; omitting `text` means the artifact content was not captured.
+
+Search results keep `proposed`, `personal`, `agreed`, and `superseded` distinct. They also expose `supersededBy` for explicit `supersedes` targets and prior summary revisions, so an older personal record or summary is not silently mixed into current evidence. Lineage follows wiki sources, summary inputs, prior summaries, decision evidence, and supersession edges while reporting missing references and cycles.
+
+Method comparison reports authors, observation times, active and superseded note paths, decision scope, prompt/harness refs, versions, and lineage. Decision scope is explicit: `individual` for `personal`, `joint` for `agreed`, and never promoted merely because another record is newer. Multiple active prompt or harness refs are a conflict, not an arbitrary choice.
+
+A ref proves only identity. Version is known only when the matching artifact provides it. Text differences are available only when both sides explicitly provide captured `text`; the result is a bounded line-change summary rather than a semantic or causal claim. Even with captured differences, `causalConclusion.supported` remains false because prompt or harness differences alone do not prove a performance cause.
+
+When participant B's note, current reference choice, version, or captured text is missing, the result contains a narrow `information` `ticketCandidate` naming only those fields. It is a proposal with no UUID and is not written or resolved by the wiki module. After a later explicit sync supplies new evidence, the caller can invoke the same pure comparison again; W3 does not wait in the background or resume an AI automatically. See `examples/wiki/method-comparison.json` for a reference-only example that intentionally produces version/text gaps.

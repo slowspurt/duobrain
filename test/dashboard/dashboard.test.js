@@ -6,8 +6,8 @@ import { startDashboard } from '../../src/dashboard/index.js';
 
 const fixtureUrl = new URL('../../examples/shared/snapshot.json', import.meta.url);
 
-async function launch(getSnapshot) {
-  const server = startDashboard({ getSnapshot, port: 0 });
+async function launch(getSnapshot, getWikiNote) {
+  const server = startDashboard({ getSnapshot, getWikiNote, port: 0 });
   await once(server, 'listening');
   const { address, port } = server.address();
   assert.equal(address, '127.0.0.1');
@@ -77,4 +77,50 @@ test('supports empty snapshots and validates startup arguments', async (t) => {
   t.after(() => close(server));
   assert.deepEqual(await (await fetch(`${origin}/api/snapshot`)).json(), {});
   assert.equal((await fetch(`${origin}/missing`)).status, 404);
+});
+
+test('wiki API restricts paths, maps reader errors, and hides internal details', async (t) => {
+  const paths = {
+    valid: 'wiki/30000000-0000-4000-8000-000000000001.md',
+    missing: 'wiki/30000000-0000-4000-8000-000000000002.md',
+    large: 'wiki/30000000-0000-4000-8000-000000000003.md',
+    unsafe: 'wiki/30000000-0000-4000-8000-000000000004.md',
+  };
+  const error = (code) => Object.assign(new Error('/private/internal/store/path'), { code });
+  const reader = async ({ path }) => {
+    if (path === paths.missing) throw error('WIKI_NOTE_NOT_FOUND');
+    if (path === paths.large) throw error('WIKI_NOTE_TOO_LARGE');
+    if (path === paths.unsafe) throw error('UNSAFE_WIKI_NOTE');
+    return {
+      path,
+      markdown: '# Note\n\n<script>alert(1)</script>',
+      validation: { valid: true, errors: [], warnings: [] },
+    };
+  };
+  const { server, origin } = await launch(() => ({}), reader);
+  t.after(() => close(server));
+
+  let response = await fetch(`${origin}/api/wiki?path=${encodeURIComponent(paths.valid)}`);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    path: paths.valid,
+    markdown: '# Note\n\n<script>alert(1)</script>',
+    validation: { valid: true, errors: [], warnings: [] },
+  });
+
+  response = await fetch(`${origin}/api/wiki?path=${encodeURIComponent('../secret')}`);
+  assert.equal(response.status, 400);
+  response = await fetch(`${origin}/api/wiki?path=${paths.valid}&path=${paths.missing}`);
+  assert.equal(response.status, 400);
+
+  for (const [path, expectedStatus] of [[paths.missing, 404], [paths.large, 413], [paths.unsafe, 503]]) {
+    response = await fetch(`${origin}/api/wiki?path=${encodeURIComponent(path)}`);
+    assert.equal(response.status, expectedStatus);
+    assert.doesNotMatch(JSON.stringify(await response.json()), /private|internal|store/);
+  }
+
+  const noReader = await launch(() => ({}));
+  t.after(() => close(noReader.server));
+  response = await fetch(`${noReader.origin}/api/wiki?path=${encodeURIComponent(paths.valid)}`);
+  assert.equal(response.status, 503);
 });
