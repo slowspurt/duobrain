@@ -1423,27 +1423,6 @@ export async function runDailyWikiRefinement({
         && run.date === clock.date
         && run.timezone === normalized.timezone);
 
-    if (ifDue && successfulToday) {
-      return {
-        outcome: 'skipped',
-        reason: 'already-successful',
-        summaryPath: successfulToday.summaryPath,
-        sourceRevision,
-        schedule: scheduleState,
-        sync: initialSync,
-      };
-    }
-    if (!ifDue && priorRun?.sourceRevision === sourceRevision) {
-      return {
-        outcome: 'skipped',
-        reason: 'no-new-input',
-        summaryPath: priorRun.summaryPath,
-        sourceRevision,
-        schedule: scheduleState,
-        sync: initialSync,
-      };
-    }
-
     const candidateId = randomUUID();
     const plan = planDailyWikiRefinement({
       notes,
@@ -1464,10 +1443,46 @@ export async function runDailyWikiRefinement({
         },
       },
     });
-    if (!plan.ready || plan.candidate === null) {
+    if (!plan.ready) {
       return {
         outcome: plan.outcome,
-        reason: plan.outcome === 'duplicate' ? 'already-planned' : 'planner-insufficient',
+        reason: 'planner-insufficient',
+        plan,
+        sourceRevision,
+        schedule: scheduleState,
+        sync: initialSync,
+      };
+    }
+    if (ifDue && successfulToday) {
+      return {
+        outcome: 'skipped',
+        reason: 'already-successful',
+        summaryPath: successfulToday.summaryPath,
+        sourceRevision,
+        schedule: scheduleState,
+        plan,
+        sync: initialSync,
+      };
+    }
+    const sameManualInput = priorRun !== null
+      && priorRun.sourceRevision === sourceRevision
+      && priorRun.policyFingerprint === plan.run.policyFingerprint
+      && priorRun.timezone === plan.run.timezone;
+    if (!ifDue && sameManualInput) {
+      return {
+        outcome: 'skipped',
+        reason: 'no-new-input',
+        summaryPath: priorRun.summaryPath,
+        sourceRevision,
+        schedule: scheduleState,
+        plan,
+        sync: initialSync,
+      };
+    }
+    if (plan.candidate === null) {
+      return {
+        outcome: plan.outcome,
+        reason: 'already-planned',
         plan,
         sourceRevision,
         schedule: scheduleState,

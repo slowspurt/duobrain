@@ -292,12 +292,16 @@ An external scheduler may invoke `--if-due` repeatedly. Only
 is reconstructed from the synchronized store on every invocation, so process restarts
 do not lose the once-per-date guard.
 
-Without `--if-due`, the command is a manual refresh. It runs only when the stable
-source revision has changed since the newest real, validated refinement summary. The
-revision is a SHA-256 hash of non-refinement wiki note contents and immutable ticket
-events; refinement summaries are excluded, preventing a run from scheduling itself.
-The planner's `priorRun` is populated only from an existing validated summary, never
-from a local completion marker or caller-supplied path.
+Without `--if-due`, the command is a manual refresh. It skips only when the stable
+source revision, planner-normalized policy fingerprint, and timezone all match the
+newest real, validated refinement summary. A policy-only or timezone-only change can
+therefore create a new plan even when the evidence data is unchanged. Policy
+validation always runs before this decision, so a malformed policy cannot hide behind
+an earlier successful summary. The revision is a SHA-256 hash of non-refinement wiki
+note contents and immutable ticket events; refinement summaries are excluded,
+preventing a run from scheduling itself. The planner's `priorRun` is populated only
+from an existing validated summary, never from a local completion marker or
+caller-supplied path.
 
 Execution holds a dedicated daily-run lock and the common shared-store lock. It syncs
 before planning, commits the immutable candidate, and reports `completed` only after a
@@ -305,6 +309,32 @@ successful push. A rejected push returns `pending`; the next invocation retries 
 same local summary during its initial sync, then recognizes it as the successful run.
 For deterministic testing or a one-off replay, `--now <ISO timestamp>` overrides the
 clock used for due-date evaluation; normal scheduled use omits it.
+
+### External cron setup
+
+The safe cron pattern is to invoke `--if-due` repeatedly and let the engine apply the
+IANA timezone, configured wall-clock time, owner, run lock, and once-per-date checks.
+First resolve the absolute Node executable and create a private log directory:
+
+```sh
+command -v node
+mkdir -p /absolute/path/to/private-duobrain-logs
+chmod 700 /absolute/path/to/private-duobrain-logs
+```
+
+Then add the following line with `crontab -e`, replacing every placeholder with an
+absolute path. This example checks every 15 minutes, so a sleeping machine runs at the
+next cron interval after it wakes:
+
+```cron
+*/15 * * * * /absolute/path/to/node /absolute/path/to/product/bin/duobrain.js wiki-refine --file /absolute/path/to/daily-refinement.json --if-due --repository /absolute/path/to/product >>/absolute/path/to/private-duobrain-logs/wiki-refine.log 2>&1
+```
+
+Do not add `--now` to the scheduled command. A pending push exits with status 2 and a
+later invocation retries it. Repeated or overlapping invocations are safe because the
+runner uses its dedicated refinement lock and derives successful completion from the
+synchronized summary. Duobrain only provides this recipe; it does not modify the
+user's crontab or install an OS job.
 
 ## Synchronization guarantees
 
