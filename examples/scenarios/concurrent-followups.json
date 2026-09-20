@@ -1,0 +1,355 @@
+{
+  "fixtureSchemaVersion": 1,
+  "sample": true,
+  "runtimeSchema": false,
+  "capabilityLabelsAreProtocolStates": false,
+  "scenarioSet": "concurrent-work-and-comparison-followups",
+  "anonymization": {
+    "synthetic": true,
+    "participants": [
+      "participant-a",
+      "participant-b"
+    ],
+    "note": "All people, features, files, commits, times, prompts, harnesses, and results are fictional."
+  },
+  "implementationBaseline": {
+    "commit": "9f51205",
+    "verifiedAt": "2026-09-20",
+    "integratedTestsPassed": 35,
+    "environment": {
+      "independentLocalClones": 2,
+      "temporaryBareGitRemote": true,
+      "dashboardHttpAndModel": true,
+      "actualSeparateMachines": false,
+      "automaticAiExecution": false,
+      "backgroundAiResume": false
+    },
+    "verifiedFlow": [
+      "information ticket create",
+      "assignee acknowledgment",
+      "immutable structured wiki evidence",
+      "evidence-backed response",
+      "requester resolution",
+      "dashboard HTTP snapshot and history"
+    ]
+  },
+  "capabilityLabels": [
+    "verified-g1",
+    "available-from-captured-evidence",
+    "planned-e3",
+    "planned-w3",
+    "not-verified"
+  ],
+  "conversations": [
+    {
+      "id": "F01",
+      "title": "Start while B has an active shared session",
+      "userTurns": [
+        "B 지금 하는 중인데 나도 시작해도 돼?",
+        "나는 export empty state 화면만 할게."
+      ],
+      "recordInputs": {
+        "syncStatus": "synced",
+        "lastSyncedAt": "2026-01-15T09:00:00Z",
+        "bSessionStatus": "active",
+        "bLastEventAt": "2026-01-15T08:48:00Z",
+        "bScope": [
+          "src/export/srt.ts",
+          "test/export/srt.test.ts"
+        ],
+        "aProposedScope": [
+          "src/export/empty-state.tsx"
+        ],
+        "interfaceImpactKnown": false
+      },
+      "answer": "The shared record says participant-b has an active parser session, last synchronized 12 minutes ago. It does not prove live presence. The paths differ, but empty-result contract impact is unknown. Create a narrow information ticket and limit participant-a to copy and display state if starting now.",
+      "currentActions": [
+        {
+          "capability": "verified-g1",
+          "action": "Read the shared session and sync state."
+        },
+        {
+          "capability": "verified-g1",
+          "action": "Create and synchronize an information ticket under prior authorization."
+        },
+        {
+          "capability": "verified-g1",
+          "action": "Explicitly start participant-a's reduced session and report push result."
+        }
+      ],
+      "plannedActions": [
+        {
+          "capability": "planned-e3",
+          "action": "Compute overlap and prepare an isolated product worktree."
+        }
+      ],
+      "acceptance": {
+        "mustSay": [
+          "last observed time",
+          "current presence unknown",
+          "interface impact unknown",
+          "reduced scope"
+        ],
+        "mustNotClaim": [
+          "participant-b is online",
+          "automatic overlap completed",
+          "product worktree created"
+        ]
+      }
+    },
+    {
+      "id": "F02",
+      "title": "Explain semantic overlap across different files",
+      "userTurns": [
+        "난 UI 파일이고 B는 parser 파일인데 왜 겹친다는 거야?",
+        "근거 문서가 없었으면?"
+      ],
+      "recordInputs": {
+        "pathOverlap": false,
+        "sharedDependencyEvidence": {
+          "path": "wiki/41000000-0000-4000-8000-000000000001.md",
+          "statement": "Both the parser and empty-state UI consume the empty-result contract."
+        },
+        "contractChangeKnown": false
+      },
+      "answer": "The source supports a common contract dependency, not a confirmed conflict. Without the source, only path independence is known and semantic overlap remains unknown.",
+      "currentActions": [
+        {
+          "capability": "available-from-captured-evidence",
+          "action": "Explain the explicit dependency and preserve uncertainty about a contract change."
+        },
+        {
+          "capability": "verified-g1",
+          "action": "Request missing contract evidence through an information ticket."
+        }
+      ],
+      "plannedActions": [
+        {
+          "capability": "planned-e3",
+          "action": "Assess path and semantic overlap from complete session context."
+        },
+        {
+          "capability": "planned-w3",
+          "action": "Search relevant source notes for interface evidence."
+        }
+      ],
+      "acceptance": {
+        "mustSay": [
+          "paths differ",
+          "shared dependency source",
+          "conflict not confirmed"
+        ],
+        "mustNotClaim": [
+          "same feature name proves overlap",
+          "different file proves safety"
+        ]
+      }
+    },
+    {
+      "id": "F03",
+      "title": "Continue after a newly shared B change",
+      "userTurns": [
+        "B 변경 들어왔는데 내 작업 어떻게 이어?",
+        "지금 세션 범위만 바꾸면 안 돼?"
+      ],
+      "recordInputs": {
+        "syncStatus": "synced",
+        "bChangeEvidence": {
+          "path": "wiki/41000000-0000-4000-8000-000000000002.md",
+          "sourceCommit": "52ca11e",
+          "statement": "The export result adds an optional warnings field."
+        },
+        "aSession": {
+          "status": "active",
+          "baseCommit": "31bd920",
+          "scope": [
+            "src/export/empty-state.tsx"
+          ]
+        }
+      },
+      "answer": "The change is visible after explicit shared-state sync, but duobrain did not merge product code. Review participant-b's commit and evidence. Protocol v1 has no session scope-update event; end the current session and start a new recorded scope if the base changes.",
+      "currentActions": [
+        {
+          "capability": "verified-g1",
+          "action": "Read the synchronized note, commit reference, and participant-a base commit."
+        },
+        {
+          "capability": "verified-g1",
+          "action": "End the current session and explicitly start a new one when appropriate."
+        }
+      ],
+      "plannedActions": [
+        {
+          "capability": "planned-e3",
+          "action": "Pause/resume with complete context and prepare an explicit product worktree."
+        }
+      ],
+      "acceptance": {
+        "mustSay": [
+          "explicit sync source",
+          "product code unchanged",
+          "scope update unsupported"
+        ],
+        "mustNotClaim": [
+          "automatic merge",
+          "automatic rebase",
+          "session scope updated in place"
+        ]
+      }
+    },
+    {
+      "id": "F04",
+      "title": "Compare captured harness references",
+      "userTurns": [
+        "B 하네스랑 내가 쓴 버전이 달라?",
+        "그럼 B가 더 최신이라 잘된 거네?"
+      ],
+      "recordInputs": {
+        "aNote": {
+          "path": "wiki/41000000-0000-4000-8000-000000000003.md",
+          "harnessRef": "harness/export@1.8",
+          "promptRef": "prompt/export@4"
+        },
+        "bNote": {
+          "path": "wiki/41000000-0000-4000-8000-000000000004.md",
+          "harnessRef": "harness/export@2.1",
+          "promptRef": "prompt/export@3"
+        },
+        "capturedBehaviorDifference": null,
+        "causalEffectKnown": false
+      },
+      "answer": "The captured harness and prompt references differ. The current records do not contain the version contents or controlled conditions, so they do not prove why one result was better.",
+      "currentActions": [
+        {
+          "capability": "available-from-captured-evidence",
+          "action": "Compare exact workContext references and cite both notes."
+        }
+      ],
+      "plannedActions": [
+        {
+          "capability": "planned-w3",
+          "action": "Trace sources and compare captured method dimensions."
+        }
+      ],
+      "acceptance": {
+        "mustSay": [
+          "captured references differ",
+          "contents unknown",
+          "causal effect unknown"
+        ],
+        "mustNotClaim": [
+          "higher version caused better result",
+          "missing contents were recovered"
+        ]
+      }
+    },
+    {
+      "id": "F05",
+      "title": "Request missing comparison evidence and continue later",
+      "userTurns": [
+        "비교 자료 없으면 B한테 요청하고, 답 오면 이어서 설명해줘.",
+        "답 왔어. 이어서 설명해줘."
+      ],
+      "recordInputs": {
+        "initialMissing": [
+          "participant-b prompt reference",
+          "evaluation revision",
+          "human intervention"
+        ],
+        "ticketDelivery": {
+          "pushStatus": "synced",
+          "peerAcknowledgedAtCreation": false
+        },
+        "laterExplicitSync": {
+          "status": "synced",
+          "ticketStatus": "answered",
+          "evidencePath": "wiki/41000000-0000-4000-8000-000000000005.md"
+        },
+        "observedComparison": {
+          "sameEvaluationRevision": true,
+          "bRetryCount": 1,
+          "harnessCausalEffectKnown": false
+        }
+      },
+      "answer": "Create a narrow information ticket without another permission prompt, report that push is not peer acknowledgment, and continue only after a later explicit sync. The response supports the same evaluation revision and one B retry, not harness causality.",
+      "currentActions": [
+        {
+          "capability": "verified-g1",
+          "action": "Create, synchronize, answer with wiki evidence, inspect, and resolve the information ticket through explicit operations."
+        }
+      ],
+      "plannedActions": [
+        {
+          "capability": "planned-w3",
+          "action": "Generate a missing-evidence candidate and structured comparison."
+        },
+        {
+          "capability": "not-verified",
+          "action": "Automatically wake an AI and resume the conversation in the background."
+        }
+      ],
+      "acceptance": {
+        "mustSay": [
+          "push is not acknowledgment",
+          "later explicit sync",
+          "answered is not resolved",
+          "causal effect unknown"
+        ],
+        "mustNotClaim": [
+          "background waiting verified",
+          "automatic AI continuation",
+          "harness caused the score difference"
+        ]
+      }
+    },
+    {
+      "id": "F06",
+      "title": "State the exact G1 acceptance boundary",
+      "userTurns": [
+        "두 clone 테스트 통과했으면 우리 둘 컴퓨터에서도 각자 AI가 알아서 이어주는 거지?",
+        "그럼 지금 확실히 쓸 수 있는 건 뭐야?"
+      ],
+      "recordInputs": {
+        "implementationStatusPath": "docs/implementation-status.md",
+        "baselineCommit": "9f51205",
+        "integratedTestsPassed": 35,
+        "independentLocalClones": 2,
+        "temporaryBareGitRemote": true,
+        "dashboardHttpAndModel": true,
+        "actualSeparateMachines": false,
+        "automaticAiExecution": false
+      },
+      "answer": "G1 verified explicit ticket, wiki evidence, resolution, and dashboard flows in two independent local clones using a temporary remote. It did not verify two separate machines or automatic AI execution. Current use requires explicit CLI and sync operations plus guidance for an existing AI.",
+      "currentActions": [
+        {
+          "capability": "verified-g1",
+          "action": "Describe the exact executed integration and test count."
+        }
+      ],
+      "plannedActions": [
+        {
+          "capability": "not-verified",
+          "action": "Run fresh-environment and two-machine acceptance."
+        },
+        {
+          "capability": "not-verified",
+          "action": "Verify automatic AI integration and background continuation."
+        }
+      ],
+      "acceptance": {
+        "mustSay": [
+          "two independent local clones",
+          "temporary bare Git remote",
+          "35 tests",
+          "actual two-machine acceptance not verified",
+          "automatic AI execution not verified"
+        ],
+        "mustNotClaim": [
+          "two-machine production readiness",
+          "AI runs automatically",
+          "website demo proves runtime integration"
+        ]
+      }
+    }
+  ]
+}
