@@ -16,8 +16,10 @@ import {
   getSnapshot,
   getWikiNote,
   initSharedStore,
+  pauseSession,
   reopenTicket,
   requestTicketInformation,
+  resumeSession,
   resolveTicket,
   respondToTicket,
   startSession,
@@ -125,6 +127,77 @@ test('two clones exchange session start/end without touching product changes', a
   assert.equal(snapshot.sessions[0].status, 'ended');
   assert.equal(snapshot.sessions[0].next, 'Hand off the response shape');
   assert.ok(snapshot.sessions[0].elapsedMs >= 0);
+});
+
+test('session pause/resume enforces owner transitions and preserves handoff context', async (t) => {
+  const setup = await fixture();
+  t.after(() => rm(setup.root, { recursive: true, force: true }));
+  await initSharedStore({
+    repository: setup.alice,
+    participants: ['alice', 'bob'],
+    participant: 'alice',
+  });
+  await initSharedStore({
+    repository: setup.bob,
+    participants: ['alice', 'bob'],
+    participant: 'bob',
+  });
+  const started = await startSession({
+    repository: setup.alice,
+    title: 'Parser handoff',
+    scope: ['src/parser'],
+    branch: 'codex/parser-handoff',
+    baseCommit: 'abc1234',
+  });
+  const sessionId = started.event.entityId;
+  await pauseSession({
+    repository: setup.alice,
+    sessionId,
+    body: 'Waiting for the failing fixture.',
+    actorKind: 'ai',
+  });
+  let session = (await getSnapshot({ repository: setup.alice })).sessions[0];
+  assert.equal(session.status, 'paused');
+  assert.equal(session.elapsedMs, null);
+  assert.equal(session.summary, null);
+  assert.equal(session.branch, 'codex/parser-handoff');
+  assert.equal(session.baseCommit, 'abc1234');
+  await assert.rejects(
+    pauseSession({ repository: setup.alice, sessionId }),
+    (error) => error.code === 'INVALID_TRANSITION',
+  );
+
+  await syncStore({ repository: setup.bob });
+  await assert.rejects(
+    resumeSession({ repository: setup.bob, sessionId }),
+    (error) => error.code === 'NOT_SESSION_OWNER',
+  );
+  await resumeSession({
+    repository: setup.alice,
+    sessionId,
+    body: 'Fixture received; continuing.',
+    actorKind: 'ai',
+  });
+  await endSession({
+    repository: setup.alice,
+    sessionId,
+    summary: 'Parser now handles the failing fixture.',
+    blockers: ['Upstream release is still pending.'],
+    next: 'Share the verified fixture revision.',
+  });
+  session = (await getSnapshot({ repository: setup.alice })).sessions[0];
+  assert.equal(session.status, 'ended');
+  assert.equal(session.summary, 'Parser now handles the failing fixture.');
+  assert.equal(session.history.length, 4);
+  assert.equal(session.history[0].previous, null);
+  assert.equal(session.history[1].previous, session.history[0].id);
+  assert.equal(session.history[1].data.body, 'Waiting for the failing fixture.');
+  assert.equal(session.history[2].previous, session.history[1].id);
+  assert.equal(session.history[3].data.summary, session.summary);
+  await assert.rejects(
+    resumeSession({ repository: setup.alice, sessionId }),
+    (error) => error.code === 'INVALID_TRANSITION',
+  );
 });
 
 test('failed sharing remains pending and retry preserves concurrent distinct events', async (t) => {
@@ -567,12 +640,15 @@ test('configuration requires exactly two distinct participants', async (t) => {
 test('CLI exposes top-level and command help', async () => {
   const top = await execFileAsync(process.execPath, [cliPath, '--help'], { encoding: 'utf8' });
   const command = await execFileAsync(process.execPath, [cliPath, 'start', '--help'], { encoding: 'utf8' });
+  const pause = await execFileAsync(process.execPath, [cliPath, 'pause', '--help'], { encoding: 'utf8' });
   const ticket = await execFileAsync(process.execPath, [cliPath, 'ticket-respond', '--help'], { encoding: 'utf8' });
   const note = await execFileAsync(process.execPath, [cliPath, 'note-add', '--help'], { encoding: 'utf8' });
   assert.match(top.stdout, /duobrain init/);
   assert.match(top.stdout, /duobrain status/);
   assert.match(top.stdout, /ticket-needs-information/);
   assert.match(command.stdout, /--title/);
+  assert.match(pause.stdout, /--session/);
+  assert.match(pause.stdout, /--body/);
   assert.match(ticket.stdout, /--evidence/);
   assert.match(note.stdout, /--file/);
 });

@@ -10,8 +10,10 @@ import {
   endSession,
   getEngineStatus,
   initSharedStore,
+  pauseSession,
   reopenTicket,
   requestTicketInformation,
+  resumeSession,
   resolveTicket,
   respondToTicket,
   startSession,
@@ -24,6 +26,8 @@ Usage:
   duobrain init --participants <id,id> --participant <id> [--repository <path>]
   duobrain start --title <text> [--scope <path,path>] [--goal <text>]
                   [--branch <name>] [--base-commit <sha>] [--actor <human|ai>]
+  duobrain pause --session <uuid> [--body <text>] [--actor <human|ai>]
+  duobrain resume --session <uuid> [--body <text>] [--actor <human|ai>]
   duobrain end --session <uuid> --summary <text> [--blockers <text,text>]
                 [--next <text>] [--actor <human|ai>]
   duobrain ticket-create --kind <information|feedback> --title <text> --body <text>
@@ -46,6 +50,8 @@ and can be retried with duobrain sync. Output is JSON.`;
 const COMMAND_HELP = {
   init: 'Usage: duobrain init --participants <id,id> --participant <id> [--repository <path>]',
   start: 'Usage: duobrain start --title <text> [--scope <path,path>] [--goal <text>] [--branch <name>] [--base-commit <sha>] [--actor <human|ai>] [--repository <path>]',
+  pause: 'Usage: duobrain pause --session <uuid> [--body <text>] [--actor <human|ai>] [--repository <path>]',
+  resume: 'Usage: duobrain resume --session <uuid> [--body <text>] [--actor <human|ai>] [--repository <path>]',
   end: 'Usage: duobrain end --session <uuid> --summary <text> [--blockers <text,text>] [--next <text>] [--actor <human|ai>] [--repository <path>]',
   'ticket-create': 'Usage: duobrain ticket-create --kind <information|feedback> --title <text> --body <text> [--assignee <id>] [--goal <text>] [--actor <human|ai>] [--repository <path>]',
   'ticket-ack': 'Usage: duobrain ticket-ack --ticket <uuid> [--actor <human|ai>] [--repository <path>]',
@@ -119,6 +125,20 @@ async function main() {
       goal: options.goal,
       branch: options.branch,
       baseCommit: options['base-commit'],
+      actorKind: options.actor ?? 'human',
+    });
+  } else if (command === 'pause') {
+    result = await pauseSession({
+      repository,
+      sessionId: requireOption(options, 'session'),
+      body: options.body,
+      actorKind: options.actor ?? 'human',
+    });
+  } else if (command === 'resume') {
+    result = await resumeSession({
+      repository,
+      sessionId: requireOption(options, 'session'),
+      body: options.body,
       actorKind: options.actor ?? 'human',
     });
   } else if (command === 'end') {
