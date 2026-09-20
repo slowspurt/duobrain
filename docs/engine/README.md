@@ -71,9 +71,14 @@ another resolution. `closed` remains distinct from `resolved`.
 The dashboard can pass its product repository path explicitly:
 
 ```js
-import { getSnapshot } from './src/engine/index.js';
+import { getSnapshot, getWikiNote } from './src/engine/index.js';
 
 const snapshot = await getSnapshot({ repository: '/path/to/product/clone' });
+
+const note = await getWikiNote({
+  repository: '/path/to/product/clone',
+  path: 'wiki/00000000-0000-4000-8000-000000000001.md',
+});
 ```
 
 `repository` defaults to the current directory and may be any path inside the product
@@ -88,6 +93,20 @@ The E2 write API exports `createTicket`, `acknowledgeTicket`,
 `repository` to the current directory. Event operations return `{event, commit, sync}`;
 `addWikiNote` returns its shared `path`, commit when newly created, validation result,
 and sync result.
+
+`getWikiNote({repository, path})` is the read-only evidence-detail contract for the
+dashboard. It accepts only `wiki/<uuid>.md` and returns
+`{path, markdown, validation}`. `validation` is the result of `validateWikiNote`; an
+invalid note remains inspectable as evidence with its validation errors. Missing notes
+use error code `WIKI_NOTE_NOT_FOUND`, while malformed input paths use
+`INVALID_WIKI_PATH`.
+
+The reader opens only a single-link regular file inside the isolated shared checkout. It
+rejects a symlinked wiki directory or note, multi-link files, a resolved path outside
+the store, special files, and notes larger than 1 MiB. It never reads product-worktree
+paths and does not convert or execute Markdown/HTML. Consumers must display `markdown`
+as escaped text or pass it to
+their own explicitly safe renderer; the API does not return trusted HTML.
 
 ## Synchronization guarantees
 

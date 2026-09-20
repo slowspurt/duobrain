@@ -20,7 +20,7 @@
 2. 기획 또는 단계별 계획이 없으면 현재 상황, 최근 회의록, 이미 만든 결과물 중 사용자가 제공할 수 있는 자료를 요청한다. 없는 내용을 채워 넣지 않는다.
 3. 자료가 있으면 프로젝트 목표, 가까운 목표, 현재 단계와 각 참여자의 첫 작업을 제안한다. 각 항목에 근거와 미정 여부를 함께 쓴다.
 4. 자료가 아직 없으면 최소 시작 질문만 남긴다: 무엇을 만들거나 결정할지, 현재까지의 상태, 두 사람이 나눌 범위, 다음으로 확인할 자료. 답을 기다리는 동안에는 가정에 기반한 작업 시작 기록이나 티켓 해결을 만들지 않는다.
-5. AI가 기록을 생성·동기화하는 기능은 구현 대기다. 사용 가능한 실제 명령과 결과를 확인하기 전에는 기록이 저장·커밋·push되었다고 말하지 않는다.
+5. 세션·티켓·위키 기록을 남겨야 하면 지원 명령을 사용하되, 명령 JSON 결과로 확인된 로컬 기록과 동기화 결과만 보고한다.
 
 ## 두 번째 참여자 온보딩
 
@@ -43,7 +43,15 @@
 - 열린 정보 티켓과 직접 피드백 티켓, 각각의 상태와 완료 조건
 - 마지막 동기화 결과 및 아직 공유되지 않았을 수 있는 항목
 
-세션 시작은 프로토콜의 `session.started` 이벤트로 기록할 수 있도록 설계되어 있으나, 현재 CLI 명령은 구현 대기다. 실제 도구가 생길 때까지는 사용자의 도구 결과 없이 시작 이벤트가 생성·공유되었다고 주장하지 않는다.
+세션 기록은 현재 CLI가 지원한다. 먼저 초기화와 상태를 확인하고, 범위가 확정되면 다음처럼 시작한다.
+
+```sh
+node bin/duobrain.js init --participants alice,bob --participant alice
+node bin/duobrain.js status
+node bin/duobrain.js start --title "입력 화면 연결" --scope src/ui/book-form --goal "첫 사용 흐름" --branch feature/book-form --base-commit <sha> --actor human
+```
+
+`init`은 각 독립 클론에서 같은 순서의 참여자 ID와 해당 로컬 참여자 ID로 한 번 설정한다. `start`는 `session.started`를 격리된 공유 저장소에 로컬 커밋한 뒤 동기화를 시도한다. JSON의 `sync.status`가 `pending` 또는 `error`이면 상대가 볼 수 있다고 말하지 말고 `node bin/duobrain.js sync`로 재시도한다. 명령을 실행하지 않았거나 결과를 확인하지 않았다면 시작 이벤트가 생성·공유되었다고 주장하지 않는다.
 
 브리핑 뒤에는 사용자가 바로 할 수 있는 한 단계와, 상대 또는 사람 판단이 필요한 한 단계를 구분한다. 상대 변경을 받아야 하는 경우에도 검토하지 않은 변경을 자동 병합하라고 지시하지 않는다.
 
@@ -62,7 +70,41 @@
 | 티켓 응답 | 정보 티켓은 근거가, 피드백 티켓은 사람 응답이 있어야 한다. |
 | `ticket.resolved` | 요청자가 유효한 응답을 확인해 완료를 확정한 사실이다. 단순 읽음·답변 전송과 다르다. |
 
-현재 티켓·위키·세션 CLI는 구현 대기다. AI는 필요한 이벤트와 입력을 제안할 수 있으나, 존재하지 않는 명령이나 자동 동기화를 사용할 수 있는 것처럼 표현하지 않는다.
+티켓과 위키도 현재 CLI가 지원한다. 아래 정보 요청 흐름처럼 `ticket-create` 결과의 `event.entityId`를 티켓 ID로 보관한다. 모든 변경 명령은 격리된 공유 저장소에 로컬 기록을 커밋한 뒤 동기화를 시도하므로, 각 JSON의 `sync` 결과를 확인한다.
+
+```sh
+# Alice: 사전 허용된 정보 요청
+node bin/duobrain.js ticket-create --kind information --title "API 인계 사실" \
+  --body "기준 commit, 통과한 검증, 남은 실패, 다음 단계를 공유해 줘." --actor ai
+
+# Bob: ticket ID를 받은 뒤
+node bin/duobrain.js sync
+node bin/duobrain.js ticket-ack --ticket <ticket-uuid> --actor ai
+node bin/duobrain.js note-add --file ./handoff-note.md
+node bin/duobrain.js ticket-respond --ticket <ticket-uuid> --actor ai \
+  --body "확인한 사실과 남은 항목" --evidence wiki/<note-uuid>.md
+
+# Alice: 근거를 읽고 충분할 때만 해결
+node bin/duobrain.js sync
+node bin/duobrain.js ticket-resolve --ticket <ticket-uuid> \
+  --body "응답과 근거가 요청의 완료 조건을 충족한다." --actor ai
+```
+
+`note-add`는 위키 파서가 검증한 Markdown 파일을 불변의 `wiki/<uuid>.md`로 저장한다. legacy note에는 `--id <uuid>`가 필요하다. 정보 응답에는 하나 이상의 이미 존재하는 위키 경로가 필요하다. 자료가 없으면 `ticket-needs-information --ticket <ticket-uuid> --body "필요한 자료" --actor ai`를 사용한다. 잘못된 답변·새 근거가 필요하면 requester만 `ticket-reopen`할 수 있으며, `ticket-close`의 `cancelled`·`duplicate`는 해결이 아니다. requester clarification, 티켓 relation, 진행 중 scope 변경은 v1 명령이나 이벤트가 아니므로 기록했다고 주장하지 않는다.
+
+## 일상 질문을 행동으로 연결하기
+
+15개 질문의 근거·행동·제약은 [대화-기능 맵](../docs/scenarios/conversation-to-capability-map.md)에, 대표 흐름은 [익명화된 fixture](../examples/scenarios/everyday-flow.json)에 있다. fixture는 런타임 입력이 아니라 행동을 검토하기 위한 예시다. 아래 순서를 질문의 성격에 맞게 적용한다.
+
+| 질문군 | 먼저 조회할 것 | AI의 다음 행동 |
+| --- | --- | --- |
+| B의 방식·현황·인계(Q01, Q02, Q06, Q14) | 세션 이력, 종료 요약·막힘·다음 단계, 마지막 공유 revision, 동기화 상태 | 마지막 **확인된** 사실과 종료 미확인을 분리한다. 사전 허용된 범위의 부족한 사실은 좁은 `ticket-create --kind information`으로 요청하고, 응답 뒤 원 질문과 위키 근거를 다시 대조한다. |
+| 내 다음 일·겹침·시작(Q03–Q05) | 현재 목표, 양쪽 scope, 의존성, 열린 요청, 기준 revision | 지금 가능한 최소 독립 범위를 제안하고, 의미상 인터페이스 겹침도 밝힌다. 범위가 확정되면 지원되는 `start`로 기록하고 동기화 결과를 분리해 보고한다. |
+| 합의·이유·영향(Q08–Q10) | 출처 노트의 작성자·결정 상태·범위·revision, 내 작업 범위 | 기록된 상태와 근거만 비교하고 가설을 별도 표기한다. 사전 허용된 정보 보충은 새 승인 없이 좁게 요청하되, 새로운 판단이나 공유 범위 확대는 사용자에게 묻는다. |
+| 요청함·답변 검증·전달 실패(Q11–Q13, Q15) | 티켓 상태·원 질문·근거 경로·충돌·마지막 sync | 열린/응답됨/해결됨/닫힘과 전송 실패를 구분한다. v1에는 requester 설명 추가·티켓 관계·scope 변경 이벤트가 없으므로 이를 기록했다고 주장하지 않는다. |
+| 직접 의견 요청(Q07) | 질문, 선택지·영향, 기존 합의, 관련 근거 | 사람의 피드백이 필요한 이유와 간단한 브리프를 준비하고 `ticket-create --kind feedback`을 사용한다. AI 추천은 사람 응답이 아니며, assignee의 `ticket-respond --actor human`만 유효한 피드백 응답이다. |
+
+정보 요청이 사전에 허용된 경우에는 질문이 이미 특정한 주장·근거 범위를 다시 사용자에게 확인하지 않고 `ticket-create`로 처리한다. 다만 대상 작업·자료가 모호하거나, 새 판단·승인·우선순위 또는 허용 범위를 넘는 공유가 필요하면 실행 전에 사용자에게 묻는다.
 
 ## 인계와 하루 마무리
 
@@ -75,7 +117,15 @@
 - 열린 티켓, 모르는 점, 막힘
 - 상대가 이어서 할 정확한 다음 한 단계와 완료 조건
 
-하루 마무리에서는 완료·미완료 범위, 알려진 막힘, 다음 행동을 요약한다. 세션 종료는 프로토콜의 `session.ended`가 요구하는 `summary`와 선택적 `blockers`, `next`를 사용한다. 그러나 종료 시각이나 실제 집중 시간을 추정하지 않으며, 미종료 세션을 끝난 것으로 바꾸지 않는다. CLI 지원은 구현 대기이므로 실제 결과 없이 종료 기록의 생성·커밋·push를 주장하지 않는다.
+하루 마무리에서는 완료·미완료 범위, 알려진 막힘, 다음 행동을 요약한다. 세션 종료는 프로토콜의 `session.ended`가 요구하는 `summary`와 선택적 `blockers`, `next`를 사용한다. 현재 CLI에서는 실제 세션 UUID로 다음처럼 종료한다.
+
+```sh
+node bin/duobrain.js end --session <uuid> --summary "입력 화면 연결과 검증 완료" --blockers "없음" --next "B의 API 응답 확인" --actor human
+node bin/duobrain.js status
+node bin/duobrain.js sync
+```
+
+`end`도 먼저 로컬 커밋하고 동기화를 시도한다. 종료 시각이나 실제 집중 시간을 추정하지 않으며, 미종료 세션을 끝난 것으로 바꾸지 않는다. `sync` 결과가 실패·대기면 종료 기록은 원격에 공유 완료가 아니다.
 
 ## 사용자가 AI에 건넬 수 있는 시작 요청
 
