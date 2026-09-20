@@ -66,7 +66,7 @@ node /Users/bob/tools/duobrain/bin/duobrain.js status \
   --repository /Users/bob/work/reading-app
 ```
 
-Bob's briefing reads `status` output's `plan`, top-level `goals`, and both assignments rather than rebuilding the plan. After both people have checked the scope and goals, write a complete replacement JSON with `status: "agreed"` and the valid structured decision-evidence notes for **both** people, then run `plan-set` again. The engine validates the human-attributed evidence shape, not whether its prose actually means both people consented to this exact revision. Verify that semantic coverage before recording it; a passing command is not an authentication or consent proof.
+Bob's briefing reads `status` output's `snapshot.plan`, `snapshot.goals`, and `snapshot.plan.assignments` rather than rebuilding the plan. A null plan can also mean conflict: inspect `snapshot.conflicts` before proposing a first plan. After both people have checked the scope and goals, write a complete replacement JSON with `status: "agreed"` and the valid structured decision-evidence notes for **both** people, then run `plan-set` again. The engine validates the human-attributed evidence shape, not whether its prose actually means both people consented to this exact revision. Verify that semantic coverage before recording it; a passing command is not an authentication or consent proof.
 
 ## 3. Add the guidance to each existing AI manually
 

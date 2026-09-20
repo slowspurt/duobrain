@@ -48,12 +48,29 @@ main { display: grid; gap: 52px; padding: 24px 0 70px; }
 .time-state.known { color: #17563d; background: #d9eee4; }
 .time-state.unknown, .time-state.partial { color: #725b19; background: #f5eabd; }
 .session-metadata { margin-top: 11px; color: #6c746f; font-family: ui-monospace, monospace; font-size: .72rem; line-height: 1.5; overflow-wrap: anywhere; }
+.scope-change { margin-top: 9px; padding: 8px 9px; color: #435149; background: #e8eee9; border-radius: 6px; font-size: .76rem; line-height: 1.45; }
 .blocker-row { padding: 13px 14px; background: #f5e7df; border-left: 3px solid #b56e47; border-radius: 7px; }
 .blocker-row > p:last-child { margin-top: 7px; line-height: 1.5; }
 .goal-grid { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid #c8c4b8; border-radius: 18px; overflow: hidden; background: #fbfaf6; }
 .goal-card { min-height: 160px; padding: 24px; }
 .goal-card + .goal-card { border-left: 1px solid #d8d4c9; }
 .goal-copy { margin-top: 20px; font-family: Georgia, "Noto Serif KR", serif; font-size: 1.25rem; line-height: 1.45; }
+.plan-status { padding: 6px 10px; border-radius: 999px; font-size: .75rem; font-weight: 800; }
+.plan-status.agreed { color: #17563d; background: #d9eee4; }
+.plan-status.proposed { color: #725b19; background: #f5eabd; }
+.plan-status.none { color: #5d6260; background: #e3e3df; }
+.plan-status.conflict { color: #7d2631; background: #f7d7da; }
+.plan-detail { margin-top: 12px; padding: 18px 20px; background: #e8ebe6; border-radius: 12px; }
+.plan-body { line-height: 1.55; }
+.assignment-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 16px; }
+.assignment-card { padding: 14px; background: #fbfaf6; border-radius: 9px; }
+.assignment-card .chips { margin-top: 10px; }
+.assignment-next { margin-top: 12px; color: #4f5c56; font-size: .84rem; }
+.plan-history { margin-top: 14px; border-top: 1px solid #cbd1cc; }
+.plan-history > summary { padding-top: 13px; color: #42544c; font-size: .82rem; font-weight: 750; cursor: pointer; }
+.plan-history-list { display: grid; gap: 10px; padding-top: 14px; }
+.plan-history-list h4 { margin: 8px 0 0; }
+.conflict-copy { margin-top: 8px; color: #7d2631; font-size: .82rem; }
 .people-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
 .person-card { padding: 24px; background: #fbfaf6; border: 1px solid #d0ccc1; border-radius: 16px; }
 .session-title { margin-top: 28px; font-size: 1.25rem; font-weight: 700; }
@@ -116,7 +133,7 @@ footer { padding: 24px 0 44px; color: #727973; border-top: 1px solid #c8c4b8; fo
   .topbar { align-items: start; flex-direction: column; padding-top: 36px; }
   .source-state { align-items: flex-start; }
   .delivery-panel { grid-template-columns: 1fr; }
-  .goal-grid, .people-grid { grid-template-columns: 1fr; }
+  .goal-grid, .people-grid, .assignment-grid { grid-template-columns: 1fr; }
   .time-overview, .analysis-grid, .session-times { grid-template-columns: 1fr; }
   .goal-card + .goal-card { border-left: 0; border-top: 1px solid #d8d4c9; }
   .ticket-summary { grid-template-columns: 1fr; gap: 12px; }
