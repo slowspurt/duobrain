@@ -28,6 +28,12 @@ Answers must also preserve these boundaries:
 - A personal choice or experiment is not a joint agreement.
 - Missing evidence stays missing. The AI can narrow the question or create an information ticket; it cannot invent B's reasoning.
 
+### When to act and when to ask
+
+If the collaborators have already allowed routine information requests and automatic sharing within a defined scope, the AI should create the narrow information ticket and report what it did. It should not stop at “요청을 남길까요?” every time.
+
+The AI should pause for a person when the next step needs a new judgment, expands the approved sharing boundary, or asks B for direct human feedback. It should also ask when the user's intended task or scope is too ambiguous to create a safe request. This distinction keeps routine coordination moving without turning prior consent into permission for new decisions or broader disclosure.
+
 ## Detailed flow: “B 어디까지 했어? 그럼 나는 뭐 하면 돼?”
 
 This is the main continuous conversation. It connects status, next work, overlap, and an explicit start instead of treating them as four unrelated commands.
@@ -51,13 +57,13 @@ This is the main continuous conversation. It connects status, next work, overlap
 
 > 마지막으로 공유된 내용은 `8f31c2a`에서 B가 SRT parser와 그 테스트를 작업하기 시작했다는 것까지입니다. 종료 기록이 없어서 완료 여부와 지금도 작업 중인지는 확인할 수 없습니다. 마지막 갱신은 16시간 전입니다.
 >
-> 이어받거나 같은 파일을 고치려면 B에게 “통과한 테스트, 남은 실패, 미공유 작업”을 확인해야 합니다. 그 요청을 남길까요?
+> 이어받거나 같은 파일을 고치기 전에 필요한 “통과한 테스트, 남은 실패, 미공유 작업” 정보 요청을 사전 허용된 범위에서 B에게 남겼습니다. 아직 B가 읽었다는 기록은 없습니다.
 
 The answer says “end unknown,” not “B is working.” It also makes the uncertainty actionable.
 
 **A**
 
-> 응. 그럼 답 올 때까지 나는 뭐 하면 돼?
+> 그럼 답 올 때까지 나는 뭐 하면 돼?
 
 **A's AI**
 
@@ -625,7 +631,7 @@ If A's prior session is unclosed, do not invent “yesterday's completion.” Se
 
 Or, for a true follow-up:
 
-> 이전 요청은 “현재 사용할 필드”를 해결했고, 이번 질문은 합의된 제거 날짜를 새로 묻습니다. 기존 티켓에 연결된 후속 요청으로 분리하는 편이 이력이 명확합니다.
+> 이전 요청은 “현재 사용할 필드”를 해결했고, 이번 질문은 합의된 제거 날짜를 새로 묻습니다. 별도 후속 요청으로 분리하는 편이 명확합니다. Protocol v1에는 티켓 관계 필드가 없으므로 둘의 연결 표시는 후속 제안으로 남깁니다.
 
 **If information is missing**
 
@@ -635,7 +641,7 @@ If equivalence is uncertain, show the likely matching ticket and ask the user wh
 
 - “같은 거면 합쳐.” → preserve both original utterances under the canonical request.
 - “예전 건 해결됐는데 왜 또 나와?” → inspect whether new evidence invalidated it and reopen if needed.
-- “별개 질문으로 남겨.” → link the tickets so the rationale remains traceable.
+- “별개 질문으로 남겨.” → create a separate request; cross-ticket relation is a proposed later capability, not a v1 field.
 
 ## Reusable follow-up patterns
 
