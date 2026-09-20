@@ -25,38 +25,16 @@ Your partner figured something out with their AI. Now you need the reasoning, th
 
 | Ask your AI… | Pick up… |
 | --- | --- |
-| “Where did Bob leave off?” | Shared goals, work scopes, blockers and the next step. |
-| “How did Bob get this working?” | Source notes and captured prompts or harnesses—the setup used to run and evaluate the AI. Compare the evidence you both shared. |
+| “Where did my partner leave off?” | Shared goals, work scopes, blockers and the next step. |
+| “How did my partner get this working?” | Source notes and captured prompts or harnesses—the setup used to run and evaluate the AI. Compare the evidence you both shared. |
 | “Can you get the missing detail?” | An information request for your partner's next AI session, with a source-backed answer to follow. |
-| “What does Bob think?” | A feedback request that keeps your partner's own judgment attached to the decision. |
+| “What does my partner think?” | A feedback request that keeps your partner's own judgment attached to the decision. |
 
 Your AI checks shared records first. If something is missing, it leaves a request. Your partner's AI can answer when they next use it; after syncing, yours can continue with the new evidence. **The handoff survives the conversation.**
 
 Keep the bigger picture in the **local dashboard**: goals, assignments, recent work, open requests and resolved history. The **shared wiki** keeps sources traceable, with optional **daily refinement** to revisit importance and recency while preserving original notes.
 
 > Want to see the idea first? The [web demo](https://duobrain.pages.dev) is a guided experience with example data. Follow the steps below to connect the local engine to your own project.
-
-## The first-run experience we're building
-
-> **Planned onboarding.** The alpha already includes the CLI, local dashboard, AI guides, documentation and examples. The guided flow below—including GitHub account discovery and editable nicknames—is not yet implemented end to end. Use [Get started](#get-started) for the current setup.
-
-After downloading duobrain, tell your existing AI:
-
-**“Set this project up for collaboration with duobrain.”**
-
-From there, your AI guides you through four steps:
-
-1. **Make it yours.** Use your GitHub username when the signed-in account can be confirmed; otherwise, ask for it. Shared records belong to `@username`, while the dashboard shows **Nickname · @username**. A nickname is optional and defaults to your username. Change it later without losing the connection to your history.
-
-2. **Pick up the plan you already have.** Read the project brief and meeting notes first. Ask only for missing context: “How did you two originally divide the work?” Capture the existing roles, current stage and decisions without asking you to repeat what's already recorded.
-
-3. **Review a plan built for collaboration.** Prepare a concrete revision with each person's scope, step-by-step goals and handoff conditions: “I've organized your existing plan for the two of you. Here's what I'd change—please review it.” Keep existing agreements distinct from new AI proposals. One person's approval does not count as both people's agreement.
-
-4. **Start with a clear next step.** After your review, save and sync the permitted plan, record the agreed work session, and connect you to the dashboard: “You're ready. Start with the interface work; the API details you need from your partner are in the request inbox.” Only report shared setup as complete when the records have actually synced.
-
-**Joining second? Pick up where your partner left off.** Your AI reads the shared plan, helps you set your nickname and review your assigned scope, then gets you started. You don't repeat the full planning interview.
-
-Downloading alone won't launch an AI. The intended experience starts with one request to the AI you already use, which then guides you from the missing context to your first task.
 
 ## Get started
 
@@ -78,17 +56,17 @@ Run the commands below from this duobrain checkout. Every `/path/to/...` is a pl
 Choose exactly two participant IDs. Use the **same IDs in the same order** on both machines, with a different local `--participant`.
 
 ```sh
-# Alice's machine — use Alice's product path
+# Participant A's machine — use A's product path
 node bin/duobrain.js init \
   --repository /path/to/product \
-  --participants alice,bob --participant alice
+  --participants member-a,member-b --participant member-a
 ```
 
 ```sh
-# Bob's machine — use Bob's product path
+# Participant B's machine — use B's product path
 node bin/duobrain.js init \
   --repository /path/to/product \
-  --participants alice,bob --participant bob
+  --participants member-a,member-b --participant member-b
 ```
 
 After both have initialized, each person checks the connection:
@@ -102,15 +80,15 @@ Check the JSON results before continuing. If delivery is `pending` (exit code `2
 
 ### 3. Give your AI the guide
 
-Paste this into your existing AI's project instructions or first task. Fill in the paths and your identity; Bob should swap the two names.
+Paste this into your existing AI's project instructions or first task. Fill in the paths and your identity; participant B should swap the two IDs. The IDs below are anonymous examples.
 
 ```text
 Use duobrain for this two-person project.
 
 Tool checkout: /path/to/duobrain
 Product checkout: /path/to/product
-My participant ID: alice
-Partner: bob
+My participant ID: member-a
+Partner: member-b
 
 Read guides/duobrain-ai.md and docs/agent-guidance/repository-onboarding.md
 from the tool checkout. Preserve the existing project instructions.
@@ -130,7 +108,7 @@ to the person who provided it. Tell me what my partner has shared,
 what is blocked, and what I can pick up next.
 ```
 
-Try asking: **“Where did Bob leave off, and what can I pick up?”** On a fresh setup, share a permitted kickoff note first so your AI has something to work from. The [starting-plan recipe](docs/agent-guidance/repository-onboarding.md#2-share-and-record-the-starting-plan) walks through it.
+Try asking: **“Where did my partner leave off, and what can I pick up?”** On a fresh setup, share a permitted kickoff note first so your AI has something to work from. The [starting-plan recipe](docs/agent-guidance/repository-onboarding.md#2-share-and-record-the-starting-plan) walks through it.
 
 Your existing AI follows this guide when you use it. Setup does not install an AI integration or start a background AI service.
 
@@ -227,6 +205,28 @@ Create the JSON file before running the command. duobrain checks the configured 
 </details>
 
 For all commands, run `node bin/duobrain.js --help` or read the [CLI reference](docs/engine/README.md). The [AI collaboration guide](guides/duobrain-ai.md) and [dashboard guide](docs/dashboard/README.md) are currently in Korean.
+
+## The first-run experience we're building
+
+> **Planned onboarding.** The alpha already includes the CLI, local dashboard, AI guides, documentation and examples. The guided flow below—including GitHub account discovery and editable nicknames—is not yet implemented end to end. Use [Get started](#get-started) for the current setup.
+
+After downloading duobrain, tell your existing AI:
+
+**“Set this project up for collaboration with duobrain.”**
+
+From there, your AI guides you through four steps:
+
+1. **Make it yours.** Use your GitHub username when the signed-in account can be confirmed; otherwise, ask for it. Shared records belong to `@username`, while the dashboard shows **Nickname · @username**. A nickname is optional and defaults to your username. Change it later without losing the connection to your history.
+
+2. **Pick up the plan you already have.** Read the project brief and meeting notes first. Ask only for missing context: “How did you two originally divide the work?” Capture the existing roles, current stage and decisions without asking you to repeat what's already recorded.
+
+3. **Review a plan built for collaboration.** Prepare a concrete revision with each person's scope, step-by-step goals and handoff conditions: “I've organized your existing plan for the two of you. Here's what I'd change—please review it.” Keep existing agreements distinct from new AI proposals. One person's approval does not count as both people's agreement.
+
+4. **Start with a clear next step.** After your review, save and sync the permitted plan, record the agreed work session, and connect you to the dashboard: “You're ready. Start with the interface work; the API details you need from your partner are in the request inbox.” Only report shared setup as complete when the records have actually synced.
+
+**Joining second? Pick up where your partner left off.** Your AI reads the shared plan, helps you set your nickname and review your assigned scope, then gets you started. You don't repeat the full planning interview.
+
+Downloading alone won't launch an AI. The intended experience starts with one request to the AI you already use, which then guides you from the missing context to your first task.
 
 ## Help shape the alpha
 
