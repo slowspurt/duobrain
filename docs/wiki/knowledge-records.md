@@ -47,6 +47,7 @@ Legacy text has unknown knowledge status and cannot establish or promote an `agr
 - `searchWikiNotes({notes, query, filters})` searches only the supplied note text and metadata.
 - `traceWikiLineage({notes, roots})` returns reachable note nodes, typed reference edges, and explicit missing/cycle issues.
 - `compareKnowledgeMethods({notes, left, right, artifacts})` compares two recorded work contexts and may return an uncreated information-ticket candidate.
+- `planDailyWikiRefinement({notes, tickets, now, date, timezone, sourceRevision, policy, priorRun, candidate})` prepares one immutable daily index candidate without reading a clock, scheduler, filesystem, or Git.
 
 See `examples/wiki/` for original observations, explicit agreement evidence, all four knowledge statuses, an agreed summary, and a legacy supplement.
 
@@ -79,3 +80,23 @@ Method comparison reports authors, observation times, active and superseded note
 A ref proves only identity. Version is known only when the matching artifact provides it. Text differences are available only when both sides explicitly provide captured `text`; the result is a bounded line-change summary rather than a semantic or causal claim. Even with captured differences, `causalConclusion.supported` remains false because prompt or harness differences alone do not prove a performance cause.
 
 When participant B's note, current reference choice, version, or captured text is missing, the result contains a narrow `information` `ticketCandidate` naming only those fields. It is a proposal with no UUID and is not written or resolved by the wiki module. After a later explicit sync supplies new evidence, the caller can invoke the same pure comparison again; W3 does not wait in the background or resume an AI automatically. See `examples/wiki/method-comparison.json` for a reference-only example that intentionally produces version/text gaps.
+
+## Daily refinement planning
+
+W4 is a pure once-per-day planning API, not a scheduler. The caller supplies `now`, local `date`, IANA `timezone`, shared `sourceRevision`, all notes and projected tickets, a complete policy, optional `priorRun`, and candidate UUID/author/work-context fields. The engine may later persist and schedule an accepted plan; this module never reads the actual clock or mutates Git.
+
+The policy contract is `{id, version, staleAfterDays, recencyWindowDays, lowImportanceThreshold, highImportanceThreshold, unknownImportanceExposure, importanceSignals}`. Thresholds and importance scores are numbers from 0 through 1. Each importance signal is `{path, score, reason, evidenceRef}`. The reason and evidence ref are mandatory: absent business-importance evidence stays `state: "unknown"`, `score: null`, and uses the explicitly named `unknownImportanceExposure` default. W4 does not infer importance from prose, author identity, or recency. No W1 note-metadata change is required; evidence-backed importance is a caller policy input and older notes remain compatible.
+
+For each note, the plan reports importance and recency separately. Recency uses only the supplied `now`, the note's `observedAt`, and `recencyWindowDays`; legacy notes have unknown recency. Exposure is a policy decision, not a combined hidden score:
+
+- evidence referenced by an unresolved ticket is `action-required`;
+- caller-evidenced high importance is `high`;
+- an `agreed` record is `protected`, so a newer proposal cannot replace it by recency;
+- caller-evidenced low importance that is older than `staleAfterDays` is `low`;
+- everything else uses `normal` or the explicit unknown-importance default.
+
+No record is omitted. Lower exposure only changes its index section. Source paths, author/status metadata, unresolved-ticket links, and agreement evidence remain visible, and the original Markdown strings are never changed.
+
+A successful plan creates one new `recordType: "summary"`, `status: "proposed"` candidate that summarizes every non-refinement input note. It never claims that the indexed content is jointly agreed. When `priorRun.summaryPath` is supplied, the candidate uses that path as both `previousSummary` and the only `supersedes` target; knowledge records themselves are never superseded by daily recency. The candidate carries additive `dailyRefinement` metadata containing date, timezone, source revision, policy fingerprint, and deterministic run key. W1 validators and consumers that do not understand this additive field still see a valid ordinary proposed summary; old records require no migration.
+
+The run key excludes candidate UUID and observation time. Repeating the same date, timezone, source revision, and resolved policy returns `outcome: "duplicate"` when a matching `priorRun` or existing daily summary is supplied, without creating another candidate. A changed source revision or policy creates a new plan. See `examples/wiki/daily-refinement-policy.json` for the caller-owned policy and prior-run shape.
