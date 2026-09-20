@@ -288,6 +288,513 @@ export function prepareTicketSupplement({ticket, context, notes = []} = {}) {
   });
 }
 
+/** Search caller-provided notes without reading the shared store. */
+export function searchWikiNotes({notes = [], query = "", filters = {}} = {}) {
+  if (!Array.isArray(notes) || typeof query !== "string" || !isObject(filters)) {
+    throw new TypeError("notes must be an array, query a string, and filters an object");
+  }
+  const issues = [];
+  const existing = loadExistingNotes(notes, issues);
+  const supersededBy = buildSupersededBy(existing);
+  const terms = normalizeText(query).toLocaleLowerCase().split(" ").filter(Boolean);
+  const results = [...existing.values()]
+    .map((record) => publicNoteRecord(record, supersededBy))
+    .filter((record) => matchesNoteFilters(record, filters))
+    .filter((record) => terms.every((term) => searchableNoteText(record).includes(term)))
+    .sort((left, right) => {
+      const byTime = (right.observedAt ?? "").localeCompare(left.observedAt ?? "");
+      return byTime || left.path.localeCompare(right.path);
+    });
+  return {results, issues: uniqueIssues(issues)};
+}
+
+/** Trace wiki-to-wiki provenance from caller-selected roots. */
+export function traceWikiLineage({notes = [], roots = []} = {}) {
+  if (!Array.isArray(notes) || !Array.isArray(roots)) {
+    throw new TypeError("notes and roots must be arrays");
+  }
+  const issues = [];
+  const existing = loadExistingNotes(notes, issues);
+  return traceLoadedLineage(existing, roots, issues);
+}
+
+/**
+ * Compare two participants' recorded methods. Reference strings are compared
+ * as identifiers; content is compared only when artifacts include text.
+ */
+export function compareKnowledgeMethods({notes = [], left, right, artifacts = []} = {}) {
+  if (!Array.isArray(notes) || !isObject(left) || !isObject(right) || !Array.isArray(artifacts)) {
+    throw new TypeError("notes and artifacts must be arrays, and left/right must be objects");
+  }
+  const issues = [];
+  const existing = loadExistingNotes(notes, issues);
+  const artifactIndex = loadArtifacts(artifacts, issues);
+  const supersededBy = buildSupersededBy(existing);
+  const leftSummary = summarizeComparisonSide("left", left, existing, supersededBy, issues);
+  const rightSummary = summarizeComparisonSide("right", right, existing, supersededBy, issues);
+  const prompt = compareCapturedReference("prompt", leftSummary, rightSummary, artifactIndex, issues);
+  const harness = compareCapturedReference("harness", leftSummary, rightSummary, artifactIndex, issues);
+  const lineage = traceLoadedLineage(
+    existing,
+    uniqueStrings([...leftSummary.noteRefs, ...rightSummary.noteRefs]),
+    issues,
+  );
+  const rightLineage = traceLoadedLineage(existing, rightSummary.noteRefs, []);
+  const requestedFields = rightInformationGaps(
+    rightSummary,
+    prompt,
+    harness,
+    issues,
+    rightLineage.issues,
+  );
+  const ticketCandidate = requestedFields.length === 0 ? null : {
+    kind: "information",
+    requester: leftSummary.participant,
+    assignee: rightSummary.participant,
+    title: `Evidence needed to compare ${rightSummary.label}`,
+    body: `Please provide ${requestedFields.join(", ")} for ${rightSummary.workRef ?? rightSummary.label}.`,
+    requestedFields,
+    relatedNoteRefs: rightSummary.noteRefs,
+  };
+  const allIssues = uniqueIssues([...issues, ...lineage.issues]);
+  return {
+    complete: allIssues.length === 0,
+    left: leftSummary,
+    right: rightSummary,
+    comparisons: {
+      status: compareDecisionScope(leftSummary, rightSummary),
+      author: compareAuthors(leftSummary, rightSummary),
+      observedAt: compareObservationTimes(leftSummary, rightSummary),
+      prompt,
+      harness,
+    },
+    lineage: {nodes: lineage.nodes, edges: lineage.edges},
+    issues: allIssues,
+    ticketCandidate,
+    causalConclusion: {
+      supported: false,
+      reason: "Recorded prompt or harness differences do not establish a performance cause.",
+    },
+  };
+}
+
+function publicNoteRecord(record, supersededBy) {
+  const {path, parsed} = record;
+  if (parsed.format === "legacy") {
+    return {
+      path,
+      format: "legacy",
+      title: null,
+      recordType: null,
+      status: "unknown",
+      author: null,
+      observedAt: null,
+      workContext: {promptRef: null, harnessRef: null},
+      sources: [],
+      body: parsed.body,
+      supersededBy: supersededBy.get(path) ?? [],
+    };
+  }
+  const metadata = parsed.metadata;
+  return {
+    path,
+    format: "structured",
+    title: metadata.title,
+    recordType: metadata.recordType,
+    status: metadata.status,
+    author: metadata.author,
+    observedAt: metadata.observedAt,
+    workContext: metadata.workContext,
+    sources: metadata.sources,
+    body: parsed.body,
+    supersededBy: supersededBy.get(path) ?? [],
+  };
+}
+
+function matchesNoteFilters(record, filters) {
+  if (filters.participant !== undefined && record.author?.participant !== filters.participant) return false;
+  if (filters.status !== undefined && record.status !== filters.status) return false;
+  if (filters.recordType !== undefined && record.recordType !== filters.recordType) return false;
+  if (filters.includeSuperseded === false && (record.status === "superseded" || record.supersededBy.length > 0)) return false;
+  return true;
+}
+
+function searchableNoteText(record) {
+  return normalizeText([
+    record.path,
+    record.title,
+    record.status,
+    record.author?.participant,
+    record.author?.kind,
+    record.observedAt,
+    record.workContext?.promptRef,
+    record.workContext?.harnessRef,
+    record.body,
+    ...record.sources.map((source) => source.ref),
+  ].filter(Boolean).join(" ")).toLocaleLowerCase();
+}
+
+function buildSupersededBy(existing) {
+  const result = new Map();
+  for (const record of existing.values()) {
+    if (record.parsed.format !== "structured") continue;
+    const metadata = record.parsed.metadata;
+    const targets = [
+      ...(metadata.supersedes ?? []),
+      ...(metadata.recordType === "summary" && typeof metadata.previousSummary === "string"
+        ? [metadata.previousSummary]
+        : []),
+    ];
+    for (const target of uniqueStrings(targets)) {
+      const replacements = result.get(target) ?? [];
+      replacements.push(record.path);
+      result.set(target, replacements.sort());
+    }
+  }
+  return result;
+}
+
+function traceLoadedLineage(existing, roots, initialIssues = []) {
+  const issues = [...initialIssues];
+  const supersededBy = buildSupersededBy(existing);
+  const nodes = new Map();
+  const edges = [];
+  const visited = new Set();
+  const active = new Set();
+  const stack = [];
+
+  function visit(path) {
+    if (active.has(path)) {
+      const start = stack.indexOf(path);
+      const cycle = [...stack.slice(start), path];
+      issues.push(issue(
+        cycle.length === 2 ? "SELF_REFERENCE" : "REFERENCE_CYCLE",
+        path,
+        `Wiki reference cycle: ${cycle.join(" -> ")}`,
+      ));
+      return;
+    }
+    if (visited.has(path)) return;
+    const record = existing.get(path);
+    if (!record) {
+      issues.push(issue("MISSING_NOTE", path, `Comparison note does not exist: ${path}`));
+      return;
+    }
+    visited.add(path);
+    active.add(path);
+    stack.push(path);
+    nodes.set(path, publicNoteRecord(record, supersededBy));
+    for (const edge of wikiEdges(record.parsed)) {
+      edges.push({from: path, to: edge.ref, relation: edge.field});
+      if (!existing.has(edge.ref)) {
+        issues.push(issue(
+          edge.kind === "source" ? "MISSING_SOURCE_REFERENCE" : "MISSING_NOTE_REFERENCE",
+          `${path}:${edge.field}`,
+          `Referenced note does not exist: ${edge.ref}`,
+        ));
+      } else {
+        visit(edge.ref);
+      }
+    }
+    stack.pop();
+    active.delete(path);
+  }
+
+  for (const root of uniqueStrings(roots)) visit(root);
+  return {
+    nodes: [...nodes.values()].sort((a, b) => a.path.localeCompare(b.path)),
+    edges,
+    issues: uniqueIssues(issues),
+  };
+}
+
+function summarizeComparisonSide(sideName, side, existing, supersededBy, issues) {
+  const label = typeof side.label === "string" && side.label.trim() ? side.label.trim() : sideName;
+  const participant = typeof side.participant === "string" && side.participant.trim()
+    ? side.participant.trim()
+    : null;
+  if (participant === null) {
+    issues.push(issue("MISSING_FIELD", `${sideName}.participant`, `${sideName}.participant is required.`));
+  }
+  const noteRefs = uniqueStrings(side.noteRefs);
+  if (noteRefs.length === 0) {
+    issues.push(issue("MISSING_NOTE", `${sideName}.noteRefs`, `${label} has no note references.`));
+  }
+  const records = [];
+  for (const path of noteRefs) {
+    const record = existing.get(path);
+    if (!record) {
+      issues.push(issue("MISSING_NOTE", `${sideName}.noteRefs`, `Comparison note does not exist: ${path}`));
+      continue;
+    }
+    records.push(publicNoteRecord(record, supersededBy));
+  }
+  const activeRecords = records.filter((record) => record.status !== "superseded" && record.supersededBy.length === 0);
+  if (records.length > 0 && activeRecords.length === 0) {
+    issues.push(issue("NO_ACTIVE_RECORD", `${sideName}.noteRefs`, `${label} has only superseded records.`));
+  }
+  const structured = activeRecords.filter((record) => record.format === "structured");
+  for (const record of activeRecords.filter((item) => item.format === "legacy")) {
+    issues.push(issue("MISSING_WORK_CONTEXT", `${sideName}:${record.path}`, "Legacy notes do not identify prompt or harness context."));
+  }
+  const promptRefs = uniqueStrings(structured.map((record) => record.workContext.promptRef));
+  const harnessRefs = uniqueStrings(structured.map((record) => record.workContext.harnessRef));
+  const missingFields = [];
+  for (const record of structured) {
+    if (participant !== null && record.author.participant !== participant) {
+      issues.push(issue(
+        "AUTHOR_MISMATCH",
+        `${sideName}.participant:${record.path}`,
+        `${record.path} is authored for ${record.author.participant}, not ${participant}.`,
+      ));
+    }
+  }
+  recordMissingContext(sideName, label, structured, "promptRef", missingFields, issues);
+  recordMissingContext(sideName, label, structured, "harnessRef", missingFields, issues);
+  recordReferenceConflict(sideName, label, "prompt", promptRefs, issues);
+  recordReferenceConflict(sideName, label, "harness", harnessRefs, issues);
+  const statuses = [...new Set(activeRecords.map((record) => record.status))].sort();
+  return {
+    label,
+    participant,
+    workRef: typeof side.workRef === "string" && side.workRef.trim() ? side.workRef.trim() : null,
+    noteRefs,
+    records,
+    activeNoteRefs: activeRecords.map((record) => record.path),
+    supersededNoteRefs: records.filter((record) => (
+      record.status === "superseded" || record.supersededBy.length > 0
+    )).map((record) => record.path),
+    authors: structured.map((record) => ({path: record.path, ...record.author})),
+    observedAt: structured.map((record) => ({path: record.path, at: record.observedAt})),
+    statuses,
+    decisionScope: activeRecords.length === 0 && records.length > 0 ? "retired" : decisionScope(statuses),
+    missingFields,
+    promptRefs,
+    harnessRefs,
+    promptRef: promptRefs.length === 1 ? promptRefs[0] : null,
+    harnessRef: harnessRefs.length === 1 ? harnessRefs[0] : null,
+  };
+}
+
+function recordMissingContext(sideName, label, records, field, missingFields, issues) {
+  for (const record of records) {
+    if (record.workContext[field] !== null) continue;
+    const requested = field === "promptRef" ? "prompt reference" : "harness reference";
+    missingFields.push({field, path: record.path});
+    issues.push(issue(
+      "MISSING_REFERENCE",
+      `${sideName}.${field}:${record.path}`,
+      `${label} is missing its ${requested}.`,
+    ));
+  }
+}
+
+function recordReferenceConflict(sideName, label, kind, references, issues) {
+  if (references.length <= 1) return;
+  issues.push(issue(
+    "CONFLICTING_REFERENCE",
+    `${sideName}.${kind}Refs`,
+    `${label} has multiple active ${kind} references: ${references.join(", ")}`,
+  ));
+}
+
+function decisionScope(statuses) {
+  if (statuses.length === 0 || statuses.includes("unknown")) return "unknown";
+  if (statuses.length > 1) return "mixed";
+  return {
+    agreed: "joint",
+    personal: "individual",
+    proposed: "proposed",
+    superseded: "retired",
+  }[statuses[0]] ?? "unknown";
+}
+
+function compareDecisionScope(left, right) {
+  const relation = left.decisionScope === right.decisionScope ? "same-scope" : "different-scope";
+  const individualAndJoint = new Set([left.decisionScope, right.decisionScope]);
+  return {
+    relation,
+    left: {statuses: left.statuses, scope: left.decisionScope},
+    right: {statuses: right.statuses, scope: right.decisionScope},
+    caution: individualAndJoint.has("individual") && individualAndJoint.has("joint")
+      ? "A personal choice is not a joint agreement."
+      : null,
+  };
+}
+
+function compareAuthors(left, right) {
+  const leftValues = uniqueStrings(left.authors.map(({participant, kind}) => `${participant}:${kind}`));
+  const rightValues = uniqueStrings(right.authors.map(({participant, kind}) => `${participant}:${kind}`));
+  return {
+    relation: leftValues.length === 1 && rightValues.length === 1
+      ? (leftValues[0] === rightValues[0] ? "same" : "different")
+      : "unknown-or-multiple",
+    left: left.authors,
+    right: right.authors,
+  };
+}
+
+function compareObservationTimes(left, right) {
+  const leftTimes = uniqueStrings(left.observedAt.map(({at}) => at));
+  const rightTimes = uniqueStrings(right.observedAt.map(({at}) => at));
+  return {
+    relation: leftTimes.length === 1 && rightTimes.length === 1
+      ? (leftTimes[0] === rightTimes[0] ? "same" : "different")
+      : "unknown-or-multiple",
+    left: left.observedAt,
+    right: right.observedAt,
+  };
+}
+
+function loadArtifacts(artifacts, issues) {
+  const byRef = new Map();
+  const conflicts = new Set();
+  artifacts.forEach((artifact, itemIndex) => {
+    const field = `artifacts[${itemIndex}]`;
+    if (!isObject(artifact) || typeof artifact.ref !== "string" || artifact.ref.trim() === ""
+        || !["prompt", "harness", "source"].includes(artifact.kind)) {
+      issues.push(issue("INVALID_ARTIFACT", field, "Artifacts require a ref and prompt, harness, or source kind."));
+      return;
+    }
+    if (artifact.version !== null && artifact.version !== undefined
+        && (typeof artifact.version !== "string" || artifact.version.trim() === "")) {
+      issues.push(issue("INVALID_ARTIFACT", `${field}.version`, "Artifact version must be a non-empty string or null."));
+      return;
+    }
+    if (artifact.text !== undefined && typeof artifact.text !== "string") {
+      issues.push(issue("INVALID_ARTIFACT", `${field}.text`, "Captured artifact text must be a string."));
+      return;
+    }
+    if (byRef.has(artifact.ref)) {
+      const prior = byRef.get(artifact.ref);
+      if (stableStringify(prior) !== stableStringify(artifact)) {
+        conflicts.add(artifact.ref);
+        issues.push(issue("CONFLICTING_ARTIFACT", field, `Conflicting captures use the same ref: ${artifact.ref}`));
+      }
+      return;
+    }
+    byRef.set(artifact.ref, {...artifact});
+  });
+  return {byRef, conflicts};
+}
+
+function compareCapturedReference(kind, left, right, artifacts, issues) {
+  const leftState = capturedReferenceState("left", kind, left, artifacts, issues);
+  const rightState = capturedReferenceState("right", kind, right, artifacts, issues);
+  let relation = "missing";
+  if (leftState.ref !== null && rightState.ref !== null) {
+    relation = leftState.ref === rightState.ref ? "same-reference" : "different-reference";
+  } else if (left[`${kind}Refs`].length > 1 || right[`${kind}Refs`].length > 1) {
+    relation = "ambiguous";
+  }
+  const canCompareText = leftState.textCaptured && rightState.textCaptured;
+  return {
+    relation,
+    left: leftState,
+    right: rightState,
+    textComparison: canCompareText
+      ? summarizeTextDifference(leftState.text, rightState.text)
+      : {available: false, reason: "Both artifact texts must be explicitly captured."},
+  };
+}
+
+function capturedReferenceState(sideName, kind, side, artifacts, issues) {
+  const ref = side[`${kind}Ref`];
+  const state = {
+    ref,
+    version: null,
+    versionKnown: false,
+    text: null,
+    textCaptured: false,
+    gaps: [],
+  };
+  if (ref === null) {
+    if (side[`${kind}Refs`].length === 0) state.gaps.push(`${kind}Ref`);
+    else state.gaps.push(`${kind}ReferenceChoice`);
+    return state;
+  }
+  if (artifacts.conflicts.has(ref)) {
+    state.gaps.push(`${kind}ArtifactConflict`);
+    return state;
+  }
+  const artifact = artifacts.byRef.get(ref);
+  if (!artifact) {
+    state.gaps.push(`${kind}Artifact`);
+    issues.push(issue("MISSING_ARTIFACT", `${sideName}.${kind}`, `No captured artifact was provided for ${ref}.`));
+    return state;
+  }
+  if (artifact.kind !== kind) {
+    state.gaps.push(`${kind}Artifact`);
+    issues.push(issue("ARTIFACT_KIND_MISMATCH", `${sideName}.${kind}`, `${ref} is captured as ${artifact.kind}, not ${kind}.`));
+    return state;
+  }
+  if (typeof artifact.version === "string") {
+    state.version = artifact.version;
+    state.versionKnown = true;
+  } else {
+    state.gaps.push(`${kind}Version`);
+    issues.push(issue("UNKNOWN_ARTIFACT_VERSION", `${sideName}.${kind}`, `The captured ${kind} version is unknown for ${ref}.`));
+  }
+  if (typeof artifact.text === "string") {
+    state.text = artifact.text;
+    state.textCaptured = true;
+  } else {
+    state.gaps.push(`${kind}Text`);
+    issues.push(issue("MISSING_ARTIFACT_TEXT", `${sideName}.${kind}`, `The ${kind} ref exists but its text was not captured: ${ref}.`));
+  }
+  return state;
+}
+
+function summarizeTextDifference(leftText, rightText) {
+  const normalizedLeft = leftText.replace(/\r\n/g, "\n");
+  const normalizedRight = rightText.replace(/\r\n/g, "\n");
+  const leftLines = normalizedLeft.split("\n");
+  const rightLines = normalizedRight.split("\n");
+  let prefix = 0;
+  while (prefix < leftLines.length && prefix < rightLines.length && leftLines[prefix] === rightLines[prefix]) {
+    prefix += 1;
+  }
+  let suffix = 0;
+  while (suffix < leftLines.length - prefix && suffix < rightLines.length - prefix
+      && leftLines[leftLines.length - 1 - suffix] === rightLines[rightLines.length - 1 - suffix]) {
+    suffix += 1;
+  }
+  const leftChanged = leftLines.slice(prefix, leftLines.length - suffix);
+  const rightChanged = rightLines.slice(prefix, rightLines.length - suffix);
+  return {
+    available: true,
+    equal: normalizedLeft === normalizedRight,
+    commonPrefixLines: prefix,
+    commonSuffixLines: suffix,
+    leftChangedLineCount: leftChanged.length,
+    rightChangedLineCount: rightChanged.length,
+    leftChangedExcerpt: leftChanged.slice(0, 5).map((line) => line.slice(0, 240)),
+    rightChangedExcerpt: rightChanged.slice(0, 5).map((line) => line.slice(0, 240)),
+    truncated: leftChanged.length > 5 || rightChanged.length > 5
+      || leftChanged.some((line) => line.length > 240)
+      || rightChanged.some((line) => line.length > 240),
+  };
+}
+
+function rightInformationGaps(right, prompt, harness, issues, lineageIssues) {
+  const gaps = [];
+  if (right.noteRefs.length === 0 || issues.some(({code, field}) => (
+    code === "MISSING_NOTE" && field.startsWith("right.")
+  ))) gaps.push("method note and evidence path");
+  if (issues.some(({code, field}) => code === "NO_ACTIVE_RECORD" && field.startsWith("right."))) {
+    gaps.push("current non-superseded method note");
+  }
+  if (issues.some(({code, field}) => code === "AUTHOR_MISMATCH" && field.startsWith("right."))) {
+    gaps.push("note ownership and participant attribution");
+  }
+  if (lineageIssues.some(({code}) => ["MISSING_SOURCE_REFERENCE", "MISSING_NOTE_REFERENCE"].includes(code))) {
+    gaps.push("missing source note");
+  }
+  for (const {field} of right.missingFields) gaps.push(field);
+  gaps.push(...prompt.right.gaps, ...harness.right.gaps);
+  return uniqueStrings(gaps);
+}
+
 function supplementResult({
   outcome = "insufficient",
   ready = false,

@@ -43,12 +43,12 @@
 - 열린 정보 티켓과 직접 피드백 티켓, 각각의 상태와 완료 조건
 - 마지막 동기화 결과 및 아직 공유되지 않았을 수 있는 항목
 
-세션 기록은 현재 CLI가 지원한다. 먼저 초기화와 상태를 확인하고, 범위가 확정되면 다음처럼 시작한다.
+세션 기록은 현재 CLI가 지원한다. 먼저 초기화와 상태를 확인하고, 범위가 확정되면 다음처럼 시작한다. 실제 새 저장소의 경로를 분리해 쓰는 전체 절차는 [repository onboarding recipe](../docs/agent-guidance/repository-onboarding.md)를 따른다.
 
 ```sh
 node bin/duobrain.js init --participants alice,bob --participant alice
 node bin/duobrain.js status
-node bin/duobrain.js start --title "입력 화면 연결" --scope src/ui/book-form --goal "첫 사용 흐름" --branch feature/book-form --base-commit <sha> --actor human
+node bin/duobrain.js start --title "입력 화면 연결" --scope src/ui/book-form --goal "첫 사용 흐름" --branch feature/book-form --base-commit <sha> --actor ai
 ```
 
 `init`은 각 독립 클론에서 같은 순서의 참여자 ID와 해당 로컬 참여자 ID로 한 번 설정한다. `start`는 `session.started`를 격리된 공유 저장소에 로컬 커밋한 뒤 동기화를 시도한다. JSON의 `sync.status`가 `pending` 또는 `error`이면 상대가 볼 수 있다고 말하지 말고 `node bin/duobrain.js sync`로 재시도한다. 명령을 실행하지 않았거나 결과를 확인하지 않았다면 시작 이벤트가 생성·공유되었다고 주장하지 않는다.
@@ -117,10 +117,10 @@ node bin/duobrain.js ticket-resolve --ticket <ticket-uuid> \
 - 열린 티켓, 모르는 점, 막힘
 - 상대가 이어서 할 정확한 다음 한 단계와 완료 조건
 
-하루 마무리에서는 완료·미완료 범위, 알려진 막힘, 다음 행동을 요약한다. 세션 종료는 프로토콜의 `session.ended`가 요구하는 `summary`와 선택적 `blockers`, `next`를 사용한다. 현재 CLI에서는 실제 세션 UUID로 다음처럼 종료한다.
+하루 마무리에서는 완료·미완료 범위, 알려진 막힘, 다음 행동을 요약한다. 세션 종료는 프로토콜의 `session.ended`가 요구하는 `summary`와 선택적 `blockers`, `next`를 사용한다. 막힘이 없으면 `--blockers`를 생략한다. 현재 CLI에서는 실제 세션 UUID로 다음처럼 종료한다.
 
 ```sh
-node bin/duobrain.js end --session <uuid> --summary "입력 화면 연결과 검증 완료" --blockers "없음" --next "B의 API 응답 확인" --actor human
+node bin/duobrain.js end --session <uuid> --summary "입력 화면 연결과 검증 완료" --next "B의 API 응답 확인" --actor ai
 node bin/duobrain.js status
 node bin/duobrain.js sync
 ```
