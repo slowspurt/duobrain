@@ -509,16 +509,22 @@ function supplementFingerprint(ticket, sourceSpec, summarySpec, responseBody) {
     ticketId: ticket.id,
     ticketKind: ticket.kind,
     author: sourceSpec.author,
+    workContext: sourceSpec.workContext,
     sourceBody: normalizeText(sourceSpec.body),
     sourceStatus: sourceSpec.status ?? "proposed",
     sources: [...(Array.isArray(sourceSpec.sources) ? sourceSpec.sources : [])]
       .sort((left, right) => stableStringify(left).localeCompare(stableStringify(right))),
+    sourceDecisionEvidence: [...(
+      Array.isArray(sourceSpec.decisionEvidence) ? sourceSpec.decisionEvidence : []
+    )].sort(),
+    sourceSupersedes: [...(Array.isArray(sourceSpec.supersedes) ? sourceSpec.supersedes : [])].sort(),
     responseBody: normalizeText(responseBody),
     summaryBody: normalizeText(summarySpec.body),
     summaryStatus: summarySpec.status ?? "proposed",
     summarizes: [...(Array.isArray(summarySpec.summarizes) ? summarySpec.summarizes : [])].sort(),
     previousSummary: summarySpec.previousSummary ?? null,
     decisionEvidence: [...(Array.isArray(summarySpec.decisionEvidence) ? summarySpec.decisionEvidence : [])].sort(),
+    summarySupersedes: [...(Array.isArray(summarySpec.supersedes) ? summarySpec.supersedes : [])].sort(),
   };
   return createHash("sha256").update(stableStringify(stableInput)).digest("hex");
 }
