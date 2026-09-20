@@ -1,8 +1,9 @@
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { constants as fsConstants } from 'node:fs';
-import { lstat, mkdir, open, readFile, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, open, readFile, readdir, realpath, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { promisify } from 'node:util';
 
 import { parseWikiNote, validateWikiNote } from '../wiki/index.js';
@@ -64,6 +65,56 @@ async function writeJsonAtomic(filePath, value) {
   const temporary = `${filePath}.${process.pid}.${randomUUID()}.tmp`;
   await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
   await rename(temporary, filePath);
+}
+
+function processIsAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error.code !== 'ESRCH';
+  }
+}
+
+async function withStateLock(layout, action) {
+  const lockPath = path.join(layout.root, 'engine.lock');
+  const deadline = Date.now() + 10_000;
+  await mkdir(layout.root, { recursive: true });
+  let handle;
+  while (!handle) {
+    try {
+      handle = await open(lockPath, 'wx', 0o600);
+      await handle.writeFile(`${JSON.stringify({ pid: process.pid, at: new Date().toISOString() })}\n`);
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      try {
+        const owner = JSON.parse(await readFile(lockPath, 'utf8'));
+        if (!processIsAlive(owner.pid)) {
+          await unlink(lockPath);
+          continue;
+        }
+      } catch (ownerError) {
+        if (ownerError.code === 'ENOENT') continue;
+      }
+      if (Date.now() >= deadline) {
+        throw new EngineError('The shared store is busy in another local process.', {
+          code: 'STORE_BUSY',
+        });
+      }
+      await delay(25);
+    }
+  }
+  try {
+    return await action();
+  } finally {
+    await handle.close();
+    try {
+      await unlink(lockPath);
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
 }
 
 function assertParticipantList(participants) {
@@ -249,8 +300,7 @@ async function validateCurrentStore(layout) {
   }
 }
 
-export async function syncStore({ repository = '.' } = {}) {
-  const layout = await loadLayout(repository);
+async function syncStoreUnlocked(layout) {
   try {
     const dirty = await git(layout.statePath, ['status', '--porcelain']);
     if (dirty.stdout) {
@@ -348,6 +398,11 @@ export async function syncStore({ repository = '.' } = {}) {
   }
 }
 
+export async function syncStore({ repository = '.' } = {}) {
+  const layout = await loadLayout(repository);
+  return withStateLock(layout, () => syncStoreUnlocked(layout));
+}
+
 function assertString(value, label, { allowEmpty = false } = {}) {
   if (typeof value !== 'string' || (!allowEmpty && value.trim() === '')) {
     throw new EngineError(`${label} must be ${allowEmpty ? 'a string' : 'a non-empty string'}.`, {
@@ -363,13 +418,15 @@ function normalizeOptional(value, label) {
 }
 
 async function commitEvent(layout, event) {
-  const relativePath = `events/${event.id}.json`;
-  const eventPath = path.join(layout.statePath, relativePath);
-  await mkdir(path.dirname(eventPath), { recursive: true });
-  await writeJsonAtomic(eventPath, event);
-  await git(layout.statePath, ['add', '--', relativePath]);
-  await git(layout.statePath, ['commit', '-m', `Record ${event.type} ${event.entityId}`]);
-  return (await git(layout.statePath, ['rev-parse', 'HEAD'])).stdout;
+  return withStateLock(layout, async () => {
+    const relativePath = `events/${event.id}.json`;
+    const eventPath = path.join(layout.statePath, relativePath);
+    await mkdir(path.dirname(eventPath), { recursive: true });
+    await writeJsonAtomic(eventPath, event);
+    await git(layout.statePath, ['add', '--', relativePath]);
+    await git(layout.statePath, ['commit', '-m', `Record ${event.type} ${event.entityId}`]);
+    return (await git(layout.statePath, ['rev-parse', 'HEAD'])).stdout;
+  });
 }
 
 async function recordEvent(layout, event, sync) {
@@ -772,26 +829,32 @@ export async function addWikiNote({
     });
   }
   const notePath = path.join(layout.statePath, relativePath);
-  if (await exists(notePath)) {
-    if (await readFile(notePath, 'utf8') !== markdown) {
-      throw new EngineError(`Immutable wiki note already exists with different content: ${relativePath}`, {
-        code: 'IMMUTABLE_NOTE_CONFLICT',
-      });
+  const local = await withStateLock(layout, async () => {
+    if (await exists(notePath)) {
+      if (await readFile(notePath, 'utf8') !== markdown) {
+        throw new EngineError(`Immutable wiki note already exists with different content: ${relativePath}`, {
+          code: 'IMMUTABLE_NOTE_CONFLICT',
+        });
+      }
+      return { created: false, path: relativePath, validation };
     }
-    const syncResult = sync
-      ? await syncStore({ repository: layout.repositoryPath })
-      : await setSyncStatus(layout, 'pending', 'Existing note has not been synchronized.');
-    return { created: false, path: relativePath, sync: syncResult, validation };
-  }
-  await mkdir(path.dirname(notePath), { recursive: true });
-  await writeFile(notePath, markdown, 'utf8');
-  await git(layout.statePath, ['add', '--', relativePath]);
-  await git(layout.statePath, ['commit', '-m', `Record wiki note ${noteId}`]);
-  const commit = (await git(layout.statePath, ['rev-parse', 'HEAD'])).stdout;
+    await mkdir(path.dirname(notePath), { recursive: true });
+    await writeFile(notePath, markdown, 'utf8');
+    await git(layout.statePath, ['add', '--', relativePath]);
+    await git(layout.statePath, ['commit', '-m', `Record wiki note ${noteId}`]);
+    const commit = (await git(layout.statePath, ['rev-parse', 'HEAD'])).stdout;
+    return { created: true, path: relativePath, commit, validation };
+  });
   const syncResult = sync
     ? await syncStore({ repository: layout.repositoryPath })
-    : await setSyncStatus(layout, 'pending', 'Local wiki note is committed but has not been pushed.');
-  return { created: true, path: relativePath, commit, sync: syncResult, validation };
+    : await setSyncStatus(
+      layout,
+      'pending',
+      local.created
+        ? 'Local wiki note is committed but has not been pushed.'
+        : 'Existing note has not been synchronized.',
+    );
+  return { ...local, sync: syncResult };
 }
 
 export async function getWikiNote({ repository = '.', path: wikiPath } = {}) {
@@ -1203,4 +1266,308 @@ export async function getEngineStatus({ repository = '.' } = {}) {
   const snapshot = await buildSnapshot(layout);
   const head = (await git(layout.statePath, ['rev-parse', 'HEAD'])).stdout;
   return { participant: identity.participant, head, storePath: layout.statePath, snapshot };
+}
+
+function normalizeScopeValue(value, label) {
+  assertString(value, label);
+  const slashPath = value.replaceAll('\\', '/');
+  if (path.posix.isAbsolute(slashPath)) {
+    throw new EngineError(`${label} must be relative to the product repository.`, {
+      code: 'INVALID_SCOPE',
+    });
+  }
+  const normalized = path.posix.normalize(slashPath).replace(/^\.\//, '').replace(/\/$/, '');
+  if (normalized === '..' || normalized.startsWith('../')) {
+    throw new EngineError(`${label} cannot leave the product repository.`, {
+      code: 'INVALID_SCOPE',
+    });
+  }
+  return normalized;
+}
+
+function normalizeProposedScope(scope) {
+  if (!Array.isArray(scope) || scope.length === 0) {
+    throw new EngineError('scope must contain at least one relative product path.', {
+      code: 'INVALID_SCOPE',
+    });
+  }
+  return [...new Set(scope.map((value, index) => normalizeScopeValue(value, `scope[${index}]`)))];
+}
+
+function hasPatternSyntax(value) {
+  return /[*?[\]{}]/.test(value);
+}
+
+function pathRelation(proposed, recorded) {
+  if (hasPatternSyntax(proposed) || hasPatternSyntax(recorded)) return null;
+  if (proposed === '.' || recorded === '.') return 'contains_or_is_contained_by';
+  if (proposed === recorded) return 'same_path';
+  if (proposed.startsWith(`${recorded}/`)) return 'proposed_within_recorded';
+  if (recorded.startsWith(`${proposed}/`)) return 'proposed_contains_recorded';
+  return null;
+}
+
+async function resolveProductCommit(repositoryPath, ref, label = 'baseCommit') {
+  if (typeof ref !== 'string' || ref.trim() === '' || ref.startsWith('-')) {
+    throw new EngineError(`${label} must be a valid Git revision.`, {
+      code: 'INVALID_BASE_REVISION',
+    });
+  }
+  const result = await git(
+    repositoryPath,
+    ['rev-parse', '--verify', '--end-of-options', `${ref}^{commit}`],
+    { allowFailure: true },
+  );
+  if (!result.ok) {
+    throw new EngineError(`Cannot resolve ${label}: ${ref}`, { code: 'INVALID_BASE_REVISION' });
+  }
+  return result.stdout;
+}
+
+async function productState(repositoryPath) {
+  const head = (await git(repositoryPath, ['rev-parse', 'HEAD'])).stdout;
+  const branchResult = await git(repositoryPath, ['symbolic-ref', '--quiet', '--short', 'HEAD'], {
+    allowFailure: true,
+  });
+  const upstreamResult = await git(
+    repositoryPath,
+    ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'],
+    { allowFailure: true },
+  );
+  const dirty = (await git(repositoryPath, ['status', '--porcelain'])).stdout !== '';
+  let unpushedCommits = null;
+  if (upstreamResult.ok) {
+    const count = await git(repositoryPath, ['rev-list', '--count', `${upstreamResult.stdout}..HEAD`]);
+    unpushedCommits = Number.parseInt(count.stdout, 10);
+  }
+  return {
+    head,
+    branch: branchResult.ok ? branchResult.stdout : null,
+    dirty,
+    upstream: upstreamResult.ok ? upstreamResult.stdout : null,
+    unpushedCommits,
+  };
+}
+
+async function sourceCheckoutFingerprint(repositoryPath) {
+  const state = await productState(repositoryPath);
+  const status = await git(repositoryPath, ['status', '--porcelain=v1', '-z']);
+  const staged = await git(repositoryPath, ['diff', '--binary', '--cached']);
+  const unstaged = await git(repositoryPath, ['diff', '--binary']);
+  return { state, status: status.stdout, staged: staged.stdout, unstaged: unstaged.stdout };
+}
+
+export async function assessOverlap({
+  repository = '.',
+  scope,
+  baseCommit = 'HEAD',
+} = {}) {
+  const proposedScope = normalizeProposedScope(scope);
+  const layout = await loadLayout(repository);
+  const identity = await loadIdentity(layout);
+  const snapshot = await buildSnapshot(layout);
+  const product = await productState(layout.repositoryPath);
+  const resolvedBase = await resolveProductCommit(layout.repositoryPath, baseCommit);
+  const comparedSessions = snapshot.sessions
+    .filter((session) => session.participant !== identity.participant && session.status !== 'ended')
+    .map((session) => ({
+      id: session.id,
+      participant: session.participant,
+      status: session.status,
+      scope: session.scope,
+      goal: session.goal,
+      branch: session.branch,
+      baseCommit: session.baseCommit,
+      startedAt: session.startedAt,
+      lastEventAt: session.history.at(-1)?.at ?? session.startedAt,
+      endedAt: session.endedAt,
+      endKnown: session.endedAt !== null,
+    }));
+  const overlaps = [];
+  const incomparableScopes = [];
+  for (const session of comparedSessions) {
+    for (const recordedValue of session.scope) {
+      let recorded;
+      try {
+        recorded = normalizeScopeValue(recordedValue, 'recorded scope');
+      } catch {
+        incomparableScopes.push({ sessionId: session.id, recorded: recordedValue });
+        continue;
+      }
+      for (const proposed of proposedScope) {
+        const relation = pathRelation(proposed, recorded);
+        if (relation) {
+          overlaps.push({
+            sessionId: session.id,
+            participant: session.participant,
+            proposed,
+            recorded,
+            relation,
+          });
+        } else if (hasPatternSyntax(proposed) || hasPatternSyntax(recorded)) {
+          incomparableScopes.push({ sessionId: session.id, proposed, recorded });
+        }
+      }
+    }
+  }
+  const conflictedSessions = new Set(snapshot.conflicts.map((conflict) => conflict.entityId));
+  const comparisonHasConflict = comparedSessions.some((session) => conflictedSessions.has(session.id));
+  const pathStatus = snapshot.sync.status !== 'synced' || comparisonHasConflict || incomparableScopes.length > 0
+    ? 'unknown'
+    : overlaps.length > 0 ? 'overlap' : 'no_overlap';
+  const unknowns = [
+    'semantic_interface_overlap_not_inferred',
+    'peer_live_presence_unknown',
+    'peer_unpushed_product_changes_unknown',
+  ];
+  if (snapshot.sync.status !== 'synced') unknowns.push('shared_state_not_confirmed_synced');
+  if (snapshot.sync.lastSyncedAt === null) unknowns.push('last_sync_time_unknown');
+  if (comparisonHasConflict) unknowns.push('peer_session_history_conflicted');
+  if (incomparableScopes.length > 0) unknowns.push('pattern_or_invalid_scope_not_comparable');
+  if (comparedSessions.length > 0) unknowns.push('peer_session_end_not_recorded');
+  if (comparedSessions.some((session) => session.baseCommit === null)) {
+    unknowns.push('peer_base_revision_unknown');
+  }
+  if (product.dirty) unknowns.push('local_uncommitted_product_changes_not_shared');
+  if (product.upstream === null) unknowns.push('product_upstream_unknown');
+  if (product.unpushedCommits === null || product.unpushedCommits > 0) {
+    unknowns.push('product_unpushed_commits_not_confirmed_shared');
+  }
+  return {
+    proposed: { scope: proposedScope, baseCommit: resolvedBase },
+    localParticipant: identity.participant,
+    product,
+    shared: {
+      syncStatus: snapshot.sync.status,
+      lastSyncedAt: snapshot.sync.lastSyncedAt,
+      message: snapshot.sync.message,
+    },
+    comparedSessions,
+    pathAssessment: { status: pathStatus, overlaps, incomparableScopes },
+    semanticAssessment: {
+      status: 'unknown',
+      message: 'Path comparison cannot prove interface or behavior overlap; inspect recorded goals and shared evidence.',
+    },
+    unknowns: [...new Set(unknowns)],
+  };
+}
+
+function isWithin(parent, target) {
+  const relative = path.relative(parent, target);
+  return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
+}
+
+async function pathEntryExists(filePath) {
+  try {
+    await lstat(filePath);
+    return true;
+  } catch (error) {
+    if (error.code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
+async function resolveProspectivePath(filePath) {
+  const missing = [];
+  let existing = filePath;
+  while (!(await pathEntryExists(existing))) {
+    const parent = path.dirname(existing);
+    if (parent === existing) break;
+    missing.unshift(path.basename(existing));
+    existing = parent;
+  }
+  const resolvedParent = await realpath(existing);
+  return path.join(resolvedParent, ...missing);
+}
+
+function defaultWorktreeBranch(directory) {
+  const slug = path.basename(directory)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 40) || 'work';
+  return `codex/${slug}-${randomUUID().slice(0, 8)}`;
+}
+
+export async function prepareProductWorktree({
+  repository = '.',
+  directory,
+  branch = null,
+  baseCommit = 'HEAD',
+} = {}) {
+  assertString(directory, 'directory');
+  const layout = await resolveLayout(repository);
+  const requestedDestination = path.resolve(layout.repositoryPath, directory);
+  if (await pathEntryExists(requestedDestination)) {
+    throw new EngineError(`Worktree path already exists: ${requestedDestination}`, {
+      code: 'WORKTREE_PATH_EXISTS',
+    });
+  }
+  const destination = await resolveProspectivePath(requestedDestination);
+  const commonDirectory = path.dirname(layout.root);
+  if (
+    destination === path.parse(destination).root
+    || isWithin(layout.repositoryPath, destination)
+    || isWithin(commonDirectory, destination)
+  ) {
+    throw new EngineError('Worktree directory must be a new path outside the product and common Git directories.', {
+      code: 'INVALID_WORKTREE_PATH',
+    });
+  }
+  const selectedBranch = branch ?? defaultWorktreeBranch(destination);
+  const validBranch = await git(
+    layout.repositoryPath,
+    ['check-ref-format', `refs/heads/${selectedBranch}`],
+    { allowFailure: true },
+  );
+  if (!validBranch.ok) {
+    throw new EngineError(`Invalid worktree branch name: ${selectedBranch}`, {
+      code: 'INVALID_BRANCH',
+    });
+  }
+  const localBranch = await git(
+    layout.repositoryPath,
+    ['show-ref', '--verify', '--quiet', `refs/heads/${selectedBranch}`],
+    { allowFailure: true },
+  );
+  const remoteBranch = await git(
+    layout.repositoryPath,
+    ['show-ref', '--verify', '--quiet', `refs/remotes/origin/${selectedBranch}`],
+    { allowFailure: true },
+  );
+  if (localBranch.ok || remoteBranch.ok) {
+    throw new EngineError(`Worktree branch already exists: ${selectedBranch}`, {
+      code: 'WORKTREE_BRANCH_EXISTS',
+    });
+  }
+  const resolvedBase = await resolveProductCommit(layout.repositoryPath, baseCommit);
+  const before = await sourceCheckoutFingerprint(layout.repositoryPath);
+  await mkdir(path.dirname(destination), { recursive: true });
+  const created = await git(
+    layout.repositoryPath,
+    ['worktree', 'add', '-b', selectedBranch, destination, resolvedBase],
+    { allowFailure: true },
+  );
+  if (!created.ok) {
+    throw new EngineError(created.stderr || 'Unable to create product worktree.', {
+      code: 'WORKTREE_CREATE_FAILED',
+    });
+  }
+  const after = await sourceCheckoutFingerprint(layout.repositoryPath);
+  if (JSON.stringify(before) !== JSON.stringify(after)) {
+    throw new EngineError('The source product checkout changed while preparing the worktree.', {
+      code: 'SOURCE_CHECKOUT_CHANGED',
+    });
+  }
+  const worktreeHead = (await git(destination, ['rev-parse', 'HEAD'])).stdout;
+  return {
+    created: true,
+    directory: destination,
+    branch: selectedBranch,
+    baseCommit: resolvedBase,
+    head: worktreeHead,
+    sourceCheckoutPreserved: true,
+    uncommittedChangesCopied: false,
+    automaticIntegration: false,
+  };
 }
