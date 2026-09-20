@@ -1,6 +1,6 @@
 # Approved next alpha contracts
 
-Status: approved for E4 implementation; not available merely because documented here. The existing protocol v1 remains the baseline. These additions retain immutable files, participant attribution, causal histories, and conflict visibility. Consumers must tolerate additional snapshot fields; older clients cannot claim to process these new events.
+Status: E4 implementation integrated and tested on 2026-09-20. The existing protocol v1 remains the baseline. These additions retain immutable files, participant attribution, causal histories, and conflict visibility. Consumers must tolerate additional snapshot fields; older clients cannot claim to process these new events. See the engine README for `plan-set`, `scope-update` and `ticket-clarify`.
 
 ## Shared plan and goals
 
