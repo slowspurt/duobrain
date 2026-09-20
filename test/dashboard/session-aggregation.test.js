@@ -1,0 +1,148 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { aggregateSessions } from '../../src/dashboard/public/model.js';
+
+const hour = 60 * 60 * 1000;
+const at = (hours) => new Date(Date.parse('2026-09-20T00:00:00.000Z') + (hours * hour)).toISOString();
+
+function event(id, type, hours, previous, data = {}) {
+  return { id, type, at: at(hours), previous, actor: { participant: 'alice', kind: 'human' }, data };
+}
+
+function endedSession({
+  id = 'session-1',
+  participant = 'alice',
+  start = 0,
+  end = 2,
+  scope = ['src/example'],
+  history,
+} = {}) {
+  const defaultHistory = [
+    event(`${id}-start`, 'session.started', start, null, { branch: 'feature/example', baseCommit: 'abc123' }),
+    event(`${id}-end`, 'session.ended', end, `${id}-start`, { summary: 'Recorded result', blockers: ['Explicit blocker'] }),
+  ];
+  return {
+    id,
+    participant,
+    title: `Work ${id}`,
+    scope,
+    goal: null,
+    status: 'ended',
+    startedAt: at(start),
+    endedAt: at(end),
+    elapsedMs: (end - start) * hour,
+    blockers: [],
+    next: null,
+    history: history ?? defaultHistory,
+  };
+}
+
+test('empty session data produces zero project wall time without invented work', () => {
+  assert.deepEqual(aggregateSessions([]), {
+    sessions: [],
+    participantTotals: [],
+    scopeTotals: [],
+    projectWallClockMs: 0,
+    unknownSessionCount: 0,
+    blockers: [],
+  });
+});
+
+test('separates ended wall clock from pause-excluded recorded active intervals', () => {
+  const session = endedSession({
+    end: 4,
+    history: [
+      event('start', 'session.started', 0, null, { branch: 'feature/pause', baseCommit: 'base1' }),
+      event('pause', 'session.paused', 1, 'start', { body: 'Waiting for input' }),
+      event('resume', 'session.resumed', 2, 'pause'),
+      event('end', 'session.ended', 4, 'resume', { summary: 'Finished', blockers: ['API decision pending'] }),
+    ],
+  });
+  const result = aggregateSessions([session]);
+  assert.equal(result.sessions[0].wallClockMs, 4 * hour);
+  assert.equal(result.sessions[0].recordedActiveMs, 3 * hour);
+  assert.equal(result.participantTotals[0].recordedActiveMs, 3 * hour);
+  assert.equal(result.sessions[0].summary, 'Finished');
+  assert.equal(result.sessions[0].branch, 'feature/pause');
+  assert.equal(result.sessions[0].baseCommit, 'base1');
+  assert.deepEqual(result.blockers.map((item) => item.blocker), ['API decision pending']);
+});
+
+test('clips wall and active intervals at both period boundaries', () => {
+  const session = endedSession({
+    end: 4,
+    history: [
+      event('start', 'session.started', 0, null),
+      event('pause', 'session.paused', 1, 'start'),
+      event('resume', 'session.resumed', 2, 'pause'),
+      event('end', 'session.ended', 4, 'resume'),
+    ],
+  });
+  const result = aggregateSessions([session], { from: at(0.5), to: at(3) });
+  assert.equal(result.projectWallClockMs, 2.5 * hour);
+  assert.equal(result.sessions[0].recordedActiveMs, 1.5 * hour);
+});
+
+test('deduplicates overlapping sessions per participant and keeps project wall time separate', () => {
+  const sessions = [
+    endedSession({ id: 'alice-a', participant: 'alice', start: 0, end: 2, scope: ['src/a'] }),
+    endedSession({ id: 'alice-b', participant: 'alice', start: 1, end: 3, scope: ['src/b'] }),
+    endedSession({ id: 'bob-a', participant: 'bob', start: 1, end: 2, scope: ['src/a'] }),
+  ];
+  sessions[2].history = sessions[2].history.map((item) => ({ ...item, actor: { participant: 'bob', kind: 'human' } }));
+  const result = aggregateSessions(sessions);
+  assert.equal(result.projectWallClockMs, 3 * hour);
+  assert.deepEqual(result.participantTotals.map(({ participant, recordedActiveMs }) => [participant, recordedActiveMs]), [
+    ['alice', 3 * hour],
+    ['bob', 1 * hour],
+  ]);
+  assert.deepEqual(result.scopeTotals.map(({ participant, scope, recordedActiveMs }) => [participant, scope, recordedActiveMs]), [
+    ['alice', 'src/a', 2 * hour],
+    ['alice', 'src/b', 2 * hour],
+    ['bob', 'src/a', 1 * hour],
+  ]);
+});
+
+test('leaves unclosed, invalidly ordered, conflicted, and incomplete histories unknown', () => {
+  const open = {
+    ...endedSession({ id: 'open' }),
+    status: 'active',
+    endedAt: null,
+    elapsedMs: null,
+    history: [event('open-start', 'session.started', 0, null)],
+  };
+  const invalid = endedSession({
+    id: 'invalid',
+    end: 3,
+    history: [
+      event('invalid-start', 'session.started', 0, null),
+      event('invalid-pause', 'session.paused', 2, 'invalid-start'),
+      event('invalid-resume', 'session.resumed', 1, 'invalid-pause'),
+      event('invalid-end', 'session.ended', 3, 'invalid-resume'),
+    ],
+  });
+  const conflicted = endedSession({ id: 'conflicted', start: 4, end: 5 });
+  const incomplete = endedSession({ id: 'incomplete', start: 6, end: 7, history: [] });
+  const result = aggregateSessions([open, invalid, conflicted, incomplete], {
+    conflicts: [{ entityId: 'conflicted' }],
+  });
+  assert.equal(result.unknownSessionCount, 4);
+  assert.equal(result.projectWallClockMs, hour);
+  assert.deepEqual(result.sessions.map((session) => session.recordedActiveMs), [null, null, null, null]);
+  assert.deepEqual(result.sessions.map((session) => session.timeReason), [
+    '활동 구간 이력 없음',
+    '기록 충돌',
+    '종료 미확인',
+    '시간 순서 오류',
+  ]);
+});
+
+test('does not include sessions outside the selected period', () => {
+  const result = aggregateSessions([
+    endedSession({ id: 'before', start: 0, end: 1 }),
+    endedSession({ id: 'inside', start: 3, end: 4 }),
+  ], { from: at(2), to: at(5) });
+  assert.deepEqual(result.sessions.map((session) => session.id), ['inside']);
+  assert.equal(result.projectWallClockMs, hour);
+});

@@ -33,6 +33,28 @@ to `null`; paused time is not presented as completed elapsed work. Only the sess
 owner may pause, resume, or end, and the valid transitions are active → paused → active
 and active/paused → ended.
 
+Use a JSON file when changing scope so omitted optional fields and explicit `null` stay
+distinct:
+
+```json
+{
+  "scope": ["src/export/empty-state"],
+  "reason": "Move to the independently testable boundary",
+  "goal": null,
+  "baseCommit": "52ca11e"
+}
+```
+
+```sh
+duobrain scope-update --session <uuid> --file ./scope-change.json --actor ai
+```
+
+`updateSessionScope({repository, sessionId, scope, reason, ...})` is owner-only on an
+active or paused session. Omitted `goal`, `branch`, or `baseCommit` retain their prior
+projection; explicit null clears one. The event preserves the original start and every
+prior value in history, does not resume a paused session, and does not modify product
+code or its Git branch. Overlap assessment uses the latest valid projected scope.
+
 ### Two-clone information flow
 
 After both clones run `init`, Alice creates a request and saves its returned
@@ -69,6 +91,40 @@ responses require one or more existing `wiki/<uuid>.md` paths. Feedback response
 require the assignee's `--actor human`. Only the requester can resolve, close, or
 reopen. Reopening clears the projected evidence and requires a new response before
 another resolution. `closed` remains distinct from `resolved`.
+
+A requester can append missing context without changing completion state:
+
+```sh
+duobrain ticket-clarify --ticket <uuid> --body "Use run 42 and evaluation revision 7"
+```
+
+`clarifyTicket({repository, ticketId, body, actorKind})` is requester-only on a
+nonterminal ticket. `ticket.clarified` stays in history while preserving the exact
+current status; it is not acknowledgment, response, resolution, or a related ticket.
+The assignee must still use `ticket-respond` under the existing evidence rules.
+
+### Shared plan and goals
+
+Prepare the complete replacement projection as JSON, then explicitly record it:
+
+```sh
+duobrain plan-set --file ./plan.json --actor human
+```
+
+`setPlan({repository, plan, actorKind})` creates the only plan root or appends a
+`plan.updated` revision. Each JSON document must include all three nullable goals,
+exactly one assignment for each configured participant, complete scopes and next
+values, `body`, and optional `status`/`evidence`. Status defaults to `proposed`.
+Snapshot `plan` contains the current projection and full history; top-level `goals`
+mirrors it. With no plan or an ambiguous/invalid history, `plan` is `null` and goals
+remain unknown.
+
+An `agreed` plan requires existing valid structured wiki evidence whose cooperative
+metadata attributes a human record to each participant. This validates provenance
+shape only: the engine does not inspect prose to infer consent, certify identity, or
+claim that the evidence semantically covers the exact revised plan. The person or AI
+recording the revision must verify that coverage beforehand. Independent roots and
+same-predecessor updates remain visible conflicts and block later plan mutation.
 
 ### Overlap assessment and product worktrees
 
