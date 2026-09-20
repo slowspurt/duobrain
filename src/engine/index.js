@@ -947,6 +947,86 @@ export async function startSession({
   return recordEvent(layout, event, sync);
 }
 
+async function sessionContext(repository, sessionId) {
+  assertUuid(sessionId, 'sessionId');
+  const layout = await loadLayout(repository);
+  const identity = await loadIdentity(layout);
+  const built = await buildSnapshot(layout);
+  const session = built.sessions.find((item) => item.id === sessionId);
+  if (!session) throw new EngineError(`Unknown session: ${sessionId}`, { code: 'UNKNOWN_SESSION' });
+  if (session.participant !== identity.participant) {
+    throw new EngineError('Only the session owner can change it.', { code: 'NOT_SESSION_OWNER' });
+  }
+  if (built.conflicts.some((conflict) => conflict.entityId === sessionId)) {
+    throw new EngineError('The session has a concurrent history conflict.', { code: 'ENTITY_CONFLICT' });
+  }
+  return { layout, identity, session };
+}
+
+async function appendSessionEvent({
+  repository,
+  sessionId,
+  type,
+  data,
+  allowedStatuses,
+  actorKind,
+  sync,
+}) {
+  assertActorKind(actorKind);
+  const context = await sessionContext(repository, sessionId);
+  if (!allowedStatuses.includes(context.session.status)) {
+    throw new EngineError(
+      `Session status ${context.session.status} does not allow ${type}.`,
+      { code: 'INVALID_TRANSITION' },
+    );
+  }
+  const event = createEvent({
+    identity: context.identity,
+    entityId: sessionId,
+    type,
+    previous: context.session.history.at(-1)?.id ?? sessionId,
+    data,
+    actorKind,
+  });
+  return recordEvent(context.layout, event, sync);
+}
+
+export async function pauseSession({
+  repository = '.',
+  sessionId,
+  body = null,
+  actorKind = 'human',
+  sync = true,
+} = {}) {
+  return appendSessionEvent({
+    repository,
+    sessionId,
+    type: 'session.paused',
+    data: { body: normalizeOptional(body, 'body') },
+    allowedStatuses: ['active'],
+    actorKind,
+    sync,
+  });
+}
+
+export async function resumeSession({
+  repository = '.',
+  sessionId,
+  body = null,
+  actorKind = 'human',
+  sync = true,
+} = {}) {
+  return appendSessionEvent({
+    repository,
+    sessionId,
+    type: 'session.resumed',
+    data: { body: normalizeOptional(body, 'body') },
+    allowedStatuses: ['paused'],
+    actorKind,
+    sync,
+  });
+}
+
 export async function endSession({
   repository = '.',
   sessionId,
@@ -956,7 +1036,6 @@ export async function endSession({
   actorKind = 'human',
   sync = true,
 } = {}) {
-  assertString(sessionId, 'sessionId');
   assertString(summary, 'summary');
   if (!Array.isArray(blockers) || blockers.some((item) => typeof item !== 'string' || item.trim() === '')) {
     throw new EngineError('blockers must be an array of non-empty strings.', { code: 'INVALID_INPUT' });
@@ -964,36 +1043,19 @@ export async function endSession({
   if (!['human', 'ai'].includes(actorKind)) {
     throw new EngineError('actorKind must be human or ai.', { code: 'INVALID_INPUT' });
   }
-  const layout = await loadLayout(repository);
-  const identity = await loadIdentity(layout);
-  const built = await buildSnapshot(layout);
-  const session = built.sessions.find((item) => item.id === sessionId);
-  if (!session) throw new EngineError(`Unknown session: ${sessionId}`, { code: 'UNKNOWN_SESSION' });
-  if (session.participant !== identity.participant) {
-    throw new EngineError('Only the session owner can end it.', { code: 'NOT_SESSION_OWNER' });
-  }
-  if (!['active', 'paused'].includes(session.status)) {
-    throw new EngineError(`Session is already ${session.status}.`, { code: 'INVALID_TRANSITION' });
-  }
-  if (built.conflicts.some((conflict) => conflict.entityId === sessionId)) {
-    throw new EngineError('The session has a concurrent history conflict.', { code: 'ENTITY_CONFLICT' });
-  }
-  const previous = session.history.at(-1)?.id ?? sessionId;
-  const event = {
-    schemaVersion: 1,
-    id: randomUUID(),
-    at: new Date().toISOString(),
-    actor: { participant: identity.participant, kind: actorKind },
-    entityId: sessionId,
+  return appendSessionEvent({
+    repository,
+    sessionId,
     type: 'session.ended',
-    previous,
     data: {
       summary,
       blockers,
       next: normalizeOptional(next, 'next'),
     },
-  };
-  return recordEvent(layout, event, sync);
+    allowedStatuses: ['active', 'paused'],
+    actorKind,
+    sync,
+  });
 }
 
 async function readEvents(layout) {
@@ -1055,6 +1117,7 @@ async function buildSnapshot(layout) {
     conflicts.push(...collected.conflicts);
     let status = 'active';
     let endedAt = null;
+    let summary = null;
     let blockers = [];
     let next = null;
     for (const event of collected.history) {
@@ -1063,6 +1126,7 @@ async function buildSnapshot(layout) {
       if (event.type === 'session.ended') {
         status = 'ended';
         endedAt = event.at;
+        summary = event.data.summary;
         blockers = event.data.blockers ?? [];
         next = event.data.next ?? null;
       }
@@ -1075,6 +1139,9 @@ async function buildSnapshot(layout) {
       title: root.data.title,
       scope: root.data.scope,
       goal: root.data.goal ?? null,
+      summary,
+      branch: root.data.branch ?? null,
+      baseCommit: root.data.baseCommit ?? null,
       status,
       startedAt: root.at,
       endedAt,
@@ -1086,6 +1153,8 @@ async function buildSnapshot(layout) {
         type: event.type,
         at: event.at,
         actor: event.actor,
+        previous: event.previous,
+        data: event.data,
       })),
     });
   }

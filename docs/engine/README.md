@@ -14,6 +14,8 @@ ordered pair of participant IDs and a different local identity in each clone:
 ```sh
 node bin/duobrain.js init --participants alice,bob --participant alice
 node bin/duobrain.js start --title "Connect the API" --scope src/api --goal "First flow"
+node bin/duobrain.js pause --session <uuid> --body "Waiting for review"
+node bin/duobrain.js resume --session <uuid> --body "Review received"
 node bin/duobrain.js status
 node bin/duobrain.js end --session <uuid> --summary "Connected and verified"
 node bin/duobrain.js sync
@@ -27,7 +29,9 @@ are errors with exit code 1. No force push is used.
 
 `goal`, `branch`, `baseCommit`, `blockers`, and `next` are recorded only when supplied;
 unknown snapshot goals remain `null`. Open sessions have `endedAt` and `elapsedMs` set
-to `null`; elapsed time is derived only after a recorded end event.
+to `null`; paused time is not presented as completed elapsed work. Only the session
+owner may pause, resume, or end, and the valid transitions are active → paused → active
+and active/paused → ended.
 
 ### Two-clone information flow
 
@@ -84,7 +88,9 @@ const note = await getWikiNote({
 `repository` defaults to the current directory and may be any path inside the product
 Git worktree. The result matches the shared snapshot interface: `sample` is `false`,
 project goals are `null`, ticket records include their event `history`, and concurrent
-entity histories are listed in `conflicts`. `getEngineStatus({repository})` additionally
+entity histories are listed in `conflicts`. Session records include nullable `summary`,
+`branch`, and `baseCommit`; each session history entry includes its original `data` and
+`previous` link for handoff reconstruction. `getEngineStatus({repository})` additionally
 returns the local participant, isolated-store path, and shared-store commit.
 
 The E2 write API exports `createTicket`, `acknowledgeTicket`,
