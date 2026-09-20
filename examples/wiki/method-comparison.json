@@ -1,0 +1,33 @@
+{
+  "description": "Illustrative manifest for comparing two recorded methods. An adapter reads the listed Markdown files and passes their text as notes[].markdown; the wiki API itself performs no file access.",
+  "question": "How did participant-b do this, and how does it differ from participant-a's prompt and harness?",
+  "noteFiles": [
+    "examples/wiki/30000000-0000-4000-8000-000000000001.md",
+    "examples/wiki/30000000-0000-4000-8000-000000000004.md"
+  ],
+  "left": {
+    "label": "participant-a method",
+    "participant": "alice",
+    "workRef": "session:participant-a-book-form",
+    "noteRefs": ["wiki/30000000-0000-4000-8000-000000000004.md"]
+  },
+  "right": {
+    "label": "participant-b method",
+    "participant": "bob",
+    "workRef": "session:10000000-0000-4000-8000-000000000001",
+    "noteRefs": ["wiki/30000000-0000-4000-8000-000000000001.md"]
+  },
+  "artifacts": [
+    {
+      "ref": "session:10000000-0000-4000-8000-000000000001#failure-response-review",
+      "kind": "prompt",
+      "version": null
+    },
+    {
+      "ref": "codex:gpt-5",
+      "kind": "harness",
+      "version": null
+    }
+  ],
+  "expectedBoundary": "References can be compared, but missing captured versions and text must produce evidence gaps rather than invented content differences."
+}

@@ -10,14 +10,18 @@ import { promisify } from 'node:util';
 import {
   acknowledgeTicket,
   addWikiNote,
+  assessOverlap,
   closeTicket,
   createTicket,
   endSession,
   getSnapshot,
   getWikiNote,
   initSharedStore,
+  pauseSession,
+  prepareProductWorktree,
   reopenTicket,
   requestTicketInformation,
+  resumeSession,
   resolveTicket,
   respondToTicket,
   startSession,
@@ -125,6 +129,271 @@ test('two clones exchange session start/end without touching product changes', a
   assert.equal(snapshot.sessions[0].status, 'ended');
   assert.equal(snapshot.sessions[0].next, 'Hand off the response shape');
   assert.ok(snapshot.sessions[0].elapsedMs >= 0);
+});
+
+test('session pause/resume enforces owner transitions and preserves handoff context', async (t) => {
+  const setup = await fixture();
+  t.after(() => rm(setup.root, { recursive: true, force: true }));
+  await initSharedStore({
+    repository: setup.alice,
+    participants: ['alice', 'bob'],
+    participant: 'alice',
+  });
+  await initSharedStore({
+    repository: setup.bob,
+    participants: ['alice', 'bob'],
+    participant: 'bob',
+  });
+  const started = await startSession({
+    repository: setup.alice,
+    title: 'Parser handoff',
+    scope: ['src/parser'],
+    branch: 'codex/parser-handoff',
+    baseCommit: 'abc1234',
+  });
+  const sessionId = started.event.entityId;
+  await pauseSession({
+    repository: setup.alice,
+    sessionId,
+    body: 'Waiting for the failing fixture.',
+    actorKind: 'ai',
+  });
+  let session = (await getSnapshot({ repository: setup.alice })).sessions[0];
+  assert.equal(session.status, 'paused');
+  assert.equal(session.elapsedMs, null);
+  assert.equal(session.summary, null);
+  assert.equal(session.branch, 'codex/parser-handoff');
+  assert.equal(session.baseCommit, 'abc1234');
+  await assert.rejects(
+    pauseSession({ repository: setup.alice, sessionId }),
+    (error) => error.code === 'INVALID_TRANSITION',
+  );
+
+  await syncStore({ repository: setup.bob });
+  await assert.rejects(
+    resumeSession({ repository: setup.bob, sessionId }),
+    (error) => error.code === 'NOT_SESSION_OWNER',
+  );
+  await resumeSession({
+    repository: setup.alice,
+    sessionId,
+    body: 'Fixture received; continuing.',
+    actorKind: 'ai',
+  });
+  await endSession({
+    repository: setup.alice,
+    sessionId,
+    summary: 'Parser now handles the failing fixture.',
+    blockers: ['Upstream release is still pending.'],
+    next: 'Share the verified fixture revision.',
+  });
+  session = (await getSnapshot({ repository: setup.alice })).sessions[0];
+  assert.equal(session.status, 'ended');
+  assert.equal(session.summary, 'Parser now handles the failing fixture.');
+  assert.equal(session.history.length, 4);
+  assert.equal(session.history[0].previous, null);
+  assert.equal(session.history[1].previous, session.history[0].id);
+  assert.equal(session.history[1].data.body, 'Waiting for the failing fixture.');
+  assert.equal(session.history[2].previous, session.history[1].id);
+  assert.equal(session.history[3].data.summary, session.summary);
+  await assert.rejects(
+    resumeSession({ repository: setup.alice, sessionId }),
+    (error) => error.code === 'INVALID_TRANSITION',
+  );
+});
+
+test('overlap assessment separates path evidence from semantic unknowns', async (t) => {
+  const setup = await fixture();
+  t.after(() => rm(setup.root, { recursive: true, force: true }));
+  await initSharedStore({
+    repository: setup.alice,
+    participants: ['alice', 'bob'],
+    participant: 'alice',
+  });
+  await initSharedStore({
+    repository: setup.bob,
+    participants: ['alice', 'bob'],
+    participant: 'bob',
+  });
+  const sharedBase = await git(setup.bob, 'rev-parse', 'HEAD');
+  await startSession({
+    repository: setup.bob,
+    title: 'Export parser',
+    scope: ['src/export'],
+    goal: 'Define the empty-result parser behavior.',
+    branch: 'codex/export-parser',
+    baseCommit: sharedBase,
+  });
+  await syncStore({ repository: setup.alice });
+
+  await git(setup.alice, 'config', 'user.name', 'Alice');
+  await git(setup.alice, 'config', 'user.email', 'alice@example.invalid');
+  await writeFile(path.join(setup.alice, 'local.txt'), 'unpushed commit\n');
+  await git(setup.alice, 'add', '--', 'local.txt');
+  await git(setup.alice, 'commit', '-m', 'Local unpublished product commit');
+  await writeFile(path.join(setup.alice, 'product.txt'), 'uncommitted product change\n');
+
+  const overlapping = await assessOverlap({
+    repository: setup.alice,
+    scope: ['src/export/empty-state.tsx'],
+    baseCommit: 'HEAD',
+  });
+  assert.equal(overlapping.pathAssessment.status, 'overlap');
+  assert.equal(overlapping.pathAssessment.overlaps[0].relation, 'proposed_within_recorded');
+  assert.equal(overlapping.semanticAssessment.status, 'unknown');
+  assert.equal(overlapping.comparedSessions[0].endKnown, false);
+  assert.equal(overlapping.comparedSessions[0].lastEventAt, overlapping.comparedSessions[0].startedAt);
+  assert.equal(overlapping.shared.syncStatus, 'synced');
+  assert.ok(overlapping.shared.lastSyncedAt);
+  assert.equal(overlapping.product.dirty, true);
+  assert.equal(overlapping.product.unpushedCommits, 1);
+  assert.ok(overlapping.unknowns.includes('peer_session_end_not_recorded'));
+  assert.ok(overlapping.unknowns.includes('peer_live_presence_unknown'));
+  assert.ok(overlapping.unknowns.includes('peer_unpushed_product_changes_unknown'));
+  assert.ok(overlapping.unknowns.includes('local_uncommitted_product_changes_not_shared'));
+  assert.ok(overlapping.unknowns.includes('product_unpushed_commits_not_confirmed_shared'));
+
+  const separatePaths = await assessOverlap({
+    repository: setup.alice,
+    scope: ['src/ui/empty-state.tsx'],
+  });
+  assert.equal(separatePaths.pathAssessment.status, 'no_overlap');
+  assert.equal(separatePaths.semanticAssessment.status, 'unknown');
+  const cliAssessment = await duobrain(
+    setup.alice,
+    'overlap',
+    '--scope',
+    'src/export/empty-state.tsx',
+  );
+  assert.equal(cliAssessment.pathAssessment.status, 'overlap');
+
+  const unavailable = `${setup.remote}.offline`;
+  await rename(setup.remote, unavailable);
+  try {
+    const pending = await startSession({
+      repository: setup.alice,
+      title: 'Local-only start',
+      scope: ['src/local-only'],
+    });
+    assert.equal(pending.sync.status, 'pending');
+    const uncertain = await assessOverlap({
+      repository: setup.alice,
+      scope: ['src/ui/empty-state.tsx'],
+    });
+    assert.equal(uncertain.pathAssessment.status, 'unknown');
+    assert.ok(uncertain.unknowns.includes('shared_state_not_confirmed_synced'));
+  } finally {
+    await rename(unavailable, setup.remote);
+  }
+});
+
+test('product worktree preparation preserves dirty files and refuses existing targets', async (t) => {
+  const setup = await fixture();
+  t.after(() => rm(setup.root, { recursive: true, force: true }));
+  await writeFile(path.join(setup.alice, 'product.txt'), 'staged product change\n');
+  await git(setup.alice, 'add', '--', 'product.txt');
+  await writeFile(path.join(setup.alice, 'product.txt'), 'staged plus unstaged product change\n');
+  const beforeStatus = await git(setup.alice, 'status', '--porcelain=v1');
+  const beforeIndex = await git(setup.alice, 'diff', '--cached', '--', 'product.txt');
+  const beforeHead = await git(setup.alice, 'rev-parse', 'HEAD');
+  const beforeBranch = await git(setup.alice, 'branch', '--show-current');
+  const destination = path.join(setup.root, 'prepared-worktree');
+
+  const prepared = await prepareProductWorktree({
+    repository: setup.alice,
+    directory: destination,
+  });
+  assert.equal(prepared.created, true);
+  assert.match(prepared.branch, /^codex\/prepared-worktree-[0-9a-f]{8}$/);
+  assert.equal(prepared.baseCommit, beforeHead);
+  assert.equal(prepared.head, beforeHead);
+  assert.equal(prepared.sourceCheckoutPreserved, true);
+  assert.equal(prepared.uncommittedChangesCopied, false);
+  assert.equal(prepared.automaticIntegration, false);
+  assert.equal(await git(setup.alice, 'status', '--porcelain=v1'), beforeStatus);
+  assert.equal(await git(setup.alice, 'diff', '--cached', '--', 'product.txt'), beforeIndex);
+  assert.equal(await readFile(path.join(setup.alice, 'product.txt'), 'utf8'), 'staged plus unstaged product change\n');
+  assert.equal(await git(setup.alice, 'rev-parse', 'HEAD'), beforeHead);
+  assert.equal(await git(setup.alice, 'branch', '--show-current'), beforeBranch);
+  assert.equal(await readFile(path.join(destination, 'product.txt'), 'utf8'), 'original\n');
+
+  const cliDestination = path.join(setup.root, 'cli-worktree');
+  const cliPrepared = await duobrain(
+    setup.alice,
+    'worktree-prepare',
+    '--directory',
+    cliDestination,
+    '--branch',
+    'codex/cli-worktree',
+  );
+  assert.equal(cliPrepared.branch, 'codex/cli-worktree');
+  assert.equal(cliPrepared.automaticIntegration, false);
+
+  await assert.rejects(
+    prepareProductWorktree({ repository: setup.alice, directory: destination }),
+    (error) => error.code === 'WORKTREE_PATH_EXISTS',
+  );
+  await git(setup.alice, 'branch', 'codex/already-exists', beforeHead);
+  await assert.rejects(
+    prepareProductWorktree({
+      repository: setup.alice,
+      directory: path.join(setup.root, 'second-worktree'),
+      branch: 'codex/already-exists',
+    }),
+    (error) => error.code === 'WORKTREE_BRANCH_EXISTS',
+  );
+  await assert.rejects(
+    prepareProductWorktree({
+      repository: setup.alice,
+      directory: path.join(setup.alice, 'nested-worktree'),
+    }),
+    (error) => error.code === 'INVALID_WORKTREE_PATH',
+  );
+});
+
+test('concurrent CLI writers create one isolated event per commit', async (t) => {
+  const setup = await fixture();
+  t.after(() => rm(setup.root, { recursive: true, force: true }));
+  const initialized = await initSharedStore({
+    repository: setup.alice,
+    participants: ['alice', 'bob'],
+    participant: 'alice',
+  });
+  const count = 6;
+  const results = await Promise.all(
+    Array.from({ length: count }, (_, index) => duobrain(
+      setup.alice,
+      'start',
+      '--title',
+      `Concurrent session ${index + 1}`,
+      '--scope',
+      `src/concurrent/${index + 1}`,
+      '--actor',
+      'ai',
+    )),
+  );
+  assert.equal(new Set(results.map((result) => result.event.id)).size, count);
+  assert.equal((await getSnapshot({ repository: setup.alice })).sessions.length, count);
+  assert.equal(await git(initialized.storePath, 'status', '--porcelain'), '');
+  const commits = (await git(
+    initialized.storePath,
+    'log',
+    '--format=%H',
+    '--grep=^Record session.started',
+  )).split('\n').filter(Boolean);
+  assert.equal(commits.length, count);
+  for (const commit of commits) {
+    const paths = (await git(
+      initialized.storePath,
+      'diff-tree',
+      '--no-commit-id',
+      '--name-only',
+      '-r',
+      commit,
+    )).split('\n').filter(Boolean);
+    assert.equal(paths.length, 1);
+    assert.match(paths[0], /^events\/[0-9a-f-]+\.json$/);
+  }
 });
 
 test('failed sharing remains pending and retry preserves concurrent distinct events', async (t) => {
@@ -567,12 +836,23 @@ test('configuration requires exactly two distinct participants', async (t) => {
 test('CLI exposes top-level and command help', async () => {
   const top = await execFileAsync(process.execPath, [cliPath, '--help'], { encoding: 'utf8' });
   const command = await execFileAsync(process.execPath, [cliPath, 'start', '--help'], { encoding: 'utf8' });
+  const pause = await execFileAsync(process.execPath, [cliPath, 'pause', '--help'], { encoding: 'utf8' });
+  const scopeUpdate = await execFileAsync(process.execPath, [cliPath, 'scope-update', '--help'], { encoding: 'utf8' });
   const ticket = await execFileAsync(process.execPath, [cliPath, 'ticket-respond', '--help'], { encoding: 'utf8' });
+  const clarification = await execFileAsync(process.execPath, [cliPath, 'ticket-clarify', '--help'], { encoding: 'utf8' });
   const note = await execFileAsync(process.execPath, [cliPath, 'note-add', '--help'], { encoding: 'utf8' });
+  const overlap = await execFileAsync(process.execPath, [cliPath, 'overlap', '--help'], { encoding: 'utf8' });
+  const worktree = await execFileAsync(process.execPath, [cliPath, 'worktree-prepare', '--help'], { encoding: 'utf8' });
   assert.match(top.stdout, /duobrain init/);
   assert.match(top.stdout, /duobrain status/);
   assert.match(top.stdout, /ticket-needs-information/);
   assert.match(command.stdout, /--title/);
+  assert.match(pause.stdout, /--session/);
+  assert.match(pause.stdout, /--body/);
+  assert.match(scopeUpdate.stdout, /--file/);
   assert.match(ticket.stdout, /--evidence/);
+  assert.match(clarification.stdout, /--body/);
   assert.match(note.stdout, /--file/);
+  assert.match(overlap.stdout, /--scope/);
+  assert.match(worktree.stdout, /--directory/);
 });

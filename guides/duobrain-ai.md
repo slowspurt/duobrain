@@ -43,17 +43,42 @@
 - 열린 정보 티켓과 직접 피드백 티켓, 각각의 상태와 완료 조건
 - 마지막 동기화 결과 및 아직 공유되지 않았을 수 있는 항목
 
-세션 기록은 현재 CLI가 지원한다. 먼저 초기화와 상태를 확인하고, 범위가 확정되면 다음처럼 시작한다.
+세션 기록은 현재 CLI가 지원한다. 먼저 초기화와 상태를 확인하고, 범위가 확정되면 다음처럼 시작한다. 실제 새 저장소의 경로를 분리해 쓰는 전체 절차는 [repository onboarding recipe](../docs/agent-guidance/repository-onboarding.md)를 따른다.
 
 ```sh
 node bin/duobrain.js init --participants alice,bob --participant alice
 node bin/duobrain.js status
-node bin/duobrain.js start --title "입력 화면 연결" --scope src/ui/book-form --goal "첫 사용 흐름" --branch feature/book-form --base-commit <sha> --actor human
+node bin/duobrain.js start --title "입력 화면 연결" --scope src/ui/book-form --goal "첫 사용 흐름" --branch feature/book-form --base-commit <sha> --actor ai
 ```
 
 `init`은 각 독립 클론에서 같은 순서의 참여자 ID와 해당 로컬 참여자 ID로 한 번 설정한다. `start`는 `session.started`를 격리된 공유 저장소에 로컬 커밋한 뒤 동기화를 시도한다. JSON의 `sync.status`가 `pending` 또는 `error`이면 상대가 볼 수 있다고 말하지 말고 `node bin/duobrain.js sync`로 재시도한다. 명령을 실행하지 않았거나 결과를 확인하지 않았다면 시작 이벤트가 생성·공유되었다고 주장하지 않는다.
 
 브리핑 뒤에는 사용자가 바로 할 수 있는 한 단계와, 상대 또는 사람 판단이 필요한 한 단계를 구분한다. 상대 변경을 받아야 하는 경우에도 검토하지 않은 변경을 자동 병합하라고 지시하지 않는다.
+
+## 상대 작업 확인, 겹침 점검, 별도 작업 공간
+
+“B 지금 어디까지 했어? 그럼 나는 뭐 하면 돼?”라는 질문에는 먼저 `sync`와 `status`에서 마지막 동기화 시각, B의 기록된 세션 범위·목표·마지막 이벤트·종료 여부를 읽는다. `active`나 미종료 세션은 마지막으로 공유된 기록일 뿐 B의 현재 접속·작업을 증명하지 않는다. B의 로컬 미푸시 제품 변경도 알 수 없다.
+
+자신의 후보 범위가 있으면 실제 경로와 기준 commit으로 `overlap`을 실행한다.
+
+```sh
+node bin/duobrain.js sync
+node bin/duobrain.js status
+node bin/duobrain.js overlap --scope src/export/empty-state.tsx --base-commit HEAD
+```
+
+`pathAssessment.status: "no_overlap"`은 기록된 scope와의 **경로** 중복이 없다는 뜻뿐이다. `semanticAssessment`는 항상 명시적 목표·티켓·위키 근거를 사람이 읽어 판단해야 하며, 공통 반환 계약 같은 의미상 영향은 `unknown`으로 남는다. `lastSyncedAt`, pending/error 동기화, 미종료 세션, 충돌, 로컬 또는 peer 미푸시 변경도 결과의 `unknowns`에서 확인한다. 다른 파일이라는 사실만으로 안전·독립이라고 말하지 않으며, 근거가 부족하면 사전 허용된 좁은 정보 티켓으로 계약 또는 영향만 요청한다.
+
+격리된 제품 작업 공간이 필요하면 이는 명시적으로 만든다. `worktree-prepare`는 원래 checkout의 브랜치·index·dirty files를 보존하고 미커밋 변경을 복사하지 않으며, merge·rebase·cherry-pick·sync·세션 시작을 자동으로 하지 않는다.
+
+```sh
+node bin/duobrain.js worktree-prepare \
+  --directory ../reading-app-empty-state \
+  --branch codex/empty-state \
+  --base-commit <confirmed-base>
+```
+
+반환 JSON의 `directory`, `branch`, `baseCommit`을 다시 확인한 뒤에만 새 worktree를 대상으로 `start --branch <returned-branch> --base-commit <returned-base>`를 기록한다. 존재하는 directory 또는 branch는 사용하지 않으며, 현재 세션의 scope를 바꾸는 E4 `session.scope_updated`는 아직 사용할 수 없다. 범위나 기준을 바꿔야 하면 현재 세션을 `end`하고 새 세션을 시작한다.
 
 ## 정보 보충과 직접 피드백의 구분
 
@@ -106,6 +131,12 @@ node bin/duobrain.js ticket-resolve --ticket <ticket-uuid> \
 
 정보 요청이 사전에 허용된 경우에는 질문이 이미 특정한 주장·근거 범위를 다시 사용자에게 확인하지 않고 `ticket-create`로 처리한다. 다만 대상 작업·자료가 모호하거나, 새 판단·승인·우선순위 또는 허용 범위를 넘는 공유가 필요하면 실행 전에 사용자에게 묻는다.
 
+## 캡처된 작업 방식 비교
+
+“B 하네스와 내 버전이 달라?”에는 두 structured source note의 `workContext.promptRef`와 `harnessRef`를 비교한다. 서로 다른 ref는 캡처된 참조가 다르다는 사실만 보인다. artifact의 version 또는 text가 빠졌다면 내용 차이·성능 원인은 미확인이고, 높아 보이는 버전이 더 좋은 결과를 냈다고 결론 내리지 않는다.
+
+W3의 `compareKnowledgeMethods`는 CLI가 아니라 caller가 전달한 notes와 artifacts만 처리하는 순수 API다. 누락된 비교 재료가 있으면 결과의 `ticketCandidate`는 제안일 뿐 티켓을 자동 생성하거나 AI가 백그라운드에서 답을 기다리지 않는다. 다음의 명시적 sync 또는 사용자 호출 뒤 새 근거를 전달해 다시 비교한다. API 입력 형태는 [knowledge-records API](../docs/wiki/knowledge-records.md#method-search-and-comparison)와 [reference-only example](../examples/wiki/method-comparison.json)를 따른다.
+
 ## 인계와 하루 마무리
 
 작업을 멈추거나 끝낼 때 AI는 인계 카드를 만든다. 사용자가 제공하거나 실제로 확인한 기록만으로 다음을 채운다.
@@ -117,10 +148,10 @@ node bin/duobrain.js ticket-resolve --ticket <ticket-uuid> \
 - 열린 티켓, 모르는 점, 막힘
 - 상대가 이어서 할 정확한 다음 한 단계와 완료 조건
 
-하루 마무리에서는 완료·미완료 범위, 알려진 막힘, 다음 행동을 요약한다. 세션 종료는 프로토콜의 `session.ended`가 요구하는 `summary`와 선택적 `blockers`, `next`를 사용한다. 현재 CLI에서는 실제 세션 UUID로 다음처럼 종료한다.
+하루 마무리에서는 완료·미완료 범위, 알려진 막힘, 다음 행동을 요약한다. 세션 종료는 프로토콜의 `session.ended`가 요구하는 `summary`와 선택적 `blockers`, `next`를 사용한다. 막힘이 없으면 `--blockers`를 생략한다. 현재 CLI에서는 실제 세션 UUID로 다음처럼 종료한다.
 
 ```sh
-node bin/duobrain.js end --session <uuid> --summary "입력 화면 연결과 검증 완료" --blockers "없음" --next "B의 API 응답 확인" --actor human
+node bin/duobrain.js end --session <uuid> --summary "입력 화면 연결과 검증 완료" --next "B의 API 응답 확인" --actor ai
 node bin/duobrain.js status
 node bin/duobrain.js sync
 ```

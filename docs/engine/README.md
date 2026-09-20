@@ -14,6 +14,8 @@ ordered pair of participant IDs and a different local identity in each clone:
 ```sh
 node bin/duobrain.js init --participants alice,bob --participant alice
 node bin/duobrain.js start --title "Connect the API" --scope src/api --goal "First flow"
+node bin/duobrain.js pause --session <uuid> --body "Waiting for review"
+node bin/duobrain.js resume --session <uuid> --body "Review received"
 node bin/duobrain.js status
 node bin/duobrain.js end --session <uuid> --summary "Connected and verified"
 node bin/duobrain.js sync
@@ -27,7 +29,31 @@ are errors with exit code 1. No force push is used.
 
 `goal`, `branch`, `baseCommit`, `blockers`, and `next` are recorded only when supplied;
 unknown snapshot goals remain `null`. Open sessions have `endedAt` and `elapsedMs` set
-to `null`; elapsed time is derived only after a recorded end event.
+to `null`; paused time is not presented as completed elapsed work. Only the session
+owner may pause, resume, or end, and the valid transitions are active → paused → active
+and active/paused → ended.
+
+Use a JSON file when changing scope so omitted optional fields and explicit `null` stay
+distinct:
+
+```json
+{
+  "scope": ["src/export/empty-state"],
+  "reason": "Move to the independently testable boundary",
+  "goal": null,
+  "baseCommit": "52ca11e"
+}
+```
+
+```sh
+duobrain scope-update --session <uuid> --file ./scope-change.json --actor ai
+```
+
+`updateSessionScope({repository, sessionId, scope, reason, ...})` is owner-only on an
+active or paused session. Omitted `goal`, `branch`, or `baseCommit` retain their prior
+projection; explicit null clears one. The event preserves the original start and every
+prior value in history, does not resume a paused session, and does not modify product
+code or its Git branch. Overlap assessment uses the latest valid projected scope.
 
 ### Two-clone information flow
 
@@ -66,6 +92,75 @@ require the assignee's `--actor human`. Only the requester can resolve, close, o
 reopen. Reopening clears the projected evidence and requires a new response before
 another resolution. `closed` remains distinct from `resolved`.
 
+A requester can append missing context without changing completion state:
+
+```sh
+duobrain ticket-clarify --ticket <uuid> --body "Use run 42 and evaluation revision 7"
+```
+
+`clarifyTicket({repository, ticketId, body, actorKind})` is requester-only on a
+nonterminal ticket. `ticket.clarified` stays in history while preserving the exact
+current status; it is not acknowledgment, response, resolution, or a related ticket.
+The assignee must still use `ticket-respond` under the existing evidence rules.
+
+### Shared plan and goals
+
+Prepare the complete replacement projection as JSON, then explicitly record it:
+
+```sh
+duobrain plan-set --file ./plan.json --actor human
+```
+
+`setPlan({repository, plan, actorKind})` creates the only plan root or appends a
+`plan.updated` revision. Each JSON document must include all three nullable goals,
+exactly one assignment for each configured participant, complete scopes and next
+values, `body`, and optional `status`/`evidence`. Status defaults to `proposed`.
+Snapshot `plan` contains the current projection and full history; top-level `goals`
+mirrors it. With no plan or an ambiguous/invalid history, `plan` is `null` and goals
+remain unknown.
+
+An `agreed` plan requires existing valid structured wiki evidence whose cooperative
+metadata attributes a human record to each participant. This validates provenance
+shape only: the engine does not inspect prose to infer consent, certify identity, or
+claim that the evidence semantically covers the exact revised plan. The person or AI
+recording the revision must verify that coverage beforehand. Independent roots and
+same-predecessor updates remain visible conflicts and block later plan mutation.
+
+### Overlap assessment and product worktrees
+
+```sh
+duobrain overlap --scope src/export/empty-state.tsx --base-commit HEAD
+duobrain worktree-prepare --directory ../empty-state-work
+```
+
+`overlap` compares the proposed repository-relative paths with the other participant's
+recorded, unended session scopes. Its output keeps `pathAssessment` separate from
+`semanticAssessment`: exact/ancestor path relations can be reported, but interface or
+behavior overlap stays `unknown` until a person or AI inspects explicit goals, tickets,
+or wiki evidence. A `no_overlap` path result does not mean the work is semantically
+independent. Pattern scopes and conflicted or unsynchronized histories produce an
+`unknown` path result.
+
+The assessment also returns the resolved proposed base commit, current product branch
+and HEAD, dirty state, upstream and unpushed-commit count when knowable, shared sync
+status and `lastSyncedAt`, and each peer session's last event time. An unended peer
+session is reported as `endKnown: false`; it does not claim live presence. Missing
+upstream/base data, pending sync, uncommitted work, and semantic uncertainty appear in
+`unknowns`. Peer live presence and unpushed product changes are always unknown from
+shared records alone. Shared-state sync never inspects or merges unseen peer product
+changes.
+
+`worktree-prepare` explicitly creates a new product worktree and a new branch from the
+selected commit. The default branch is a unique `codex/<directory>-<suffix>` name. The
+destination must not exist and must be outside both the source product checkout and
+the common Git directory. Existing local or known `origin` branches are rejected, so
+the command never force-moves a branch already used elsewhere. It preserves the source
+checkout's HEAD, branch, dirty files, and index; uncommitted files are not copied. It
+does not merge, rebase, cherry-pick, start a session, or synchronize shared records.
+
+The equivalent APIs are `assessOverlap({repository, scope, baseCommit})` and
+`prepareProductWorktree({repository, directory, branch, baseCommit})`.
+
 ## Read API
 
 The dashboard can pass its product repository path explicitly:
@@ -84,7 +179,9 @@ const note = await getWikiNote({
 `repository` defaults to the current directory and may be any path inside the product
 Git worktree. The result matches the shared snapshot interface: `sample` is `false`,
 project goals are `null`, ticket records include their event `history`, and concurrent
-entity histories are listed in `conflicts`. `getEngineStatus({repository})` additionally
+entity histories are listed in `conflicts`. Session records include nullable `summary`,
+`branch`, and `baseCommit`; each session history entry includes its original `data` and
+`previous` link for handoff reconstruction. `getEngineStatus({repository})` additionally
 returns the local participant, isolated-store path, and shared-store commit.
 
 The E2 write API exports `createTicket`, `acknowledgeTicket`,
@@ -114,5 +211,7 @@ Sync fetches and merges append-only histories, so concurrent events with differe
 UUID paths survive. A modified/deleted shared path, incompatible participant config,
 remote history rewrite, or same-path content conflict is rejected. If another writer
 wins a push race, the local commit remains intact and a later `sync` fetches, merges,
-and retries it. The remote state branch used by tests is always a temporary bare Git
-repository, never the public development remote.
+and retries it. Local mutations and sync operations acquire a common-store lock so
+concurrent CLI processes do not stage each other's event files in one commit. The
+remote state branch used by tests is always a temporary bare Git repository, never the
+public development remote.
