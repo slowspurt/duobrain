@@ -62,6 +62,9 @@ test('serves a static shell with a restrictive policy and no snapshot interpolat
   assert.match(script, /textContent/);
   assert.doesNotMatch(script, /innerHTML/);
 
+  const model = await (await fetch(`${origin}/model.js`)).text();
+  assert.match(model, /export function filterTickets/);
+
   const styles = await (await fetch(`${origin}/styles.css`)).text();
   assert.match(styles, /\[hidden\]\s*{\s*display:\s*none\s*!important;/);
 });

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { chmod, mkdtemp, readFile, rename, rm, unlink, writeFile } from 'node:fs/promises';
+import { chmod, link, mkdtemp, readFile, rename, rm, symlink, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -14,6 +14,7 @@ import {
   createTicket,
   endSession,
   getSnapshot,
+  getWikiNote,
   initSharedStore,
   reopenTicket,
   requestTicketInformation,
@@ -485,6 +486,65 @@ test('documented CLI options run the normal two-clone ticket flow', async (t) =>
   const status = await duobrain(setup.alice, 'status');
   assert.equal(status.snapshot.tickets[0].status, 'resolved');
   assert.equal(status.snapshot.tickets[0].history.length, 4);
+});
+
+test('getWikiNote returns validated Markdown and rejects unsafe reads', async (t) => {
+  const setup = await fixture();
+  t.after(() => rm(setup.root, { recursive: true, force: true }));
+  const initialized = await initSharedStore({
+    repository: setup.alice,
+    participants: ['alice', 'bob'],
+    participant: 'alice',
+  });
+  const noteId = randomUUID();
+  const markdown = `${structuredNote({ id: noteId, participant: 'alice' })}<script>alert(1)</script>\n`;
+  const added = await addWikiNote({ repository: setup.alice, markdown });
+  const read = await getWikiNote({ repository: setup.alice, path: added.path });
+  assert.deepEqual(read, { path: added.path, markdown, validation: added.validation });
+  assert.equal(Object.hasOwn(read, 'html'), false);
+
+  await assert.rejects(
+    getWikiNote({ repository: setup.alice, path: '../product.txt' }),
+    (error) => error.code === 'INVALID_WIKI_PATH',
+  );
+  await assert.rejects(
+    getWikiNote({ repository: setup.alice, path: `wiki/${randomUUID()}.md` }),
+    (error) => error.code === 'WIKI_NOTE_NOT_FOUND',
+  );
+
+  const linkedId = randomUUID();
+  await symlink(path.join(setup.alice, 'product.txt'), path.join(initialized.storePath, 'wiki', `${linkedId}.md`));
+  await assert.rejects(
+    getWikiNote({ repository: setup.alice, path: `wiki/${linkedId}.md` }),
+    (error) => error.code === 'UNSAFE_WIKI_NOTE',
+  );
+
+  const hardLinkedId = randomUUID();
+  await link(path.join(setup.alice, 'product.txt'), path.join(initialized.storePath, 'wiki', `${hardLinkedId}.md`));
+  await assert.rejects(
+    getWikiNote({ repository: setup.alice, path: `wiki/${hardLinkedId}.md` }),
+    (error) => error.code === 'UNSAFE_WIKI_NOTE',
+  );
+
+  const oversizedId = randomUUID();
+  await writeFile(
+    path.join(initialized.storePath, 'wiki', `${oversizedId}.md`),
+    'x'.repeat((1024 * 1024) + 1),
+  );
+  await assert.rejects(
+    getWikiNote({ repository: setup.alice, path: `wiki/${oversizedId}.md` }),
+    (error) => error.code === 'WIKI_NOTE_TOO_LARGE',
+  );
+
+  const invalidId = randomUUID();
+  const invalidPath = `wiki/${invalidId}.md`;
+  await writeFile(
+    path.join(initialized.storePath, invalidPath),
+    '```duobrain-wiki\n{invalid json}\n```\n',
+  );
+  const invalid = await getWikiNote({ repository: setup.alice, path: invalidPath });
+  assert.equal(invalid.validation.valid, false);
+  assert.equal(invalid.validation.errors[0].code, 'INVALID_METADATA_JSON');
 });
 
 test('configuration requires exactly two distinct participants', async (t) => {
