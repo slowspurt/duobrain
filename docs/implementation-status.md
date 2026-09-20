@@ -1,34 +1,41 @@
 # Implementation status
 
-Verified on 2026-09-20. This is the executable implementation status; the original roadmap describes the broader intended product.
+Verified on 2026-09-20. The local alpha implementation is integrated; release and actual two-person acceptance remain open. Start with [Getting started](../GETTING_STARTED.md). The original roadmap describes the intended product; this document describes executable behavior.
 
-## First integration
+## Integrated capabilities
 
-G1's automated transport and dashboard flow passes using two independent local clones and a temporary bare Git remote: information request, assignee acknowledgment, immutable structured wiki evidence, response, requester resolution, and dashboard HTTP snapshot/history. Answered requests stay in the inbox; resolution and cancellation remain distinct. This is not yet a two-machine user acceptance test or proof that an AI automatically performs the workflow.
+| Area | Available behavior |
+| --- | --- |
+| Shared engine | Exactly two participants; isolated `duobrain/state` Git branch; immutable records; pending delivery and retry; visible causal conflicts. |
+| Planning and sessions | Proposed/agreed goals and both assignments, plan revision history, start/pause/resume/end, scope updates, overlap assessment and explicit product-worktree preparation. |
+| Requests | Information and human feedback tickets; acknowledgment, clarification, missing information, evidence-backed answers, requester resolution, cancellation and reopening. |
+| Wiki | Structured source notes and summaries; knowledge status and lineage; live shared-store search; captured prompt/harness comparison; optional missing-information ticket creation and reuse. |
+| Daily refinement | Evidence-based importance and recency, preserved sources and decisions, immutable summary indexes, one designated scheduled participant, timezone and once-per-date guards, delivery-aware retries. Manual refresh detects policy/timezone changes too. |
+| Dashboard | Live local records, goals/assignments and conflicts, scope-aware recorded intervals, declared blockers, ticket inbox/history/detail, evidence bodies, wiki search/lineage and daily indexes. |
+| AI guidance | Existing-repository intake, missing planning inputs, start briefings, information supplementation, direct human feedback, comparison, concurrent work and handoff procedures for the user's existing AI. |
 
-The integrated engine, wiki and dashboard suite now has 64 passing tests. Wiki supplements preserve source lineage and prompt/harness references across retries. The dashboard can read validated evidence bodies. Agent guidance documents the actual CLI, repository onboarding and everyday request procedures.
+The engine, wiki and dashboard suite passes **77 tests** on the integrated runtime. This includes policy validation before refinement deduplication, policy/timezone refresh behavior, and the dashboard's live wiki routes. Tests use temporary repositories; they do not write collaboration records to this project's public remote.
 
-E3 adds pause/resume, full session handoff context, path-overlap assessment and explicit isolated product-worktree preparation. W3 adds pure source search, lineage tracing and captured-method comparison; it proposes missing-information tickets but does not create them. These operations do not establish live peer presence, semantic independence or causal performance differences.
+## Connected acceptance evidence
 
-The executable G2 scenario verifies the two-local-clone worktree and handoff connection. E4 adds shared plans/goals, scope changes and requester clarification. D3 adds recorded interval and blocker analysis. W4 produces daily refinement candidates without scheduling or persisting them; the engine adapter is next. Scope changes currently require a D4 time-analysis compatibility update, and plan status/assignment presentation is also assigned to D4.
+- **G1:** two independent local clones and a temporary bare remote exchange an information ticket, acknowledgment, immutable evidence, answer and requester resolution; the live dashboard exposes history and evidence.
+- **G2:** the later participant explicitly syncs, assesses overlap, prepares an isolated product worktree while preserving dirty source files, and shares session handoff context. Captured-method comparison distinguishes evidence gaps from supported differences.
+- **G3:** shared plan revisions, requester clarification and source-preserving refinement planning connect. Scope changes are attributed to the recorded intervals rather than applied retroactively.
+- **G4:** a missing-method request is proposed, created, reused, answered and compared again. Scheduled refinement skips the non-owner and early invocation, pushes a due summary, avoids a same-day duplicate and links the next day's summary. The peer sees records after sync. A successful comparison does not itself resolve the ticket.
+- **Clean checkout:** a new local clone containing only tracked files runs CLI/dashboard help and G4 without installed dependencies, private files or the separate web demo. This verifies checkout completeness on the current machine, not a new operating system or two-machine setup.
 
-## Next role milestones
+Run the suite and executable scenarios using the commands in [Getting started](../GETTING_STARTED.md#검증-실행).
 
-| Role | Next delivery | Boundary |
-| --- | --- | --- |
-| Engine E5 | Live wiki search/comparison and scheduled daily refinement | Explicit permitted inputs, delivery-aware retries, one scheduled runner and stable source fingerprints. |
-| Wiki W4 follow-up | Refinement lineage and prior-run validation | Missing/cyclic evidence stays visible; a missing output is not a successful duplicate. |
-| Guidance A5 | E4 planning and clarification workflows | Actual command examples and preserved existing user authorization. |
-| Dashboard D4 | Plan status/assignments and scope-aware time analysis | Respect explicit cleared values and avoid attributing old work to the final scope. |
-| Scenarios S5/G3 | Executable plan, clarification and refinement flow | Temporary local clones; distinguish pure refinement planning from scheduled execution. |
+## Runtime boundaries
 
-The coordinator owns shared contracts and integration. Session snapshot additions approved for E3 are nullable `summary`, `branch`, `baseCommit`, plus `data` and `previous` on history entries. Existing fields remain compatible. A paused session's final elapsed time remains unknown until ended; active intervals and wall-clock elapsed must be distinguished if interval totals are added.
+AI execution uses the user's existing AI tool and the supplied guidance. There is no installed background AI service or automatic wake-up. Daily execution uses an external scheduler invoking `wiki-refine --if-due`; [the cron recipe](engine/README.md#external-cron-setup) is provided, but no OS job was installed during development.
 
-## Remaining product gaps
+The dashboard is read-only and binds to `127.0.0.1`. It reads locally synchronized state; old session starts do not prove live presence. Recorded time is not measured focus or productivity. Artifact references alone cannot establish prompt contents, performance causes or semantic independence of work scopes. Human attribution is cooperative metadata, not authentication.
 
-- Shared goals and scope writes now exist; complete dashboard integration and automated peer-change briefings remain pending.
-- Comparison is available as a pure API; live adapters and scheduled daily source-preserving refinement are in progress.
-- CLI instructions are available, but automatic AI integration and a fresh-environment/two-machine acceptance run are not yet verified.
-- Release packaging and an explicit license decision remain separate release work. No package publication or deployment has been performed by this implementation track.
+## Remaining release and user acceptance work
 
-The independent website and competition demo are separate projects; their deployment is not a completion check for the open-source runtime.
+1. Choose an explicit license before describing this as a licensed open-source release. No license has been selected, npm package published, or release deployment performed. `package.json` remains private to prevent accidental registry publication; Git checkout execution is available.
+2. On two actual machines, each person connects their product clone and existing AI using the [onboarding recipe](agent-guidance/repository-onboarding.md). Verify a missing-plan intake, a shared plan and start briefing, an information request answered on the peer's next AI invocation, human feedback, and dashboard history after sync.
+3. On the designated participant's machine, configure the desired external daily schedule and confirm a real invocation and log. Development validated the runner using controlled timestamps; it did not install a scheduler on either person's behalf.
+
+The separate website and competition demo have independent deployment and acceptance. Their successful demonstration does not substitute for the runtime checks above.

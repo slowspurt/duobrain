@@ -2,7 +2,7 @@
 
 This is the public contract for the local CLI and independently implemented web demo. The demo may adapt the presentation and transport, but should identify its protocol version and preserve ticket completion rules. A demo simulation is not evidence that Git synchronization works.
 
-Status: G0 working baseline for the first parallel implementation. Changes to shared fields and lifecycle rules go through the coordinator; this is not a claim that the features already exist. See [work assignments](work-assignments.md) for module ownership and milestones.
+Status: implemented alpha baseline, extended by the [shared planning and scope contract](protocol-extensions.md). See [implementation status](implementation-status.md) for verified capabilities and remaining acceptance work. Changes to shared fields and lifecycle rules go through the coordinator.
 
 ## Scope
 
@@ -17,7 +17,7 @@ Code stays in its existing branch. Shared data lives on remote branch `duobrain/
 - `wiki/<uuid>.md`: immutable, intentionally shared source notes. No automatic transcript scraping.
 - participant identity is local, not shared configuration.
 
-Every event has `schemaVersion: 1`, UUID `id`, ISO `at`, `actor: {participant, kind: "human" | "ai"}`, `entityId` (UUID), `type`, `previous` (preceding entity event UUID or null), and `data` (object). Root types: `ticket.created`, `session.started`. Other types append to an entity's history. Two events with the same `previous` create a conflict, not a last-writer-wins resolution; dashboard and CLI expose conflicts and block further mutation of that entity. Time is display data, never the authority for overwriting a decision.
+Every event has `schemaVersion: 1`, UUID `id`, ISO `at`, `actor: {participant, kind: "human" | "ai"}`, `entityId` (UUID), `type`, `previous` (preceding entity event UUID or null), and `data` (object). Ticket and session root types are `ticket.created` and `session.started`; plan history follows the extension contract. Other types append to an entity's history. Two events with the same `previous` create a conflict, not a last-writer-wins resolution; dashboard and CLI expose conflicts and block further mutation of that entity. Time is display data, never the authority for overwriting a decision.
 
 ## Ticket data
 
@@ -43,4 +43,4 @@ Display recorded elapsed intervals, not measured human focus. An unclosed sessio
 
 Immutable events and wiki notes are the shared evidence. Derived state is rebuildable. Commit success, push success, partner acknowledgment, answer, and resolution are distinct. Duplicate retries of identical files are idempotent. Sync rejects rewritten/deleted existing shared files or incompatible participant configuration; never force-push. A rejected event and concurrent histories remain visible rather than silently dropped.
 
-This first implementation does not yet provide automatic worktree allocation for product work, automatic transcript capture, daily scheduled refinement, or measured productivity analytics. The isolated store checkout is a transport implementation, not the user's collaborative code worktree feature.
+The engine provides explicit overlap assessment and product-worktree preparation, live wiki search/comparison, and a daily refinement command with timezone, ownership, duplicate and retry checks. Recurring invocation requires an external scheduler; setup is documented in the [engine guide](engine/README.md#external-cron-setup). The dashboard summarizes recorded intervals and declared blockers, not measured productivity. No automatic transcript capture or background AI service is installed. The isolated shared-store checkout remains separate from product code worktrees.

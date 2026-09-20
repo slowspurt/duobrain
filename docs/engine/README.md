@@ -327,7 +327,7 @@ absolute path. This example checks every 15 minutes, so a sleeping machine runs 
 next cron interval after it wakes:
 
 ```cron
-*/15 * * * * /absolute/path/to/node /absolute/path/to/product/bin/duobrain.js wiki-refine --file /absolute/path/to/daily-refinement.json --if-due --repository /absolute/path/to/product >>/absolute/path/to/private-duobrain-logs/wiki-refine.log 2>&1
+*/15 * * * * /absolute/path/to/node /absolute/path/to/duobrain/bin/duobrain.js wiki-refine --file /absolute/path/to/daily-refinement.json --if-due --repository /absolute/path/to/product >>/absolute/path/to/private-duobrain-logs/wiki-refine.log 2>&1
 ```
 
 Do not add `--now` to the scheduled command. A pending push exits with status 2 and a
