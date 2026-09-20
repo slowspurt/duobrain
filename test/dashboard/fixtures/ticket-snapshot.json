@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "sample": true,
+  "participants": ["participant-a", "participant-b"],
+  "goals": {"project": "Safe collaboration", "mediumTerm": null, "currentPhase": "Check handoff evidence"},
+  "sessions": [],
+  "tickets": [
+    {
+      "id": "20000000-0000-4000-8000-000000000001",
+      "kind": "information",
+      "title": "Unseen parser question",
+      "body": "Which result shape is current?",
+      "requester": "participant-a",
+      "assignee": "participant-b",
+      "status": "open",
+      "goal": "Avoid overlap",
+      "evidence": [],
+      "history": []
+    },
+    {
+      "id": "20000000-0000-4000-8000-000000000002",
+      "kind": "information",
+      "title": "Caption export handoff facts",
+      "body": "Share passing tests and remaining failures.",
+      "requester": "participant-a",
+      "assignee": "participant-b",
+      "status": "answered",
+      "goal": "Resume without duplication",
+      "evidence": ["wiki/30000000-0000-4000-8000-000000000001.md"],
+      "history": [
+        {"id": "10000000-0000-4000-8000-000000000001", "type": "ticket.created", "at": "2026-01-15T09:01:00Z", "actor": {"participant": "participant-a", "kind": "ai"}, "data": {}},
+        {"id": "10000000-0000-4000-8000-000000000002", "type": "ticket.responded", "at": "2026-01-15T10:05:00Z", "actor": {"participant": "participant-b", "kind": "ai"}, "data": {"body": "CSV passes; SRT multiline still fails.", "evidence": ["wiki/30000000-0000-4000-8000-000000000001.md"]}}
+      ]
+    },
+    {
+      "id": "20000000-0000-4000-8000-000000000003",
+      "kind": "feedback",
+      "title": "Choose onboarding copy",
+      "body": "Choose draft A or B.",
+      "requester": "participant-a",
+      "assignee": "participant-b",
+      "status": "resolved",
+      "goal": "Make the first-run decision",
+      "evidence": [],
+      "history": [
+        {"id": "10000000-0000-4000-8000-000000000003", "type": "ticket.responded", "at": "2026-01-15T13:20:00Z", "actor": {"participant": "participant-b", "kind": "human"}, "data": {"body": "Use draft B."}},
+        {"id": "10000000-0000-4000-8000-000000000004", "type": "ticket.resolved", "at": "2026-01-15T13:25:00Z", "actor": {"participant": "participant-a", "kind": "human"}, "data": {"body": "The requested decision is sufficient."}}
+      ]
+    },
+    {
+      "id": "20000000-0000-4000-8000-000000000004",
+      "kind": "information",
+      "title": "Superseded request",
+      "body": "Old duplicate question.",
+      "requester": "participant-b",
+      "assignee": "participant-a",
+      "status": "closed",
+      "goal": null,
+      "evidence": [],
+      "history": []
+    }
+  ],
+  "sync": {"status": "synced", "lastSyncedAt": "2026-01-15T13:30:00Z", "message": null},
+  "conflicts": []
+}

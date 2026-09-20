@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>duobrain 기록 대시보드</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">DUOBRAIN / READ-ONLY</p>
+        <h1>함께 만든 기록의 현재 위치</h1>
+      </div>
+      <div class="source-state">
+        <span id="source-badge" class="source-badge">데이터 확인 중</span>
+        <span id="sync-badge" class="status unknown">동기화 확인 중</span>
+      </div>
+    </header>
+
+    <main>
+      <aside id="sample-banner" class="notice" hidden>
+        <strong>예시 데이터</strong>
+        <span>이 화면은 제품 흐름 확인용이며 실제 프로젝트 상태가 아닙니다.</span>
+      </aside>
+
+      <aside id="delivery-panel" class="delivery-panel">
+        <div><p class="label">원격 전송</p><strong id="delivery-copy">확인 중</strong></div>
+        <div><p class="label">상대 확인</p><strong>요청별 상태에서 별도 확인</strong></div>
+        <p id="sync-message" class="caption"></p>
+      </aside>
+
+      <section id="error-panel" class="error-panel" hidden>
+        <strong>기록을 불러오지 못했습니다.</strong>
+        <span>서버 연결과 스냅샷 읽기 상태를 확인해 주세요.</span>
+        <button id="retry" type="button">다시 불러오기</button>
+      </section>
+
+      <section aria-labelledby="goals-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">DIRECTION</p><h2 id="goals-title">목표</h2></div>
+        </div>
+        <div id="goals" class="goal-grid"></div>
+      </section>
+
+      <section aria-labelledby="people-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">TWO PEOPLE</p><h2 id="people-title">작업 범위와 최근 기록</h2></div>
+          <span class="caption">기록이 없으면 활동을 추정하지 않습니다.</span>
+        </div>
+        <div id="participants" class="people-grid"></div>
+      </section>
+
+      <section aria-labelledby="tickets-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">ACTIVE REQUESTS</p><h2 id="tickets-title">진행 중 요청</h2></div>
+          <span id="ticket-count" class="count"></span>
+        </div>
+        <div class="ticket-toolbar">
+          <div class="tabs" role="tablist" aria-label="요청 보기">
+            <button id="inbox-tab" class="tab active" type="button" role="tab" aria-selected="true">요청함</button>
+            <button id="history-tab" class="tab" type="button" role="tab" aria-selected="false">처리 이력</button>
+          </div>
+          <label class="search">검색 <input id="ticket-search" type="search" placeholder="제목, 내용, 목표, 근거"></label>
+          <label>상태 <select id="status-filter"><option value="">전체</option></select></label>
+          <label>종류 <select id="kind-filter"><option value="">전체</option><option value="information">정보 보충</option><option value="feedback">직접 피드백</option></select></label>
+          <label>상대 <select id="peer-filter"><option value="">전체</option></select></label>
+        </div>
+        <p id="ticket-context" class="ticket-context"></p>
+        <div id="tickets" class="ticket-list"></div>
+      </section>
+    </main>
+    <footer>읽기 전용 · 기록된 사실만 표시</footer>
+  </body>
+</html>
