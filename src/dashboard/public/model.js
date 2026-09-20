@@ -26,6 +26,14 @@ export function peerConfirmation(status) {
   return '상대 확인 상태 미확인';
 }
 
+export function wikiValidationPresentation(validation) {
+  const errors = Array.isArray(validation?.errors) ? validation.errors : [];
+  const warnings = Array.isArray(validation?.warnings) ? validation.warnings : [];
+  if (validation?.valid !== true) return { kind: 'failure', title: '검증 실패', issues: errors };
+  if (warnings.length) return { kind: 'warning', title: '검증 경고', issues: warnings };
+  return { kind: 'valid', title: '검증 통과', issues: [] };
+}
+
 export function filterTickets(tickets, { tab = 'inbox', query = '', status = '', kind = '', peer = '' } = {}) {
   const needle = query.trim().toLocaleLowerCase();
   return (Array.isArray(tickets) ? tickets : []).filter((ticket) => {

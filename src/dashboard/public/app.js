@@ -1,4 +1,10 @@
-import { filterTickets, peerConfirmation, ticketEvidence, ticketStatusLabels } from '/model.js';
+import {
+  filterTickets,
+  peerConfirmation,
+  ticketEvidence,
+  ticketStatusLabels,
+  wikiValidationPresentation,
+} from '/model.js';
 
 const byId = (id) => document.getElementById(id);
 const labels = {
@@ -9,7 +15,7 @@ const labels = {
   ...ticketStatusLabels,
 };
 
-const state = { tickets: [], participants: [], tab: 'inbox', query: '', status: '', kind: '', peer: '' };
+const state = { tickets: [], participants: [], sample: false, tab: 'inbox', query: '', status: '', kind: '', peer: '' };
 const text = (value, fallback = '미확인') => typeof value === 'string' && value.trim() ? value : fallback;
 
 function element(tag, className, value) {
@@ -87,9 +93,47 @@ function renderTimeline(ticket) {
   const evidence = ticketEvidence(ticket);
   section.append(element('h4', '', '근거 경로'));
   if (!evidence.length) section.append(empty('연결된 근거 경로가 없습니다.'));
-  else evidence.forEach((path) => section.append(element('code', 'evidence-path', path)));
-  section.append(element('p', 'caption evidence-note', '경로만 표시합니다. 대시보드는 임의 파일을 열거나 본문을 조회하지 않습니다.'));
+  else evidence.forEach((path) => {
+    const item = element('div', 'evidence-item');
+    const button = element('button', 'evidence-link', path);
+    button.type = 'button';
+    const content = element('div', 'evidence-content');
+    content.hidden = true;
+    button.addEventListener('click', () => loadEvidence(path, button, content));
+    item.append(button, content);
+    section.append(item);
+  });
+  section.append(element('p', 'caption evidence-note', '허용된 위키 경로만 읽기 전용으로 조회하며 Markdown은 실행하지 않습니다.'));
   return section;
+}
+
+async function loadEvidence(path, button, content) {
+  button.disabled = true;
+  content.hidden = false;
+  content.replaceChildren(element('p', 'caption', '근거 원문을 불러오는 중입니다.'));
+  try {
+    const response = await fetch(`/api/wiki?path=${encodeURIComponent(path)}`, { headers: { Accept: 'application/json' } });
+    const result = await response.json();
+    if (!response.ok) {
+      const missing = response.status === 404;
+      const label = missing ? '근거 누락' : response.status === 413 ? '크기 초과' : '조회 실패';
+      content.replaceChildren(element('strong', `validation ${missing ? 'missing' : 'failure'}`, label), element('p', 'caption', text(result.message, '근거 노트를 불러오지 못했습니다.')));
+      return;
+    }
+    const summary = wikiValidationPresentation(result.validation);
+    const heading = element('div', 'evidence-heading');
+    heading.append(element('strong', `validation ${summary.kind}`, summary.title));
+    if (state.sample) heading.append(element('span', 'sample-evidence', '예시 근거'));
+    content.replaceChildren(heading);
+    for (const issue of summary.issues) {
+      content.append(element('p', 'validation-issue', `${text(issue?.code, 'UNKNOWN')} · ${text(issue?.message, '세부 내용 없음')}`));
+    }
+    content.append(element('pre', 'note-markdown', result.markdown));
+  } catch {
+    content.replaceChildren(element('strong', 'validation failure', '조회 실패'), element('p', 'caption', '근거 노트 응답을 처리하지 못했습니다.'));
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function ticketCard(ticket) {
@@ -150,6 +194,7 @@ function renderSync(sync = {}) {
 
 function render(snapshot) {
   const sample = snapshot.sample === true;
+  state.sample = sample;
   byId('sample-banner').hidden = !sample;
   byId('source-badge').textContent = sample ? '예시 스냅샷' : '실제 엔진 기록';
   state.tickets = Array.isArray(snapshot.tickets) ? snapshot.tickets : [];
