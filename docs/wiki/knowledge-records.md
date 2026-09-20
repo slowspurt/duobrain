@@ -42,5 +42,25 @@ Legacy text has unknown knowledge status and cannot establish or promote an `agr
 
 - `parseWikiNote(markdown)` returns `{format, metadata, body}` and throws `WikiParseError` for a malformed structured JSON block.
 - `validateWikiNote(markdownOrParsed, {path?})` returns `{valid, errors, warnings, note}`. If `path` is provided, it checks the `wiki/<uuid>.md` shape and UUID match.
+- `renderWikiNote(metadata, body)` renders a structured candidate and performs no I/O.
+- `prepareTicketSupplement({ticket, context, notes})` validates and prepares an immutable source note, refreshed summary, and protocol-shaped ticket response candidate. It never writes files or invokes Git.
 
 See `examples/wiki/` for original observations, explicit agreement evidence, all four knowledge statuses, an agreed summary, and a legacy supplement.
+
+## Ticket supplement planning
+
+`prepareTicketSupplement` accepts a projected ticket, a caller-supplied context, and the complete set of existing notes relevant to the supplement. `examples/scenarios/everyday-flow.json` is useful for constructing these values in tests and adapters, but it is scenario data rather than a runtime input schema.
+
+The ticket object has `id`, `kind`, `title`, `body`, `requester`, and `assignee`. Context has:
+
+- `responseBody`: the proposed ticket response.
+- `sourceNote`: caller-generated `id`, title, body, author, observation time, work context, status, and source descriptors. Its author must be the assignee. A non-ticket source is mandatory because the question itself is not evidence.
+- `summary`: caller-generated `id`, title, body, status, the existing notes it `summarizes`, optional `previousSummary`, decision evidence, and supersession targets.
+
+The caller supplies IDs and timestamps; the function does not use clocks or randomness. A successful result has `outcome: "prepared"`, `ready: true`, two Markdown candidates, and a `ticketResponse`. The response is only a candidate: its evidence note must be persisted and shared before an engine records `ticket.responded`.
+
+Every candidate carries a deterministic `ticketSupplement` fingerprint. Reprocessing the same logical input with both records present returns `outcome: "duplicate"` and reuses the original evidence path. A partial retry reuses an existing source candidate and prepares the missing summary. Different content at the same UUID path is `PATH_COLLISION`.
+
+The planner traverses only the candidate-reachable note graph. Missing wiki sources, other missing relations, self-reference, and longer cycles are reported separately. It never edits input notes, and `preservedStatuses` reports the statuses (or `unknown` for legacy text) of existing summarized records. A refreshed proposed summary therefore does not rewrite or promote a prior personal or agreed record.
+
+An `agreed` candidate still requires `decisionEvidence`; W2 also requires each cited agreement note to be structured and human-authored. A feedback ticket authored by AI returns `HUMAN_FEEDBACK_REQUIRED`, no response candidate, and `satisfiesTicket: false`. This matches protocol v1: AI can prepare context, but it cannot impersonate the requested human judgment.

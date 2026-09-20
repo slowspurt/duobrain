@@ -14,13 +14,22 @@
         <p class="eyebrow">DUOBRAIN / READ-ONLY</p>
         <h1>함께 만든 기록의 현재 위치</h1>
       </div>
-      <div id="sync-badge" class="status unknown">동기화 확인 중</div>
+      <div class="source-state">
+        <span id="source-badge" class="source-badge">데이터 확인 중</span>
+        <span id="sync-badge" class="status unknown">동기화 확인 중</span>
+      </div>
     </header>
 
     <main>
       <aside id="sample-banner" class="notice" hidden>
         <strong>예시 데이터</strong>
         <span>이 화면은 제품 흐름 확인용이며 실제 프로젝트 상태가 아닙니다.</span>
+      </aside>
+
+      <aside id="delivery-panel" class="delivery-panel">
+        <div><p class="label">원격 전송</p><strong id="delivery-copy">확인 중</strong></div>
+        <div><p class="label">상대 확인</p><strong>요청별 상태에서 별도 확인</strong></div>
+        <p id="sync-message" class="caption"></p>
       </aside>
 
       <section id="error-panel" class="error-panel" hidden>
@@ -49,6 +58,17 @@
           <div><p class="eyebrow">ACTIVE REQUESTS</p><h2 id="tickets-title">진행 중 요청</h2></div>
           <span id="ticket-count" class="count"></span>
         </div>
+        <div class="ticket-toolbar">
+          <div class="tabs" role="tablist" aria-label="요청 보기">
+            <button id="inbox-tab" class="tab active" type="button" role="tab" aria-selected="true">요청함</button>
+            <button id="history-tab" class="tab" type="button" role="tab" aria-selected="false">처리 이력</button>
+          </div>
+          <label class="search">검색 <input id="ticket-search" type="search" placeholder="제목, 내용, 목표, 근거"></label>
+          <label>상태 <select id="status-filter"><option value="">전체</option></select></label>
+          <label>종류 <select id="kind-filter"><option value="">전체</option><option value="information">정보 보충</option><option value="feedback">직접 피드백</option></select></label>
+          <label>상대 <select id="peer-filter"><option value="">전체</option></select></label>
+        </div>
+        <p id="ticket-context" class="ticket-context"></p>
         <div id="tickets" class="ticket-list"></div>
       </section>
     </main>
