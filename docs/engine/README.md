@@ -70,6 +70,41 @@ require the assignee's `--actor human`. Only the requester can resolve, close, o
 reopen. Reopening clears the projected evidence and requires a new response before
 another resolution. `closed` remains distinct from `resolved`.
 
+### Overlap assessment and product worktrees
+
+```sh
+duobrain overlap --scope src/export/empty-state.tsx --base-commit HEAD
+duobrain worktree-prepare --directory ../empty-state-work
+```
+
+`overlap` compares the proposed repository-relative paths with the other participant's
+recorded, unended session scopes. Its output keeps `pathAssessment` separate from
+`semanticAssessment`: exact/ancestor path relations can be reported, but interface or
+behavior overlap stays `unknown` until a person or AI inspects explicit goals, tickets,
+or wiki evidence. A `no_overlap` path result does not mean the work is semantically
+independent. Pattern scopes and conflicted or unsynchronized histories produce an
+`unknown` path result.
+
+The assessment also returns the resolved proposed base commit, current product branch
+and HEAD, dirty state, upstream and unpushed-commit count when knowable, shared sync
+status and `lastSyncedAt`, and each peer session's last event time. An unended peer
+session is reported as `endKnown: false`; it does not claim live presence. Missing
+upstream/base data, pending sync, uncommitted work, and semantic uncertainty appear in
+`unknowns`. Peer live presence and unpushed product changes are always unknown from
+shared records alone. Shared-state sync never inspects or merges unseen peer product
+changes.
+
+`worktree-prepare` explicitly creates a new product worktree and a new branch from the
+selected commit. The default branch is a unique `codex/<directory>-<suffix>` name. The
+destination must not exist and must be outside both the source product checkout and
+the common Git directory. Existing local or known `origin` branches are rejected, so
+the command never force-moves a branch already used elsewhere. It preserves the source
+checkout's HEAD, branch, dirty files, and index; uncommitted files are not copied. It
+does not merge, rebase, cherry-pick, start a session, or synchronize shared records.
+
+The equivalent APIs are `assessOverlap({repository, scope, baseCommit})` and
+`prepareProductWorktree({repository, directory, branch, baseCommit})`.
+
 ## Read API
 
 The dashboard can pass its product repository path explicitly:
@@ -120,5 +155,7 @@ Sync fetches and merges append-only histories, so concurrent events with differe
 UUID paths survive. A modified/deleted shared path, incompatible participant config,
 remote history rewrite, or same-path content conflict is rejected. If another writer
 wins a push race, the local commit remains intact and a later `sync` fetches, merges,
-and retries it. The remote state branch used by tests is always a temporary bare Git
-repository, never the public development remote.
+and retries it. Local mutations and sync operations acquire a common-store lock so
+concurrent CLI processes do not stage each other's event files in one commit. The
+remote state branch used by tests is always a temporary bare Git repository, never the
+public development remote.
