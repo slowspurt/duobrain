@@ -24,7 +24,7 @@
 
 ## 두 번째 참여자 온보딩
 
-두 번째 참여자의 AI는 새 계획을 처음부터 만들지 않는다. 공유된 기획과 현재 상태를 바탕으로 다음을 짧게 브리핑한다.
+두 번째 참여자의 AI는 새 계획을 처음부터 만들지 않는다. `status`의 공유 `plan`과 `goals`, 각 participant의 assignment·scope·next를 먼저 읽고 현재 상태를 바탕으로 다음을 짧게 브리핑한다.
 
 - 확정된 목표와 근거, 제안 또는 미정인 항목
 - 상대가 마지막으로 공유한 세션·인계 내용과 열린 티켓
@@ -32,6 +32,8 @@
 - 공유 동기화 상태와 확인 시점
 
 상대의 열린 세션이 있어도 현재 작업 중이라고 단정하지 않는다. 범위가 겹치거나 기준 커밋·인터페이스 결정이 부족하면 이를 명시하고, 공유된 기록에서 확인 가능한 범위만 진행한다.
+
+계획이 없거나 `plan`이 null이면 goals도 미확인이다. 현재 상황·회의록·기존 기획에서 허용된 source note를 먼저 보충하고, 두 사람의 목표·assignment·다음 행동을 포함한 `proposed` plan을 만든다. `agreed`는 두 사람의 human-attributed structured decision evidence를 가리켜야 하지만, CLI는 그 메타데이터 형태만 검증한다. 문장 속 동의가 실제로 이 revision과 scope를 포괄하는지는 사람 또는 기록하는 AI가 근거를 확인해야 하며, 형식 통과를 합의 인증으로 말하지 않는다.
 
 ## 작업 시작과 브리핑
 
@@ -78,7 +80,7 @@ node bin/duobrain.js worktree-prepare \
   --base-commit <confirmed-base>
 ```
 
-반환 JSON의 `directory`, `branch`, `baseCommit`을 다시 확인한 뒤에만 새 worktree를 대상으로 `start --branch <returned-branch> --base-commit <returned-base>`를 기록한다. 존재하는 directory 또는 branch는 사용하지 않으며, 현재 세션의 scope를 바꾸는 E4 `session.scope_updated`는 아직 사용할 수 없다. 범위나 기준을 바꿔야 하면 현재 세션을 `end`하고 새 세션을 시작한다.
+반환 JSON의 `directory`, `branch`, `baseCommit`을 다시 확인한 뒤에만 새 worktree를 대상으로 `start --branch <returned-branch> --base-commit <returned-base>`를 기록한다. 존재하는 directory 또는 branch는 사용하지 않는다. active 또는 paused 세션의 scope·목표·branch·base를 바꿀 때는 `scope-update --session <uuid> --file <json-path>`를 사용하고, 변경 후 `overlap`을 다시 조회한다. JSON에서 생략한 optional field는 기존 값을 유지하고 `null`은 명시적으로 지운다. 이 이벤트는 제품 코드·Git branch를 바꾸거나 paused 세션을 resume하지 않는다.
 
 ## 정보 보충과 직접 피드백의 구분
 
@@ -115,7 +117,7 @@ node bin/duobrain.js ticket-resolve --ticket <ticket-uuid> \
   --body "응답과 근거가 요청의 완료 조건을 충족한다." --actor ai
 ```
 
-`note-add`는 위키 파서가 검증한 Markdown 파일을 불변의 `wiki/<uuid>.md`로 저장한다. legacy note에는 `--id <uuid>`가 필요하다. 정보 응답에는 하나 이상의 이미 존재하는 위키 경로가 필요하다. 자료가 없으면 `ticket-needs-information --ticket <ticket-uuid> --body "필요한 자료" --actor ai`를 사용한다. 잘못된 답변·새 근거가 필요하면 requester만 `ticket-reopen`할 수 있으며, `ticket-close`의 `cancelled`·`duplicate`는 해결이 아니다. requester clarification, 티켓 relation, 진행 중 scope 변경은 v1 명령이나 이벤트가 아니므로 기록했다고 주장하지 않는다.
+`note-add`는 위키 파서가 검증한 Markdown 파일을 불변의 `wiki/<uuid>.md`로 저장한다. legacy note에는 `--id <uuid>`가 필요하다. 정보 응답에는 하나 이상의 이미 존재하는 위키 경로가 필요하다. 자료가 없으면 `ticket-needs-information --ticket <ticket-uuid> --body "필요한 자료" --actor ai`를 사용한다. requester가 빠진 실행 revision·대상 artifact 같은 맥락을 보충할 때는 `ticket-clarify --ticket <ticket-uuid> --body "추가 맥락" --actor ai`를 사용한다. clarification은 비종결 티켓의 현재 상태와 완료 조건을 그대로 유지하며, acknowledgment·response·resolution도 새 관련 티켓도 아니다. 잘못된 답변·새 근거가 필요하면 requester만 `ticket-reopen`할 수 있으며, `ticket-close`의 `cancelled`·`duplicate`는 해결이 아니다.
 
 ## 일상 질문을 행동으로 연결하기
 
@@ -136,6 +138,8 @@ node bin/duobrain.js ticket-resolve --ticket <ticket-uuid> \
 “B 하네스와 내 버전이 달라?”에는 두 structured source note의 `workContext.promptRef`와 `harnessRef`를 비교한다. 서로 다른 ref는 캡처된 참조가 다르다는 사실만 보인다. artifact의 version 또는 text가 빠졌다면 내용 차이·성능 원인은 미확인이고, 높아 보이는 버전이 더 좋은 결과를 냈다고 결론 내리지 않는다.
 
 W3의 `compareKnowledgeMethods`는 CLI가 아니라 caller가 전달한 notes와 artifacts만 처리하는 순수 API다. 누락된 비교 재료가 있으면 결과의 `ticketCandidate`는 제안일 뿐 티켓을 자동 생성하거나 AI가 백그라운드에서 답을 기다리지 않는다. 다음의 명시적 sync 또는 사용자 호출 뒤 새 근거를 전달해 다시 비교한다. API 입력 형태는 [knowledge-records API](../docs/wiki/knowledge-records.md#method-search-and-comparison)와 [reference-only example](../examples/wiki/method-comparison.json)를 따른다.
+
+하루 정제와 비교용 CLI는 E5 진행 중이다. 현재 API·티켓 흐름을 그 명령으로 대체하거나 이름·옵션을 추측하지 않는다.
 
 ## 인계와 하루 마무리
 

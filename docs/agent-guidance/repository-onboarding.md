@@ -20,9 +20,9 @@ node /Users/bob/tools/duobrain/bin/duobrain.js init \
 
 The participant pair must have the same order in both clones; each `--participant` is local to that clone. Inspect the JSON result and run `status` with the same `--repository` path before assuming either side is shared.
 
-## 2. Share the starting plan as an allowed source note
+## 2. Share and record the starting plan
 
-Project, medium-term, and current-phase goals are currently read-only snapshot fields; the CLI has no shared-goals write command. Put the existing plan or approved meeting-note excerpt in a source note instead. First decide that this material is allowed to be shared and remove content outside that boundary. Preserve where the statement came from instead of turning a proposal or personal choice into an agreement.
+First decide that the current plan or meeting-note excerpt is allowed to be shared and remove content outside that boundary. Preserve where each statement came from instead of turning a proposal or personal choice into an agreement. If no plan exists, request current situation and meeting notes; do not invent goals or assignments. Add permitted evidence as a source note before proposing the shared plan.
 
 Create a structured source note using the [knowledge-record format](../wiki/knowledge-records.md), then add it from the product clone. The input Markdown file can live anywhere local; its validated immutable copy is stored as `wiki/<uuid>.md` in the shared store.
 
@@ -36,6 +36,37 @@ node /Users/bob/tools/duobrain/bin/duobrain.js sync \
 ```
 
 The note's `status` and sources state what is actually known. Its push result is not proof that Bob read it; Bob's successful `sync` is the first local observation that it arrived.
+
+Prepare one complete plan JSON document. It must contain all three goals and exactly one assignment for each configured participant.
+
+```json
+{
+  "goals": {
+    "project": "A reading-app first flow",
+    "mediumTerm": "Connect book registration and reading records",
+    "currentPhase": "Connect the book API and input screen"
+  },
+  "assignments": [
+    {"participant": "alice", "scope": ["src/ui/book-form"], "next": "Build the input state"},
+    {"participant": "bob", "scope": ["src/api/books"], "next": "Share response evidence"}
+  ],
+  "status": "proposed",
+  "evidence": ["wiki/<plan-note-uuid>.md"],
+  "body": "Drafted from the shared kickoff note."
+}
+```
+
+```sh
+node /Users/alice/tools/duobrain/bin/duobrain.js plan-set \
+  --repository /Users/alice/work/reading-app --file /Users/alice/work/plans/kickoff-plan.json \
+  --actor ai
+node /Users/bob/tools/duobrain/bin/duobrain.js sync \
+  --repository /Users/bob/work/reading-app
+node /Users/bob/tools/duobrain/bin/duobrain.js status \
+  --repository /Users/bob/work/reading-app
+```
+
+Bob's briefing reads `status` output's `plan`, top-level `goals`, and both assignments rather than rebuilding the plan. After both people have checked the scope and goals, write a complete replacement JSON with `status: "agreed"` and the valid structured decision-evidence notes for **both** people, then run `plan-set` again. The engine validates the human-attributed evidence shape, not whether its prose actually means both people consented to this exact revision. Verify that semantic coverage before recording it; a passing command is not an authentication or consent proof.
 
 ## 3. Add the guidance to each existing AI manually
 
@@ -77,6 +108,16 @@ node /Users/alice/tools/duobrain/bin/duobrain.js ticket-resolve \
 ```
 
 An information response requires an existing `wiki/<uuid>.md` evidence path. If Bob cannot find the permitted evidence, use `ticket-needs-information` with the specific missing material instead of responding from guesswork. If Alice finds the response insufficient after it was resolved, only Alice (the requester) can use `ticket-reopen`; the next resolution needs a new valid response.
+
+If Alice realizes the original request omitted a run revision, artifact, or other context while the ticket is still nonterminal, append it without changing the status:
+
+```sh
+node /Users/alice/tools/duobrain/bin/duobrain.js ticket-clarify \
+  --repository /Users/alice/work/reading-app --ticket <ticket-uuid> \
+  --body "Use evaluation revision 7 and the book API response artifact." --actor ai
+```
+
+`ticket-clarify` is requester-only. It preserves `open`, `acknowledged`, `needs_information`, or `answered` as applicable; it is neither an answer nor a resolution and does not create a related ticket. The assignee still needs an evidence-backed `ticket-respond`, and the requester still decides whether to resolve.
 
 Every mutating command records locally and then attempts sync. A `pending` result or exit code 2 means the record has not been shared successfully; run `sync` again from the same product repository. Reuse the same immutable ticket or note on retry; do not force-push or create a duplicate record merely to hide a delivery failure. `status` shows the locally observed sync state, not peer presence or acknowledgment.
 
@@ -144,7 +185,27 @@ node /Users/alice/tools/duobrain/bin/duobrain.js start \
   --branch <returned-branch> --base-commit <returned-base> --actor ai
 ```
 
-There is still no supported in-place session scope update. End the current session and start a new one when its scope or base changes. `docs/protocol-extensions.md` describes E4 `session.scope_updated` and shared-plan writes as approved future contracts, not available commands.
+For an active or paused session, update the recorded scope with a JSON file, then reassess overlap against the new projection. Omitted optional fields keep their previous values; explicit `null` clears one. This event changes neither product code nor the Git branch and does not resume a paused session.
+
+```json
+{
+  "scope": ["src/export/empty-state.tsx"],
+  "reason": "Limit work to the independently testable UI boundary",
+  "goal": "Display an empty result without parser changes",
+  "baseCommit": "<confirmed-base>"
+}
+```
+
+```sh
+node /Users/alice/tools/duobrain/bin/duobrain.js scope-update \
+  --repository /Users/alice/work/reading-app --session <session-uuid> \
+  --file /Users/alice/work/plans/empty-state-scope.json --actor ai
+node /Users/alice/tools/duobrain/bin/duobrain.js overlap \
+  --repository /Users/alice/work/reading-app \
+  --scope src/export/empty-state.tsx --base-commit <confirmed-base>
+```
+
+`docs/protocol-extensions.md` now documents implemented E4 behavior; its remaining future sections must still be distinguished from executable commands. Daily refinement and a comparison CLI are E5 work in progress: do not invent either command name or options.
 
 ## 9. Compare only captured method evidence
 
@@ -163,4 +224,4 @@ console.log(JSON.stringify(compareKnowledgeMethods({...manifest, notes}), null, 
 '
 ```
 
-The API can compare captured ref identity, versions, and supplied text only. Missing or opaque refs/text remain unknown; different refs do not prove behavior or a causal result. A returned `ticketCandidate` is only a narrow proposal. On a later explicit sync or user request, pass newly captured evidence to the API again; do not claim automatic wake-up. Shared-goal writes and the E4 extension events remain unavailable.
+The API can compare captured ref identity, versions, and supplied text only. Missing or opaque refs/text remain unknown; different refs do not prove behavior or a causal result. A returned `ticketCandidate` is only a narrow proposal. On a later explicit sync or user request, pass newly captured evidence to the API again; do not claim automatic wake-up. A daily-refinement or comparison CLI is E5 work in progress; do not invent its command or options.
