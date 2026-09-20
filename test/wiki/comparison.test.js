@@ -34,6 +34,25 @@ test("compares sufficient captured evidence without inferring a performance caus
   assert.equal(comparison.causalConclusion.supported, false);
 });
 
+test("summarizes front insertion, front deletion, and identical captured text", () => {
+  const inserted = comparisonWithPromptText("a", "b\na").comparisons.prompt.textComparison;
+  assert.equal(inserted.equal, false);
+  assert.equal(inserted.commonSuffixLines, 1);
+  assert.deepEqual(inserted.leftChangedExcerpt, []);
+  assert.deepEqual(inserted.rightChangedExcerpt, ["b"]);
+
+  const deleted = comparisonWithPromptText("b\na", "a").comparisons.prompt.textComparison;
+  assert.equal(deleted.equal, false);
+  assert.equal(deleted.commonSuffixLines, 1);
+  assert.deepEqual(deleted.leftChangedExcerpt, ["b"]);
+  assert.deepEqual(deleted.rightChangedExcerpt, []);
+
+  const identical = comparisonWithPromptText("same\ntext", "same\ntext").comparisons.prompt.textComparison;
+  assert.equal(identical.equal, true);
+  assert.deepEqual(identical.leftChangedExcerpt, []);
+  assert.deepEqual(identical.rightChangedExcerpt, []);
+});
+
 test("returns a narrow information candidate when the other side is absent", () => {
   const input = completeInput();
   input.right.noteRefs = ["wiki/40000000-0000-4000-8000-000000000099.md"];
@@ -194,6 +213,16 @@ function completeInput() {
       {ref: "harness:b", kind: "harness", version: "2.1", text: "fixture: csv-and-srt"},
     ],
   };
+}
+
+function comparisonWithPromptText(leftText, rightText) {
+  const input = completeInput();
+  input.artifacts = input.artifacts.map((artifact) => {
+    if (artifact.ref === "prompt:a") return {...artifact, text: leftText};
+    if (artifact.ref === "prompt:b") return {...artifact, text: rightText};
+    return artifact;
+  });
+  return compareKnowledgeMethods(input);
 }
 
 function makeNote({
