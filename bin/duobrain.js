@@ -1,9 +1,19 @@
 #!/usr/bin/env node
 
+import { readFile } from 'node:fs/promises';
+
 import {
+  acknowledgeTicket,
+  addWikiNote,
+  closeTicket,
+  createTicket,
   endSession,
   getEngineStatus,
   initSharedStore,
+  reopenTicket,
+  requestTicketInformation,
+  resolveTicket,
+  respondToTicket,
   startSession,
   syncStore,
 } from '../src/engine/index.js';
@@ -16,6 +26,16 @@ Usage:
                   [--branch <name>] [--base-commit <sha>] [--actor <human|ai>]
   duobrain end --session <uuid> --summary <text> [--blockers <text,text>]
                 [--next <text>] [--actor <human|ai>]
+  duobrain ticket-create --kind <information|feedback> --title <text> --body <text>
+                         [--assignee <id>] [--goal <text>] [--actor <human|ai>]
+  duobrain ticket-ack --ticket <uuid> [--actor <human|ai>]
+  duobrain ticket-needs-information --ticket <uuid> --body <text> [--actor <human|ai>]
+  duobrain ticket-respond --ticket <uuid> --body <text>
+                           [--evidence <wiki/path,...>] [--actor <human|ai>]
+  duobrain ticket-resolve --ticket <uuid> --body <text> [--actor <human|ai>]
+  duobrain ticket-close --ticket <uuid> --reason <cancelled|duplicate> --body <text>
+  duobrain ticket-reopen --ticket <uuid> --body <text> [--actor <human|ai>]
+  duobrain note-add --file <markdown-path> [--id <uuid>]
   duobrain sync [--repository <path>]
   duobrain status [--repository <path>]
   duobrain <command> --help
@@ -27,6 +47,14 @@ const COMMAND_HELP = {
   init: 'Usage: duobrain init --participants <id,id> --participant <id> [--repository <path>]',
   start: 'Usage: duobrain start --title <text> [--scope <path,path>] [--goal <text>] [--branch <name>] [--base-commit <sha>] [--actor <human|ai>] [--repository <path>]',
   end: 'Usage: duobrain end --session <uuid> --summary <text> [--blockers <text,text>] [--next <text>] [--actor <human|ai>] [--repository <path>]',
+  'ticket-create': 'Usage: duobrain ticket-create --kind <information|feedback> --title <text> --body <text> [--assignee <id>] [--goal <text>] [--actor <human|ai>] [--repository <path>]',
+  'ticket-ack': 'Usage: duobrain ticket-ack --ticket <uuid> [--actor <human|ai>] [--repository <path>]',
+  'ticket-needs-information': 'Usage: duobrain ticket-needs-information --ticket <uuid> --body <text> [--actor <human|ai>] [--repository <path>]',
+  'ticket-respond': 'Usage: duobrain ticket-respond --ticket <uuid> --body <text> [--evidence <wiki/path,...>] [--actor <human|ai>] [--repository <path>]',
+  'ticket-resolve': 'Usage: duobrain ticket-resolve --ticket <uuid> --body <text> [--actor <human|ai>] [--repository <path>]',
+  'ticket-close': 'Usage: duobrain ticket-close --ticket <uuid> --reason <cancelled|duplicate> --body <text> [--actor <human|ai>] [--repository <path>]',
+  'ticket-reopen': 'Usage: duobrain ticket-reopen --ticket <uuid> --body <text> [--actor <human|ai>] [--repository <path>]',
+  'note-add': 'Usage: duobrain note-add --file <markdown-path> [--id <uuid>] [--repository <path>]',
   sync: 'Usage: duobrain sync [--repository <path>]',
   status: 'Usage: duobrain status [--repository <path>]',
 };
@@ -101,6 +129,65 @@ async function main() {
       blockers: list(options.blockers),
       next: options.next,
       actorKind: options.actor ?? 'human',
+    });
+  } else if (command === 'ticket-create') {
+    result = await createTicket({
+      repository,
+      kind: requireOption(options, 'kind'),
+      title: requireOption(options, 'title'),
+      body: requireOption(options, 'body'),
+      assignee: options.assignee,
+      goal: options.goal,
+      actorKind: options.actor ?? 'human',
+    });
+  } else if (command === 'ticket-ack') {
+    result = await acknowledgeTicket({
+      repository,
+      ticketId: requireOption(options, 'ticket'),
+      actorKind: options.actor ?? 'human',
+    });
+  } else if (command === 'ticket-needs-information') {
+    result = await requestTicketInformation({
+      repository,
+      ticketId: requireOption(options, 'ticket'),
+      body: requireOption(options, 'body'),
+      actorKind: options.actor ?? 'human',
+    });
+  } else if (command === 'ticket-respond') {
+    result = await respondToTicket({
+      repository,
+      ticketId: requireOption(options, 'ticket'),
+      body: requireOption(options, 'body'),
+      evidence: list(options.evidence),
+      actorKind: options.actor ?? 'human',
+    });
+  } else if (command === 'ticket-resolve') {
+    result = await resolveTicket({
+      repository,
+      ticketId: requireOption(options, 'ticket'),
+      body: requireOption(options, 'body'),
+      actorKind: options.actor ?? 'human',
+    });
+  } else if (command === 'ticket-close') {
+    result = await closeTicket({
+      repository,
+      ticketId: requireOption(options, 'ticket'),
+      reason: requireOption(options, 'reason'),
+      body: requireOption(options, 'body'),
+      actorKind: options.actor ?? 'human',
+    });
+  } else if (command === 'ticket-reopen') {
+    result = await reopenTicket({
+      repository,
+      ticketId: requireOption(options, 'ticket'),
+      body: requireOption(options, 'body'),
+      actorKind: options.actor ?? 'human',
+    });
+  } else if (command === 'note-add') {
+    result = await addWikiNote({
+      repository,
+      markdown: await readFile(requireOption(options, 'file'), 'utf8'),
+      id: options.id,
     });
   } else if (command === 'sync') {
     result = await syncStore({ repository });
