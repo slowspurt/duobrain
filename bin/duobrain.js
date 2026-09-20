@@ -5,13 +5,17 @@ import { readFile } from 'node:fs/promises';
 import {
   acknowledgeTicket,
   addWikiNote,
+  assessOverlap,
   closeTicket,
   createTicket,
   endSession,
   getEngineStatus,
   initSharedStore,
+  pauseSession,
+  prepareProductWorktree,
   reopenTicket,
   requestTicketInformation,
+  resumeSession,
   resolveTicket,
   respondToTicket,
   startSession,
@@ -24,6 +28,8 @@ Usage:
   duobrain init --participants <id,id> --participant <id> [--repository <path>]
   duobrain start --title <text> [--scope <path,path>] [--goal <text>]
                   [--branch <name>] [--base-commit <sha>] [--actor <human|ai>]
+  duobrain pause --session <uuid> [--body <text>] [--actor <human|ai>]
+  duobrain resume --session <uuid> [--body <text>] [--actor <human|ai>]
   duobrain end --session <uuid> --summary <text> [--blockers <text,text>]
                 [--next <text>] [--actor <human|ai>]
   duobrain ticket-create --kind <information|feedback> --title <text> --body <text>
@@ -36,6 +42,8 @@ Usage:
   duobrain ticket-close --ticket <uuid> --reason <cancelled|duplicate> --body <text>
   duobrain ticket-reopen --ticket <uuid> --body <text> [--actor <human|ai>]
   duobrain note-add --file <markdown-path> [--id <uuid>]
+  duobrain overlap --scope <path,path> [--base-commit <ref>]
+  duobrain worktree-prepare --directory <path> [--branch <name>] [--base-commit <ref>]
   duobrain sync [--repository <path>]
   duobrain status [--repository <path>]
   duobrain <command> --help
@@ -46,6 +54,8 @@ and can be retried with duobrain sync. Output is JSON.`;
 const COMMAND_HELP = {
   init: 'Usage: duobrain init --participants <id,id> --participant <id> [--repository <path>]',
   start: 'Usage: duobrain start --title <text> [--scope <path,path>] [--goal <text>] [--branch <name>] [--base-commit <sha>] [--actor <human|ai>] [--repository <path>]',
+  pause: 'Usage: duobrain pause --session <uuid> [--body <text>] [--actor <human|ai>] [--repository <path>]',
+  resume: 'Usage: duobrain resume --session <uuid> [--body <text>] [--actor <human|ai>] [--repository <path>]',
   end: 'Usage: duobrain end --session <uuid> --summary <text> [--blockers <text,text>] [--next <text>] [--actor <human|ai>] [--repository <path>]',
   'ticket-create': 'Usage: duobrain ticket-create --kind <information|feedback> --title <text> --body <text> [--assignee <id>] [--goal <text>] [--actor <human|ai>] [--repository <path>]',
   'ticket-ack': 'Usage: duobrain ticket-ack --ticket <uuid> [--actor <human|ai>] [--repository <path>]',
@@ -55,6 +65,8 @@ const COMMAND_HELP = {
   'ticket-close': 'Usage: duobrain ticket-close --ticket <uuid> --reason <cancelled|duplicate> --body <text> [--actor <human|ai>] [--repository <path>]',
   'ticket-reopen': 'Usage: duobrain ticket-reopen --ticket <uuid> --body <text> [--actor <human|ai>] [--repository <path>]',
   'note-add': 'Usage: duobrain note-add --file <markdown-path> [--id <uuid>] [--repository <path>]',
+  overlap: 'Usage: duobrain overlap --scope <path,path> [--base-commit <ref>] [--repository <path>]',
+  'worktree-prepare': 'Usage: duobrain worktree-prepare --directory <path> [--branch <name>] [--base-commit <ref>] [--repository <path>]',
   sync: 'Usage: duobrain sync [--repository <path>]',
   status: 'Usage: duobrain status [--repository <path>]',
 };
@@ -119,6 +131,20 @@ async function main() {
       goal: options.goal,
       branch: options.branch,
       baseCommit: options['base-commit'],
+      actorKind: options.actor ?? 'human',
+    });
+  } else if (command === 'pause') {
+    result = await pauseSession({
+      repository,
+      sessionId: requireOption(options, 'session'),
+      body: options.body,
+      actorKind: options.actor ?? 'human',
+    });
+  } else if (command === 'resume') {
+    result = await resumeSession({
+      repository,
+      sessionId: requireOption(options, 'session'),
+      body: options.body,
       actorKind: options.actor ?? 'human',
     });
   } else if (command === 'end') {
@@ -188,6 +214,19 @@ async function main() {
       repository,
       markdown: await readFile(requireOption(options, 'file'), 'utf8'),
       id: options.id,
+    });
+  } else if (command === 'overlap') {
+    result = await assessOverlap({
+      repository,
+      scope: list(requireOption(options, 'scope')),
+      baseCommit: options['base-commit'] ?? 'HEAD',
+    });
+  } else if (command === 'worktree-prepare') {
+    result = await prepareProductWorktree({
+      repository,
+      directory: requireOption(options, 'directory'),
+      branch: options.branch,
+      baseCommit: options['base-commit'] ?? 'HEAD',
     });
   } else if (command === 'sync') {
     result = await syncStore({ repository });
