@@ -1,4 +1,5 @@
 import {
+  aggregateSessions,
   filterTickets,
   peerConfirmation,
   ticketEvidence,
@@ -15,7 +16,7 @@ const labels = {
   ...ticketStatusLabels,
 };
 
-const state = { tickets: [], participants: [], sample: false, tab: 'inbox', query: '', status: '', kind: '', peer: '' };
+const state = { tickets: [], sessions: [], conflicts: [], participants: [], sample: false, tab: 'inbox', query: '', status: '', kind: '', peer: '', period: '30d' };
 const text = (value, fallback = '미확인') => typeof value === 'string' && value.trim() ? value : fallback;
 
 function element(tag, className, value) {
@@ -75,6 +76,79 @@ function renderParticipants(participants = [], sessions = []) {
     blockers.append(blockerItems.length ? element('p', '', blockerItems.map((item) => text(item)).join(' · ')) : empty('기록된 병목 없음'));
     card.append(blockers);
     container.append(card);
+  }
+}
+
+function formatDuration(milliseconds) {
+  if (!Number.isFinite(milliseconds)) return '미확인';
+  const totalMinutes = Math.floor(milliseconds / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (!hours) return `${minutes}분`;
+  return minutes ? `${hours}시간 ${minutes}분` : `${hours}시간`;
+}
+
+function selectedPeriod() {
+  if (state.period === 'all') return {};
+  const days = state.period === '7d' ? 7 : 30;
+  const to = new Date();
+  const from = new Date(to.getTime() - (days * 24 * 60 * 60 * 1000));
+  return { from: from.toISOString(), to: to.toISOString() };
+}
+
+function metricRow(label, value, note) {
+  const row = element('div', 'metric-row');
+  const copy = element('div', '');
+  copy.append(element('strong', '', label));
+  if (note) copy.append(element('p', 'caption', note));
+  row.append(copy, element('span', 'metric-value', value));
+  return row;
+}
+
+function renderSessionAnalysis() {
+  const result = aggregateSessions(state.sessions, { conflicts: state.conflicts, ...selectedPeriod() });
+  const overview = byId('time-overview');
+  overview.replaceChildren();
+  overview.append(metricRow('프로젝트 벽시계 구간', formatDuration(result.projectWallClockMs), '종료가 확인된 세션 구간의 합집합'));
+  overview.append(metricRow('시간 미확인 세션', `${result.unknownSessionCount}건`, '미종료·시간 오류·충돌·활동 이력 누락'));
+
+  const participant = byId('participant-time');
+  participant.replaceChildren();
+  if (!result.participantTotals.length) participant.append(empty('집계할 참여자 기록이 없습니다.'));
+  for (const item of result.participantTotals) {
+    const note = item.unknownSessionCount ? `시간 미확인 ${item.unknownSessionCount}건 별도` : '겹치는 세션 구간 중복 제거';
+    participant.append(metricRow(item.participant, formatDuration(item.recordedActiveMs), note));
+  }
+
+  const scopes = byId('scope-time');
+  scopes.replaceChildren();
+  if (!result.scopeTotals.length) scopes.append(empty('집계 가능한 범위 기록이 없습니다.'));
+  for (const item of result.scopeTotals) scopes.append(metricRow(`${item.participant} · ${item.scope}`, formatDuration(item.recordedActiveMs)));
+
+  const sessions = byId('session-records');
+  sessions.replaceChildren();
+  if (!result.sessions.length) sessions.append(empty('세션 기록이 없습니다.'));
+  for (const item of result.sessions) {
+    const card = element('article', 'session-record-card');
+    const heading = element('div', 'person-heading');
+    heading.append(element('strong', '', text(item.title, '제목 미확인')), element('span', `time-state ${item.timeStatus}`, item.timeStatus === 'known' ? '시간 확인' : '시간 미확인'));
+    card.append(heading, element('p', 'caption', `${text(item.participant)} · ${formatDate(item.startedAt, '시작 미확인')}`));
+    const timings = element('div', 'session-times');
+    timings.append(metricRow('벽시계 경과', formatDuration(item.wallClockMs)));
+    timings.append(metricRow('pause 제외 기록상 활동', formatDuration(item.recordedActiveMs), item.timeReason));
+    card.append(timings);
+    const metadata = element('p', 'session-metadata', `요약 ${text(item.summary)} · 브랜치 ${text(item.branch)} · 기준 커밋 ${text(item.baseCommit)}`);
+    card.append(metadata);
+    sessions.append(card);
+  }
+
+  const blockers = byId('blocker-list');
+  blockers.replaceChildren();
+  if (!result.blockers.length) blockers.append(empty('명시적으로 기록된 병목이 없습니다.'));
+  for (const item of result.blockers) {
+    const row = element('article', 'blocker-row');
+    row.append(element('p', 'label', `${text(item.participant)} · ${text(item.title)}`), element('p', '', item.blocker));
+    blockers.append(row);
   }
 }
 
@@ -198,9 +272,12 @@ function render(snapshot) {
   byId('sample-banner').hidden = !sample;
   byId('source-badge').textContent = sample ? '예시 스냅샷' : '실제 엔진 기록';
   state.tickets = Array.isArray(snapshot.tickets) ? snapshot.tickets : [];
+  state.sessions = Array.isArray(snapshot.sessions) ? snapshot.sessions : [];
+  state.conflicts = Array.isArray(snapshot.conflicts) ? snapshot.conflicts : [];
   state.participants = Array.isArray(snapshot.participants) ? snapshot.participants : [];
   renderGoals(snapshot.goals);
-  renderParticipants(state.participants, Array.isArray(snapshot.sessions) ? snapshot.sessions : []);
+  renderParticipants(state.participants, state.sessions);
+  renderSessionAnalysis();
   fillFilters();
   renderTickets();
   renderSync(snapshot.sync);
@@ -235,4 +312,5 @@ byId('inbox-tab').addEventListener('click', () => selectTab('inbox'));
 byId('history-tab').addEventListener('click', () => selectTab('history'));
 byId('ticket-search').addEventListener('input', (event) => { state.query = event.target.value; renderTickets(); });
 for (const key of ['status', 'kind', 'peer']) byId(`${key}-filter`).addEventListener('change', (event) => { state[key] = event.target.value; renderTickets(); });
+byId('session-period').addEventListener('change', (event) => { state.period = event.target.value; renderSessionAnalysis(); });
 load();
