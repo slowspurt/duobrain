@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { constants as fsConstants } from 'node:fs';
 import { lstat, mkdir, open, readFile, readdir, realpath, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -9,6 +9,7 @@ import { promisify } from 'node:util';
 import {
   compareKnowledgeMethods,
   parseWikiNote,
+  planDailyWikiRefinement,
   searchWikiNotes,
   traceWikiLineage,
   validateWikiNote,
@@ -83,8 +84,8 @@ function processIsAlive(pid) {
   }
 }
 
-async function withStateLock(layout, action) {
-  const lockPath = path.join(layout.root, 'engine.lock');
+async function withFileLock(layout, { name, busyCode, busyMessage }, action) {
+  const lockPath = path.join(layout.root, name);
   const deadline = Date.now() + 10_000;
   await mkdir(layout.root, { recursive: true });
   let handle;
@@ -104,8 +105,8 @@ async function withStateLock(layout, action) {
         if (ownerError.code === 'ENOENT') continue;
       }
       if (Date.now() >= deadline) {
-        throw new EngineError('The shared store is busy in another local process.', {
-          code: 'STORE_BUSY',
+        throw new EngineError(busyMessage, {
+          code: busyCode,
         });
       }
       await delay(25);
@@ -121,6 +122,22 @@ async function withStateLock(layout, action) {
       if (error.code !== 'ENOENT') throw error;
     }
   }
+}
+
+async function withStateLock(layout, action) {
+  return withFileLock(layout, {
+    name: 'engine.lock',
+    busyCode: 'STORE_BUSY',
+    busyMessage: 'The shared store is busy in another local process.',
+  }, action);
+}
+
+async function withRefinementLock(layout, action) {
+  return withFileLock(layout, {
+    name: 'daily-refinement.lock',
+    busyCode: 'REFINEMENT_BUSY',
+    busyMessage: 'Daily wiki refinement is already running in another local process.',
+  }, action);
 }
 
 function assertParticipantList(participants) {
@@ -856,15 +873,8 @@ export async function reopenTicket({
   });
 }
 
-export async function addWikiNote({
-  repository = '.',
-  markdown,
-  id,
-  sync = true,
-} = {}) {
+async function commitWikiNoteUnlocked(layout, identity, { markdown, id }) {
   assertString(markdown, 'markdown');
-  const layout = await loadLayout(repository);
-  const identity = await loadIdentity(layout);
   const parsed = parseWikiNote(markdown);
   const noteId = parsed.format === 'structured' ? parsed.metadata.id : id;
   assertUuid(noteId, 'id');
@@ -885,22 +895,34 @@ export async function addWikiNote({
     });
   }
   const notePath = path.join(layout.statePath, relativePath);
-  const local = await withStateLock(layout, async () => {
-    if (await exists(notePath)) {
-      if (await readFile(notePath, 'utf8') !== markdown) {
-        throw new EngineError(`Immutable wiki note already exists with different content: ${relativePath}`, {
-          code: 'IMMUTABLE_NOTE_CONFLICT',
-        });
-      }
-      return { created: false, path: relativePath, validation };
+  if (await exists(notePath)) {
+    if (await readFile(notePath, 'utf8') !== markdown) {
+      throw new EngineError(`Immutable wiki note already exists with different content: ${relativePath}`, {
+        code: 'IMMUTABLE_NOTE_CONFLICT',
+      });
     }
-    await mkdir(path.dirname(notePath), { recursive: true });
-    await writeFile(notePath, markdown, 'utf8');
-    await git(layout.statePath, ['add', '--', relativePath]);
-    await git(layout.statePath, ['commit', '-m', `Record wiki note ${noteId}`]);
-    const commit = (await git(layout.statePath, ['rev-parse', 'HEAD'])).stdout;
-    return { created: true, path: relativePath, commit, validation };
-  });
+    return { created: false, path: relativePath, validation };
+  }
+  await mkdir(path.dirname(notePath), { recursive: true });
+  await writeFile(notePath, markdown, 'utf8');
+  await git(layout.statePath, ['add', '--', relativePath]);
+  await git(layout.statePath, ['commit', '-m', `Record wiki note ${noteId}`]);
+  const commit = (await git(layout.statePath, ['rev-parse', 'HEAD'])).stdout;
+  return { created: true, path: relativePath, commit, validation };
+}
+
+export async function addWikiNote({
+  repository = '.',
+  markdown,
+  id,
+  sync = true,
+} = {}) {
+  const layout = await loadLayout(repository);
+  const identity = await loadIdentity(layout);
+  const local = await withStateLock(
+    layout,
+    () => commitWikiNoteUnlocked(layout, identity, { markdown, id }),
+  );
   const syncResult = sync
     ? await syncStore({ repository: layout.repositoryPath })
     : await setSyncStatus(
@@ -1196,6 +1218,279 @@ export async function compareSharedMethods({
       sync: created.sync,
     },
   };
+}
+
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map((item) => stableStringify(item)).join(',')}]`;
+  if (value !== null && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => (
+      `${JSON.stringify(key)}:${stableStringify(value[key])}`
+    )).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function validatedDailyRefinement(note) {
+  const parsed = note.validation?.valid ? note.validation.note : null;
+  if (parsed?.format !== 'structured' || parsed.metadata.recordType !== 'summary') return null;
+  const run = parsed.metadata.dailyRefinement;
+  if (
+    run === null
+    || typeof run !== 'object'
+    || Array.isArray(run)
+    || typeof run.date !== 'string'
+    || !/^\d{4}-\d{2}-\d{2}$/.test(run.date)
+    || typeof run.timezone !== 'string'
+    || typeof run.sourceRevision !== 'string'
+    || run.sourceRevision.length === 0
+    || typeof run.policyFingerprint !== 'string'
+    || run.policyFingerprint.length === 0
+    || typeof run.runKey !== 'string'
+    || run.runKey.length === 0
+  ) return null;
+  let observedDate;
+  try {
+    observedDate = zonedDateAndMinutes(new Date(parsed.metadata.observedAt), run.timezone).date;
+  } catch {
+    return null;
+  }
+  const expectedRunKey = createHash('sha256').update(stableStringify({
+    date: run.date,
+    timezone: run.timezone,
+    sourceRevision: run.sourceRevision,
+    policyFingerprint: run.policyFingerprint,
+  })).digest('hex');
+  if (observedDate !== run.date || run.runKey !== expectedRunKey) return null;
+  return {
+    ...run,
+    summaryPath: note.path,
+    observedAt: parsed.metadata.observedAt,
+    participant: parsed.metadata.author.participant,
+  };
+}
+
+function latestPriorRefinement(notes, nowMs) {
+  return notes
+    .map(validatedDailyRefinement)
+    .filter((run) => run !== null && Date.parse(run.observedAt) <= nowMs)
+    .sort((left, right) => (
+      right.observedAt.localeCompare(left.observedAt)
+      || right.summaryPath.localeCompare(left.summaryPath)
+    ))[0] ?? null;
+}
+
+function sourceRevisionFor(notes, ticketEvents) {
+  const nonRefinementNotes = notes
+    .filter((note) => validatedDailyRefinement(note) === null)
+    .map(({ path: wikiPath, markdown }) => ({ path: wikiPath, markdown }))
+    .sort((left, right) => left.path.localeCompare(right.path));
+  const tickets = ticketEvents
+    .filter((event) => typeof event.type === 'string' && event.type.startsWith('ticket.'))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  return createHash('sha256').update(stableStringify({
+    schemaVersion: 1,
+    notes: nonRefinementNotes,
+    tickets,
+  })).digest('hex');
+}
+
+function normalizeRefinementSchedule(schedule) {
+  if (schedule === null || typeof schedule !== 'object' || Array.isArray(schedule)) {
+    throw new EngineError('Daily refinement schedule must be a JSON object.', {
+      code: 'INVALID_REFINEMENT_SCHEDULE',
+    });
+  }
+  const timezone = schedule.timezone;
+  const time = schedule.time ?? '09:00';
+  if (typeof timezone !== 'string' || timezone.trim() === '') {
+    throw new EngineError('Daily refinement timezone must be an IANA timezone.', {
+      code: 'INVALID_REFINEMENT_SCHEDULE',
+    });
+  }
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: timezone }).format(0);
+  } catch {
+    throw new EngineError('Daily refinement timezone must be an IANA timezone.', {
+      code: 'INVALID_REFINEMENT_SCHEDULE',
+    });
+  }
+  if (typeof time !== 'string' || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+    throw new EngineError('Daily refinement time must use 24-hour HH:MM.', {
+      code: 'INVALID_REFINEMENT_SCHEDULE',
+    });
+  }
+  if (schedule.policy === null || typeof schedule.policy !== 'object' || Array.isArray(schedule.policy)) {
+    throw new EngineError('Daily refinement schedule requires a policy object.', {
+      code: 'INVALID_REFINEMENT_SCHEDULE',
+    });
+  }
+  return { cadence: 'daily', timezone, time, policy: schedule.policy };
+}
+
+function normalizeRefinementNow(now) {
+  const value = now === undefined ? new Date() : new Date(now);
+  if (!Number.isFinite(value.getTime())) {
+    throw new EngineError('Daily refinement now must be a valid date or timestamp.', {
+      code: 'INVALID_REFINEMENT_SCHEDULE',
+    });
+  }
+  return value;
+}
+
+function zonedDateAndMinutes(date, timezone) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return {
+    date: `${values.year}-${values.month}-${values.day}`,
+    minutes: Number(values.hour) * 60 + Number(values.minute),
+  };
+}
+
+function scheduledMinutes(time) {
+  const [hour, minute] = time.split(':').map(Number);
+  return hour * 60 + minute;
+}
+
+/**
+ * Run the pure daily refinement planner against synchronized shared state.
+ * --if-due style calls are owned by participants[0] and execute at most once
+ * per local calendar date; manual calls require a changed source revision.
+ */
+export async function runDailyWikiRefinement({
+  repository = '.',
+  schedule,
+  ifDue = false,
+  now,
+} = {}) {
+  const layout = await loadLayout(repository);
+  const identity = await loadIdentity(layout);
+  const participantConfig = await loadConfig(layout);
+  const normalized = normalizeRefinementSchedule(schedule);
+  const instant = normalizeRefinementNow(now);
+  const nowIso = instant.toISOString();
+  const clock = zonedDateAndMinutes(instant, normalized.timezone);
+  const owner = participantConfig.participants[0];
+  const scheduleState = {
+    cadence: normalized.cadence,
+    timezone: normalized.timezone,
+    time: normalized.time,
+    date: clock.date,
+    owner,
+  };
+
+  if (ifDue && identity.participant !== owner) {
+    return {
+      outcome: 'skipped',
+      reason: 'not-scheduler-owner',
+      schedule: scheduleState,
+    };
+  }
+  if (ifDue && clock.minutes < scheduledMinutes(normalized.time)) {
+    return {
+      outcome: 'skipped',
+      reason: 'not-due',
+      schedule: scheduleState,
+    };
+  }
+
+  return withRefinementLock(layout, () => withStateLock(layout, async () => {
+    const initialSync = await syncStoreUnlocked(layout);
+    if (initialSync.status !== 'synced') {
+      return {
+        outcome: 'pending',
+        reason: 'sync-failed',
+        schedule: scheduleState,
+        sync: initialSync,
+      };
+    }
+
+    const notes = await listWikiNotes({ repository: layout.repositoryPath });
+    const snapshot = await buildSnapshot(layout);
+    const ticketEvents = await readEvents(layout);
+    const sourceRevision = sourceRevisionFor(notes, ticketEvents);
+    const priorRun = latestPriorRefinement(notes, instant.getTime());
+    const successfulToday = notes
+      .map(validatedDailyRefinement)
+      .find((run) => run !== null
+        && run.date === clock.date
+        && run.timezone === normalized.timezone);
+
+    if (ifDue && successfulToday) {
+      return {
+        outcome: 'skipped',
+        reason: 'already-successful',
+        summaryPath: successfulToday.summaryPath,
+        sourceRevision,
+        schedule: scheduleState,
+        sync: initialSync,
+      };
+    }
+    if (!ifDue && priorRun?.sourceRevision === sourceRevision) {
+      return {
+        outcome: 'skipped',
+        reason: 'no-new-input',
+        summaryPath: priorRun.summaryPath,
+        sourceRevision,
+        schedule: scheduleState,
+        sync: initialSync,
+      };
+    }
+
+    const candidateId = randomUUID();
+    const plan = planDailyWikiRefinement({
+      notes,
+      tickets: snapshot.tickets,
+      now: nowIso,
+      date: clock.date,
+      timezone: normalized.timezone,
+      sourceRevision,
+      policy: normalized.policy,
+      priorRun,
+      candidate: {
+        id: candidateId,
+        author: { participant: identity.participant, kind: 'ai' },
+        observedAt: nowIso,
+        workContext: {
+          promptRef: `daily-refinement:${normalized.policy.id ?? 'unknown'}@${normalized.policy.version ?? 'unknown'}`,
+          harnessRef: ifDue ? 'duobrain:scheduled-if-due' : 'duobrain:manual-refresh',
+        },
+      },
+    });
+    if (!plan.ready || plan.candidate === null) {
+      return {
+        outcome: plan.outcome,
+        reason: plan.outcome === 'duplicate' ? 'already-planned' : 'planner-insufficient',
+        plan,
+        sourceRevision,
+        schedule: scheduleState,
+        sync: initialSync,
+      };
+    }
+
+    const local = await commitWikiNoteUnlocked(layout, identity, {
+      markdown: plan.candidate.markdown,
+      id: candidateId,
+    });
+    const sync = await syncStoreUnlocked(layout);
+    return {
+      outcome: sync.status === 'synced' ? 'completed' : 'pending',
+      reason: sync.status === 'synced' ? null : 'push-failed',
+      summaryPath: local.path,
+      sourceRevision,
+      schedule: scheduleState,
+      plan,
+      commit: local.commit,
+      sync,
+    };
+  }));
 }
 
 function validateNullablePlanString(value, label) {
