@@ -462,7 +462,23 @@ function ticketProjection(root, history) {
   let status = 'open';
   let evidence = [];
   let response = null;
+  const acceptedHistory = [];
+  const invalidEvents = [];
   for (const event of history) {
+    if (event.type === 'ticket.clarified') {
+      if (
+        event.actor?.participant !== root.actor.participant
+        || !NONTERMINAL_TICKET_STATUSES.has(status)
+        || typeof event.data?.body !== 'string'
+        || event.data.body.trim() === ''
+      ) {
+        invalidEvents.push(event);
+        break;
+      }
+      acceptedHistory.push(event);
+      continue;
+    }
+    acceptedHistory.push(event);
     if (event.type === 'ticket.acknowledged') status = 'acknowledged';
     if (event.type === 'ticket.needs_information') status = 'needs_information';
     if (event.type === 'ticket.responded') {
@@ -489,16 +505,18 @@ function ticketProjection(root, history) {
       status,
       goal: root.data.goal ?? null,
       evidence,
-      history: [root, ...history].map((event) => ({
+      history: [root, ...acceptedHistory].map((event) => ({
         id: event.id,
         type: event.type,
         at: event.at,
         actor: event.actor,
+        previous: event.previous,
         data: event.data,
       })),
     },
     response,
-    lastEvent: history.at(-1) ?? root,
+    lastEvent: acceptedHistory.at(-1) ?? root,
+    invalidEvents,
   };
 }
 
@@ -513,7 +531,19 @@ async function getTicketState(layout, ticketId) {
   }
   const collected = collectEntityHistory(roots[0], entityEvents);
   const projected = ticketProjection(roots[0], collected.history);
-  return { ...projected, conflicts: collected.conflicts };
+  return {
+    ...projected,
+    conflicts: [
+      ...collected.conflicts,
+      ...unreachableHistoryConflict(roots[0], collected.unreachable),
+      ...(projected.invalidEvents.length > 0 ? [{
+        entityId: roots[0].entityId,
+        previous: projected.invalidEvents[0].previous,
+        eventIds: projected.invalidEvents.map((event) => event.id),
+        message: 'Invalid requester clarification event.',
+      }] : []),
+    ],
+  };
 }
 
 function assertActorKind(actorKind) {
@@ -651,6 +681,26 @@ export async function requestTicketInformation({
     type: 'ticket.needs_information',
     data: { body },
     role: 'assignee',
+    allowedStatuses: NONTERMINAL_TICKET_STATUSES,
+    actorKind,
+    sync,
+  });
+}
+
+export async function clarifyTicket({
+  repository = '.',
+  ticketId,
+  body,
+  actorKind = 'human',
+  sync = true,
+} = {}) {
+  assertString(body, 'body');
+  return appendTicketEvent({
+    repository,
+    ticketId,
+    type: 'ticket.clarified',
+    data: { body },
+    role: 'requester',
     allowedStatuses: NONTERMINAL_TICKET_STATUSES,
     actorKind,
     sync,
@@ -1077,7 +1127,9 @@ async function validatePlanEvent(layout, config, event, expectedType) {
 }
 
 async function buildPlanState(layout, config, events) {
-  const planEvents = events.filter((event) => event.type?.startsWith('plan.'));
+  const planEvents = events.filter(
+    (event) => typeof event.type === 'string' && event.type.startsWith('plan.'),
+  );
   const roots = planEvents.filter((event) => event.type === 'plan.created' && event.previous === null);
   if (planEvents.length === 0) return { plan: null, conflicts: [], root: null, lastEvent: null };
   if (roots.length !== 1) {
@@ -1315,6 +1367,38 @@ export async function resumeSession({
   });
 }
 
+export async function updateSessionScope(options = {}) {
+  const {
+    repository = '.',
+    sessionId,
+    scope,
+    reason,
+    actorKind = 'human',
+    sync = true,
+  } = options;
+  if (!Array.isArray(scope) || scope.some((item) => typeof item !== 'string' || item.trim() === '')) {
+    throw new EngineError('scope must be an array of non-empty strings.', { code: 'INVALID_INPUT' });
+  }
+  assertString(reason, 'reason');
+  const data = { scope: [...scope], reason };
+  for (const field of ['goal', 'branch', 'baseCommit']) {
+    if (Object.hasOwn(options, field)) {
+      data[field] = options[field] === null
+        ? null
+        : normalizeOptional(options[field], field);
+    }
+  }
+  return appendSessionEvent({
+    repository,
+    sessionId,
+    type: 'session.scope_updated',
+    data,
+    allowedStatuses: ['active', 'paused'],
+    actorKind,
+    sync,
+  });
+}
+
 export async function endSession({
   repository = '.',
   sessionId,
@@ -1388,7 +1472,109 @@ function collectEntityHistory(root, events) {
     history.push(child);
     cursor = child.id;
   }
-  return { history, conflicts };
+  const accounted = new Set([
+    root.id,
+    ...history.map((event) => event.id),
+    ...conflicts.flatMap((conflict) => conflict.eventIds),
+  ]);
+  const unreachable = events.filter((event) => !accounted.has(event.id));
+  return { history, conflicts, unreachable };
+}
+
+function unreachableHistoryConflict(root, unreachable) {
+  if (unreachable.length === 0) return [];
+  return [{
+    entityId: root.entityId,
+    previous: null,
+    eventIds: unreachable.map((event) => event.id).sort(),
+    message: 'Entity history contains an unreachable event.',
+  }];
+}
+
+function validateSessionEnvelope(event, config, owner) {
+  if (
+    event.schemaVersion !== 1
+    || !UUID_PATTERN.test(event.id ?? '')
+    || !UUID_PATTERN.test(event.entityId ?? '')
+    || validDateMs(event.at) === null
+    || event.actor?.participant !== owner
+    || !config.participants.includes(owner)
+    || !['human', 'ai'].includes(event.actor?.kind)
+    || event.data === null
+    || typeof event.data !== 'object'
+    || Array.isArray(event.data)
+  ) {
+    throw new EngineError('Invalid session event metadata.', { code: 'INVALID_SESSION_EVENT' });
+  }
+}
+
+function validateSessionRoot(root, config) {
+  validateSessionEnvelope(root, config, root.actor?.participant);
+  if (root.type !== 'session.started' || root.previous !== null) {
+    throw new EngineError('Invalid session root.', { code: 'INVALID_SESSION_EVENT' });
+  }
+  assertString(root.data.title, 'session title');
+  if (
+    !Array.isArray(root.data.scope)
+    || root.data.scope.some((item) => typeof item !== 'string' || item.trim() === '')
+  ) {
+    throw new EngineError('Invalid session start scope.', { code: 'INVALID_SESSION_EVENT' });
+  }
+  for (const field of ['goal', 'branch', 'baseCommit']) {
+    if (root.data[field] !== null && root.data[field] !== undefined) {
+      assertString(root.data[field], field);
+    }
+  }
+}
+
+function validateSessionChild(event, config, owner, status) {
+  validateSessionEnvelope(event, config, owner);
+  if (event.type === 'session.paused') {
+    if (status !== 'active') throw new EngineError('Invalid pause transition.', { code: 'INVALID_SESSION_EVENT' });
+    if (event.data.body !== null && event.data.body !== undefined) assertString(event.data.body, 'body');
+    return 'paused';
+  }
+  if (event.type === 'session.resumed') {
+    if (status !== 'paused') throw new EngineError('Invalid resume transition.', { code: 'INVALID_SESSION_EVENT' });
+    if (event.data.body !== null && event.data.body !== undefined) assertString(event.data.body, 'body');
+    return 'active';
+  }
+  if (event.type === 'session.scope_updated') {
+    if (!['active', 'paused'].includes(status)) {
+      throw new EngineError('Invalid scope update transition.', { code: 'INVALID_SESSION_EVENT' });
+    }
+    if (
+      !Array.isArray(event.data.scope)
+      || event.data.scope.some((item) => typeof item !== 'string' || item.trim() === '')
+    ) {
+      throw new EngineError('Invalid updated scope.', { code: 'INVALID_SESSION_EVENT' });
+    }
+    assertString(event.data.reason, 'scope update reason');
+    for (const field of ['goal', 'branch', 'baseCommit']) {
+      if (Object.hasOwn(event.data, field) && event.data[field] !== null) {
+        assertString(event.data[field], field);
+      }
+    }
+    return status;
+  }
+  if (event.type === 'session.ended') {
+    if (!['active', 'paused'].includes(status)) {
+      throw new EngineError('Invalid end transition.', { code: 'INVALID_SESSION_EVENT' });
+    }
+    assertString(event.data.summary, 'summary');
+    if (
+      event.data.blockers !== undefined
+      && (!Array.isArray(event.data.blockers)
+        || event.data.blockers.some((item) => typeof item !== 'string' || item.trim() === ''))
+    ) {
+      throw new EngineError('Invalid session blockers.', { code: 'INVALID_SESSION_EVENT' });
+    }
+    if (event.data.next !== null && event.data.next !== undefined) assertString(event.data.next, 'next');
+    return 'ended';
+  }
+  throw new EngineError(`Unsupported session event: ${event.type}`, {
+    code: 'INVALID_SESSION_EVENT',
+  });
 }
 
 async function buildSnapshot(layout) {
@@ -1405,14 +1591,46 @@ async function buildSnapshot(layout) {
     const entityEvents = events.filter((event) => event.entityId === root.entityId);
     const collected = collectEntityHistory(root, entityEvents);
     conflicts.push(...collected.conflicts);
+    conflicts.push(...unreachableHistoryConflict(root, collected.unreachable));
+    try {
+      validateSessionRoot(root, config);
+    } catch (error) {
+      conflicts.push({
+        entityId: root.entityId,
+        previous: null,
+        eventIds: [root.id],
+        message: `Invalid session root: ${error.message}`,
+      });
+      continue;
+    }
     let status = 'active';
     let endedAt = null;
     let summary = null;
     let blockers = [];
     let next = null;
+    let scope = [...root.data.scope];
+    let goal = root.data.goal ?? null;
+    let branch = root.data.branch ?? null;
+    let baseCommit = root.data.baseCommit ?? null;
     for (const event of collected.history) {
-      if (event.type === 'session.paused') status = 'paused';
-      if (event.type === 'session.resumed') status = 'active';
+      let nextStatus;
+      try {
+        nextStatus = validateSessionChild(event, config, root.actor.participant, status);
+      } catch (error) {
+        conflicts.push({
+          entityId: root.entityId,
+          previous: event.previous,
+          eventIds: [event.id],
+          message: `Invalid session history: ${error.message}`,
+        });
+        break;
+      }
+      if (event.type === 'session.scope_updated') {
+        scope = [...event.data.scope];
+        if (Object.hasOwn(event.data, 'goal')) goal = event.data.goal;
+        if (Object.hasOwn(event.data, 'branch')) branch = event.data.branch;
+        if (Object.hasOwn(event.data, 'baseCommit')) baseCommit = event.data.baseCommit;
+      }
       if (event.type === 'session.ended') {
         status = 'ended';
         endedAt = event.at;
@@ -1420,6 +1638,7 @@ async function buildSnapshot(layout) {
         blockers = event.data.blockers ?? [];
         next = event.data.next ?? null;
       }
+      status = nextStatus;
     }
     const startedMs = validDateMs(root.at);
     const endedMs = endedAt === null ? null : validDateMs(endedAt);
@@ -1427,11 +1646,11 @@ async function buildSnapshot(layout) {
       id: root.entityId,
       participant: root.actor.participant,
       title: root.data.title,
-      scope: root.data.scope,
-      goal: root.data.goal ?? null,
+      scope,
+      goal,
       summary,
-      branch: root.data.branch ?? null,
-      baseCommit: root.data.baseCommit ?? null,
+      branch,
+      baseCommit,
       status,
       startedAt: root.at,
       endedAt,
@@ -1455,7 +1674,17 @@ async function buildSnapshot(layout) {
     const entityEvents = events.filter((event) => event.entityId === root.entityId);
     const collected = collectEntityHistory(root, entityEvents);
     conflicts.push(...collected.conflicts);
-    tickets.push(ticketProjection(root, collected.history).ticket);
+    conflicts.push(...unreachableHistoryConflict(root, collected.unreachable));
+    const projected = ticketProjection(root, collected.history);
+    if (projected.invalidEvents.length > 0) {
+      conflicts.push({
+        entityId: root.entityId,
+        previous: projected.invalidEvents[0].previous,
+        eventIds: projected.invalidEvents.map((event) => event.id),
+        message: 'Invalid requester clarification event.',
+      });
+    }
+    tickets.push(projected.ticket);
   }
   tickets.sort((left, right) => {
     const leftAt = left.history[0]?.at ?? '';
