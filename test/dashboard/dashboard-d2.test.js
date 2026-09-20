@@ -7,7 +7,12 @@ import test from 'node:test';
 import { promisify } from 'node:util';
 
 import { initSharedStore, startSession } from '../../src/engine/index.js';
-import { filterTickets, peerConfirmation, ticketEvidence } from '../../src/dashboard/public/model.js';
+import {
+  filterTickets,
+  peerConfirmation,
+  ticketEvidence,
+  wikiValidationPresentation,
+} from '../../src/dashboard/public/model.js';
 import { createSnapshotGetter } from '../../src/dashboard/source.js';
 
 const execFileAsync = promisify(execFile);
@@ -29,6 +34,9 @@ test('ticket model separates inbox, answered, resolved, and closed records', asy
   assert.equal(peerConfirmation('answered'), '응답 도착 · 해결 확인 전');
   assert.equal(peerConfirmation('resolved'), '응답과 해결 확인 완료');
   assert.equal(peerConfirmation('closed'), '해결되지 않고 종료');
+  assert.equal(wikiValidationPresentation({ valid: true, errors: [], warnings: [] }).kind, 'valid');
+  assert.equal(wikiValidationPresentation({ valid: true, errors: [], warnings: [{ code: 'LEGACY' }] }).kind, 'warning');
+  assert.equal(wikiValidationPresentation({ valid: false, errors: [{ code: 'INVALID' }], warnings: [] }).kind, 'failure');
 });
 
 test('repository source reads a real E1 session snapshot', async (t) => {

@@ -26,13 +26,13 @@
 
 ```sh
 node bin/duobrain.js init --participants alice,bob --participant alice
-node bin/duobrain.js start --title "작업 제목" --scope src/example --goal "목표" --branch feature/example --base-commit <sha> --actor human
+node bin/duobrain.js start --title "작업 제목" --scope src/example --goal "목표" --branch feature/example --base-commit <sha> --actor ai
 node bin/duobrain.js status
-node bin/duobrain.js end --session <uuid> --summary "결과" --blockers "막힘" --next "다음 단계" --actor human
+node bin/duobrain.js end --session <uuid> --summary "결과" --next "다음 단계" --actor ai
 node bin/duobrain.js sync
 ```
 
-`start`와 `end`는 로컬 이벤트 커밋 뒤 동기화를 시도한다. push가 실패하면 JSON은 `pending`을 보이고 명령은 종료 코드 2가 될 수 있다. 이는 상대가 아직 볼 수 없다는 뜻이며 `sync`로 재시도한다.
+`start`와 `end`는 로컬 이벤트 커밋 뒤 동기화를 시도한다. push가 실패하면 JSON은 `pending`을 보이고 명령은 종료 코드 2가 될 수 있다. 이는 상대가 아직 볼 수 없다는 뜻이며 `sync`로 재시도한다. 막힘이 없으면 `end`의 `--blockers`를 생략한다.
 
 ## 지원되는 티켓·위키 명령
 
@@ -51,4 +51,4 @@ node bin/duobrain.js ticket-reopen --ticket <ticket-uuid> --body "새 근거가 
 
 ## 일상 대화 적용
 
-[대화-기능 맵](../scenarios/conversation-to-capability-map.md)은 15개 일상 질문을 조회 근거, 자동 처리 경계, 사람 판단 경계로 연결한다. [everyday-flow fixture](../../examples/scenarios/everyday-flow.json)는 이 연결을 검토하는 익명화된 시나리오 데이터이며 런타임 입력이 아니다. 지침은 이 자료의 근거 우선, 최소 공개, 부분 해결 보존, 사람 판단 분리 원칙을 실행 절차로 옮긴다.
+[대화-기능 맵](../scenarios/conversation-to-capability-map.md)은 15개 일상 질문을 조회 근거, 자동 처리 경계, 사람 판단 경계로 연결한다. [everyday-flow fixture](../../examples/scenarios/everyday-flow.json)는 이 연결을 검토하는 익명화된 시나리오 데이터이며 런타임 입력이 아니다. 지침은 이 자료의 근거 우선, 최소 공개, 부분 해결 보존, 사람 판단 분리 원칙을 실행 절차로 옮긴다. 새 저장소에는 [repository onboarding recipe](repository-onboarding.md)를 적용한다.
