@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, readdir, rename, stat, writeFile } from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
+import { lstat, mkdir, open, readFile, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
@@ -12,6 +13,7 @@ const NULL_GOALS = Object.freeze({ project: null, mediumTerm: null, currentPhase
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const WIKI_PATH_PATTERN = /^wiki\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.md$/i;
 const NONTERMINAL_TICKET_STATUSES = new Set(['open', 'acknowledged', 'needs_information', 'answered']);
+const MAX_WIKI_NOTE_BYTES = 1024 * 1024;
 
 export class EngineError extends Error {
   constructor(message, { code = 'ENGINE_ERROR', cause } = {}) {
@@ -790,6 +792,116 @@ export async function addWikiNote({
     ? await syncStore({ repository: layout.repositoryPath })
     : await setSyncStatus(layout, 'pending', 'Local wiki note is committed but has not been pushed.');
   return { created: true, path: relativePath, commit, sync: syncResult, validation };
+}
+
+export async function getWikiNote({ repository = '.', path: wikiPath } = {}) {
+  if (typeof wikiPath !== 'string' || !WIKI_PATH_PATTERN.test(wikiPath)) {
+    throw new EngineError('Wiki note path must use wiki/<uuid>.md.', {
+      code: 'INVALID_WIKI_PATH',
+    });
+  }
+  const layout = await loadLayout(repository);
+  const notePath = path.resolve(layout.statePath, wikiPath);
+  const storePath = await realpath(layout.statePath);
+  const wikiDirectory = path.join(layout.statePath, 'wiki');
+  let directoryInfo;
+  try {
+    directoryInfo = await lstat(wikiDirectory);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      throw new EngineError(`Wiki note does not exist: ${wikiPath}`, {
+        code: 'WIKI_NOTE_NOT_FOUND',
+      });
+    }
+    throw error;
+  }
+  if (directoryInfo.isSymbolicLink() || !directoryInfo.isDirectory()) {
+    throw new EngineError('The shared wiki directory is not a safe directory.', {
+      code: 'UNSAFE_WIKI_NOTE',
+    });
+  }
+  if (await realpath(wikiDirectory) !== path.join(storePath, 'wiki')) {
+    throw new EngineError('The shared wiki directory resolves outside the expected store path.', {
+      code: 'WIKI_PATH_ESCAPE',
+    });
+  }
+  let noteInfo;
+  try {
+    noteInfo = await lstat(notePath);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      throw new EngineError(`Wiki note does not exist: ${wikiPath}`, {
+        code: 'WIKI_NOTE_NOT_FOUND',
+      });
+    }
+    throw error;
+  }
+  if (noteInfo.isSymbolicLink() || !noteInfo.isFile() || noteInfo.nlink !== 1) {
+    throw new EngineError('Wiki note must be a regular file, not a link or special file.', {
+      code: 'UNSAFE_WIKI_NOTE',
+    });
+  }
+  const resolvedNotePath = await realpath(notePath);
+  const relative = path.relative(storePath, resolvedNotePath);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new EngineError('Wiki note resolves outside the isolated shared store.', {
+      code: 'WIKI_PATH_ESCAPE',
+    });
+  }
+  if (noteInfo.size > MAX_WIKI_NOTE_BYTES) {
+    throw new EngineError(`Wiki note exceeds ${MAX_WIKI_NOTE_BYTES} bytes.`, {
+      code: 'WIKI_NOTE_TOO_LARGE',
+    });
+  }
+
+  let handle;
+  try {
+    handle = await open(notePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const openedInfo = await handle.stat();
+    if (
+      !openedInfo.isFile()
+      || openedInfo.nlink !== 1
+      || openedInfo.dev !== noteInfo.dev
+      || openedInfo.ino !== noteInfo.ino
+    ) {
+      throw new EngineError('Wiki note must be a regular file.', { code: 'UNSAFE_WIKI_NOTE' });
+    }
+    if (openedInfo.size > MAX_WIKI_NOTE_BYTES) {
+      throw new EngineError(`Wiki note exceeds ${MAX_WIKI_NOTE_BYTES} bytes.`, {
+        code: 'WIKI_NOTE_TOO_LARGE',
+      });
+    }
+    const content = Buffer.alloc(MAX_WIKI_NOTE_BYTES + 1);
+    let bytesRead = 0;
+    while (bytesRead < content.length) {
+      const read = await handle.read(content, bytesRead, content.length - bytesRead, bytesRead);
+      if (read.bytesRead === 0) break;
+      bytesRead += read.bytesRead;
+    }
+    if (bytesRead > MAX_WIKI_NOTE_BYTES) {
+      throw new EngineError(`Wiki note exceeds ${MAX_WIKI_NOTE_BYTES} bytes.`, {
+        code: 'WIKI_NOTE_TOO_LARGE',
+      });
+    }
+    const markdown = content.subarray(0, bytesRead).toString('utf8');
+    return {
+      path: wikiPath,
+      markdown,
+      validation: validateWikiNote(markdown, { path: wikiPath }),
+    };
+  } catch (error) {
+    if (error.code === 'ELOOP') {
+      throw new EngineError('Wiki note symlinks are not allowed.', { code: 'UNSAFE_WIKI_NOTE' });
+    }
+    if (error.code === 'ENOENT') {
+      throw new EngineError(`Wiki note does not exist: ${wikiPath}`, {
+        code: 'WIKI_NOTE_NOT_FOUND',
+      });
+    }
+    throw error;
+  } finally {
+    await handle?.close();
+  }
 }
 
 export async function startSession({
