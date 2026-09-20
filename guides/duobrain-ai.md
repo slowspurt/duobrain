@@ -55,6 +55,31 @@ node bin/duobrain.js start --title "입력 화면 연결" --scope src/ui/book-fo
 
 브리핑 뒤에는 사용자가 바로 할 수 있는 한 단계와, 상대 또는 사람 판단이 필요한 한 단계를 구분한다. 상대 변경을 받아야 하는 경우에도 검토하지 않은 변경을 자동 병합하라고 지시하지 않는다.
 
+## 상대 작업 확인, 겹침 점검, 별도 작업 공간
+
+“B 지금 어디까지 했어? 그럼 나는 뭐 하면 돼?”라는 질문에는 먼저 `sync`와 `status`에서 마지막 동기화 시각, B의 기록된 세션 범위·목표·마지막 이벤트·종료 여부를 읽는다. `active`나 미종료 세션은 마지막으로 공유된 기록일 뿐 B의 현재 접속·작업을 증명하지 않는다. B의 로컬 미푸시 제품 변경도 알 수 없다.
+
+자신의 후보 범위가 있으면 실제 경로와 기준 commit으로 `overlap`을 실행한다.
+
+```sh
+node bin/duobrain.js sync
+node bin/duobrain.js status
+node bin/duobrain.js overlap --scope src/export/empty-state.tsx --base-commit HEAD
+```
+
+`pathAssessment.status: "no_overlap"`은 기록된 scope와의 **경로** 중복이 없다는 뜻뿐이다. `semanticAssessment`는 항상 명시적 목표·티켓·위키 근거를 사람이 읽어 판단해야 하며, 공통 반환 계약 같은 의미상 영향은 `unknown`으로 남는다. `lastSyncedAt`, pending/error 동기화, 미종료 세션, 충돌, 로컬 또는 peer 미푸시 변경도 결과의 `unknowns`에서 확인한다. 다른 파일이라는 사실만으로 안전·독립이라고 말하지 않으며, 근거가 부족하면 사전 허용된 좁은 정보 티켓으로 계약 또는 영향만 요청한다.
+
+격리된 제품 작업 공간이 필요하면 이는 명시적으로 만든다. `worktree-prepare`는 원래 checkout의 브랜치·index·dirty files를 보존하고 미커밋 변경을 복사하지 않으며, merge·rebase·cherry-pick·sync·세션 시작을 자동으로 하지 않는다.
+
+```sh
+node bin/duobrain.js worktree-prepare \
+  --directory ../reading-app-empty-state \
+  --branch codex/empty-state \
+  --base-commit <confirmed-base>
+```
+
+반환 JSON의 `directory`, `branch`, `baseCommit`을 다시 확인한 뒤에만 새 worktree를 대상으로 `start --branch <returned-branch> --base-commit <returned-base>`를 기록한다. 존재하는 directory 또는 branch는 사용하지 않으며, 현재 세션의 scope를 바꾸는 E4 `session.scope_updated`는 아직 사용할 수 없다. 범위나 기준을 바꿔야 하면 현재 세션을 `end`하고 새 세션을 시작한다.
+
 ## 정보 보충과 직접 피드백의 구분
 
 정보 보충은 확인 가능한 근거를 찾고 공유해 달라는 요청이다. AI는 요청의 완료 조건별로 공유된 위키·이벤트를 확인하고, 필요한 사실과 근거 위치를 좁혀 `information` 티켓을 제안한다. 응답에는 적어도 하나의 실제 공유 위키 노트 근거가 필요하며, 자료가 없으면 `ticket.needs_information`이 맞는 결과다. 부분 답변은 부분 답변으로 남긴다.
@@ -105,6 +130,12 @@ node bin/duobrain.js ticket-resolve --ticket <ticket-uuid> \
 | 직접 의견 요청(Q07) | 질문, 선택지·영향, 기존 합의, 관련 근거 | 사람의 피드백이 필요한 이유와 간단한 브리프를 준비하고 `ticket-create --kind feedback`을 사용한다. AI 추천은 사람 응답이 아니며, assignee의 `ticket-respond --actor human`만 유효한 피드백 응답이다. |
 
 정보 요청이 사전에 허용된 경우에는 질문이 이미 특정한 주장·근거 범위를 다시 사용자에게 확인하지 않고 `ticket-create`로 처리한다. 다만 대상 작업·자료가 모호하거나, 새 판단·승인·우선순위 또는 허용 범위를 넘는 공유가 필요하면 실행 전에 사용자에게 묻는다.
+
+## 캡처된 작업 방식 비교
+
+“B 하네스와 내 버전이 달라?”에는 두 structured source note의 `workContext.promptRef`와 `harnessRef`를 비교한다. 서로 다른 ref는 캡처된 참조가 다르다는 사실만 보인다. artifact의 version 또는 text가 빠졌다면 내용 차이·성능 원인은 미확인이고, 높아 보이는 버전이 더 좋은 결과를 냈다고 결론 내리지 않는다.
+
+W3의 `compareKnowledgeMethods`는 CLI가 아니라 caller가 전달한 notes와 artifacts만 처리하는 순수 API다. 누락된 비교 재료가 있으면 결과의 `ticketCandidate`는 제안일 뿐 티켓을 자동 생성하거나 AI가 백그라운드에서 답을 기다리지 않는다. 다음의 명시적 sync 또는 사용자 호출 뒤 새 근거를 전달해 다시 비교한다. API 입력 형태는 [knowledge-records API](../docs/wiki/knowledge-records.md#method-search-and-comparison)와 [reference-only example](../examples/wiki/method-comparison.json)를 따른다.
 
 ## 인계와 하루 마무리
 

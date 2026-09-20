@@ -92,8 +92,75 @@ node /Users/bob/tools/duobrain/bin/duobrain.js ticket-respond \
 
 The AI should preserve the person's wording and identify any separate AI summary or recommendation as AI-authored. Alice may resolve only after checking that human response. Resolution records that the request was sufficiently answered; it does not claim that every resulting product change is complete. `ticket-close --reason cancelled|duplicate` is not a resolution.
 
-## 6. Start, hand off, and end without inventing blockers
+## 6. Start, pause, hand off, and end without inventing blockers
 
 When a user asks the AI to begin an agreed, non-overlapping scope, it can record a session with `start`. Use `--actor ai` when the AI writes the record; do not label it human merely because a user asked the AI to do it. On handoff, separate verified work, failed checks, unshared work, unknowns, and the next completion condition. End the session with `end`; omit `--blockers` when there is no actual blocker because every supplied item is counted as one.
 
-Pause/resume, scope changes, overlap assessment, isolated product-worktree preparation, and shared-goal writes are E3 or later work. Do not invent options or claim those records now exist.
+The session owner can record an explicit pause and resume; these do not create completed work time.
+
+```sh
+node /Users/alice/tools/duobrain/bin/duobrain.js pause \
+  --repository /Users/alice/work/reading-app --session <session-uuid> \
+  --body "Waiting for the API handoff" --actor ai
+node /Users/alice/tools/duobrain/bin/duobrain.js resume \
+  --repository /Users/alice/work/reading-app --session <session-uuid> \
+  --body "Shared evidence received" --actor ai
+```
+
+## 7. Check B's recorded work before parallel work
+
+For “Where did B get to, then what can I do?”, first explicitly synchronize and inspect the returned state. An active B session is an unended shared record, not evidence that B is online. Its last event time and the local `lastSyncedAt` bound what can be said; B's unpushed product changes remain unknown.
+
+```sh
+node /Users/alice/tools/duobrain/bin/duobrain.js sync \
+  --repository /Users/alice/work/reading-app
+node /Users/alice/tools/duobrain/bin/duobrain.js status \
+  --repository /Users/alice/work/reading-app
+node /Users/alice/tools/duobrain/bin/duobrain.js overlap \
+  --repository /Users/alice/work/reading-app \
+  --scope src/export/empty-state.tsx --base-commit HEAD
+```
+
+`pathAssessment.status: "no_overlap"` means only that the proposed repository-relative paths do not intersect B's recorded paths. It does not prove that an empty-result interface, data shape, or behavior is independent; `semanticAssessment` remains `unknown` until explicit session goals, tickets, or wiki evidence are inspected. Pending sync, conflicts, old or unclosed sessions, and local or peer unpushed changes are likewise limits shown in `unknowns`. If the shared evidence does not settle the interface impact, create a narrow pre-authorized information ticket and limit the scope to independent work while awaiting an answer.
+
+## 8. Prepare an isolated product worktree explicitly
+
+After choosing a confirmed base, create a new, nonexistent path outside the product checkout and its common Git directory. This command creates a new branch but does not merge, rebase, cherry-pick, sync shared state, or start a session.
+
+```sh
+node /Users/alice/tools/duobrain/bin/duobrain.js worktree-prepare \
+  --repository /Users/alice/work/reading-app \
+  --directory ../reading-app-empty-state \
+  --branch codex/empty-state --base-commit <confirmed-base>
+```
+
+Read `directory`, `branch`, and `baseCommit` from the JSON result. The original checkout's index, branch, and dirty changes stay untouched and are not copied. Only then record the separate work with the returned branch and base:
+
+```sh
+node /Users/alice/tools/duobrain/bin/duobrain.js start \
+  --repository /Users/alice/work/reading-app-empty-state \
+  --title "Empty export state" --scope src/export/empty-state.tsx \
+  --goal "Display empty result without changing parser contract" \
+  --branch <returned-branch> --base-commit <returned-base> --actor ai
+```
+
+There is still no supported in-place session scope update. End the current session and start a new one when its scope or base changes. `docs/protocol-extensions.md` describes E4 `session.scope_updated` and shared-plan writes as approved future contracts, not available commands.
+
+## 9. Compare only captured method evidence
+
+There is no method-comparison CLI. `compareKnowledgeMethods` is a pure W3 module: the caller must supply note Markdown and any captured prompt/harness artifacts. It does not read a repository, create a ticket, or wait for evidence in the background. This fixture-only invocation demonstrates the boundary:
+
+```sh
+node --input-type=module -e '
+import { readFile } from "node:fs/promises";
+import { basename } from "node:path";
+import { compareKnowledgeMethods } from "/Users/alice/tools/duobrain/src/wiki/index.js";
+const manifest = JSON.parse(await readFile("/Users/alice/tools/duobrain/examples/wiki/method-comparison.json", "utf8"));
+const notes = await Promise.all(manifest.noteFiles.map(async (file) => ({
+  path: `wiki/${basename(file)}`, markdown: await readFile(`/Users/alice/tools/duobrain/${file}`, "utf8"),
+})));
+console.log(JSON.stringify(compareKnowledgeMethods({...manifest, notes}), null, 2));
+'
+```
+
+The API can compare captured ref identity, versions, and supplied text only. Missing or opaque refs/text remain unknown; different refs do not prove behavior or a causal result. A returned `ticketCandidate` is only a narrow proposal. On a later explicit sync or user request, pass newly captured evidence to the API again; do not claim automatic wake-up. Shared-goal writes and the E4 extension events remain unavailable.
