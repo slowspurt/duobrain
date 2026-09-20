@@ -1,6 +1,7 @@
 import {
   aggregateSessions,
   filterTickets,
+  planPresentation,
   peerConfirmation,
   ticketEvidence,
   ticketStatusLabels,
@@ -27,7 +28,20 @@ function element(tag, className, value) {
 }
 const empty = (message) => element('p', 'empty', message);
 
-function renderGoals(goals = {}) {
+function appendEvidenceButtons(container, evidence) {
+  for (const path of evidence) {
+    const item = element('div', 'evidence-item');
+    const button = element('button', 'evidence-link', path);
+    button.type = 'button';
+    const content = element('div', 'evidence-content');
+    content.hidden = true;
+    button.addEventListener('click', () => loadEvidence(path, button, content));
+    item.append(button, content);
+    container.append(item);
+  }
+}
+
+function renderGoals(goals = {}, snapshot = {}) {
   const container = byId('goals');
   container.replaceChildren();
   for (const key of ['project', 'mediumTerm', 'currentPhase']) {
@@ -35,6 +49,50 @@ function renderGoals(goals = {}) {
     card.append(element('p', 'label', labels[key]), element('p', 'goal-copy', text(goals[key])));
     container.append(card);
   }
+  const presentation = planPresentation(snapshot);
+  const badge = byId('plan-status');
+  badge.className = `plan-status ${presentation.state}`;
+  badge.textContent = presentation.label;
+  const detail = byId('plan-detail');
+  detail.replaceChildren();
+  if (!presentation.plan) {
+    detail.append(empty(presentation.state === 'conflict'
+      ? '계획 이력이 충돌해 목표와 담당을 선택하지 않습니다.'
+      : '공유 계획 기록이 없어 목표와 담당을 추정하지 않습니다.'));
+    if (presentation.state === 'conflict') {
+      presentation.conflicts.forEach((conflict) => detail.append(element('p', 'conflict-copy', text(conflict?.message, '계획 충돌 세부 내용 미확인'))));
+    }
+    return;
+  }
+  detail.append(element('p', 'plan-body', text(presentation.plan.body, '계획 근거 설명 미확인')));
+  const assignments = element('div', 'assignment-grid');
+  for (const assignment of Array.isArray(presentation.plan.assignments) ? presentation.plan.assignments : []) {
+    const card = element('article', 'assignment-card');
+    card.append(element('h3', '', text(assignment?.participant)));
+    const scopes = element('div', 'chips');
+    const scopeItems = Array.isArray(assignment?.scope) ? assignment.scope : [];
+    (scopeItems.length ? scopeItems : ['할당 범위 없음']).forEach((scope) => scopes.append(element('span', `chip${scopeItems.length ? '' : ' muted'}`, scope)));
+    card.append(scopes, element('p', 'assignment-next', `다음 · ${text(assignment?.next, '미확인')}`));
+    assignments.append(card);
+  }
+  detail.append(assignments);
+  const expandable = element('details', 'plan-history');
+  expandable.append(element('summary', '', '계획 이력·근거 보기'));
+  const history = element('div', 'plan-history-list');
+  for (const event of Array.isArray(presentation.plan.history) ? presentation.plan.history : []) {
+    const item = element('article', 'timeline-item');
+    item.append(element('p', 'timeline-type', text(event?.type, '이벤트 유형 미확인')));
+    item.append(element('p', 'caption', `${formatDate(event?.at)} · ${text(event?.actor?.participant)} (${text(event?.actor?.kind, '주체 미확인')})`));
+    if (event?.data?.body) item.append(element('p', 'timeline-body', event.data.body));
+    history.append(item);
+  }
+  if (!history.children.length) history.append(empty('계획 이력이 없습니다.'));
+  const evidence = Array.isArray(presentation.plan.evidence) ? presentation.plan.evidence : [];
+  history.append(element('h4', '', '합의 근거'));
+  if (evidence.length) appendEvidenceButtons(history, evidence);
+  else history.append(empty(presentation.state === 'proposed' ? '제안 상태에는 공동 합의 근거가 없습니다.' : '근거 경로가 없습니다.'));
+  expandable.append(history);
+  detail.append(expandable);
 }
 
 function formatDate(value, fallback = '시각 미확인') {
@@ -123,7 +181,7 @@ function renderSessionAnalysis() {
   const scopes = byId('scope-time');
   scopes.replaceChildren();
   if (!result.scopeTotals.length) scopes.append(empty('집계 가능한 범위 기록이 없습니다.'));
-  for (const item of result.scopeTotals) scopes.append(metricRow(`${item.participant} · ${item.scope}`, formatDuration(item.recordedActiveMs)));
+  for (const item of result.scopeTotals) scopes.append(metricRow(`${item.participant} · ${item.scope ?? '귀속 미확인'}`, formatDuration(item.recordedActiveMs)));
 
   const sessions = byId('session-records');
   sessions.replaceChildren();
@@ -139,6 +197,9 @@ function renderSessionAnalysis() {
     card.append(timings);
     const metadata = element('p', 'session-metadata', `요약 ${text(item.summary)} · 브랜치 ${text(item.branch)} · 기준 커밋 ${text(item.baseCommit)}`);
     card.append(metadata);
+    for (const change of item.scopeChanges) {
+      card.append(element('p', 'scope-change', `범위 변경 ${formatDate(change.at)} · ${(change.scope ?? []).join(', ') || '범위 미확인'} · 사유 ${text(change.reason)}`));
+    }
     sessions.append(card);
   }
 
@@ -167,16 +228,7 @@ function renderTimeline(ticket) {
   const evidence = ticketEvidence(ticket);
   section.append(element('h4', '', '근거 경로'));
   if (!evidence.length) section.append(empty('연결된 근거 경로가 없습니다.'));
-  else evidence.forEach((path) => {
-    const item = element('div', 'evidence-item');
-    const button = element('button', 'evidence-link', path);
-    button.type = 'button';
-    const content = element('div', 'evidence-content');
-    content.hidden = true;
-    button.addEventListener('click', () => loadEvidence(path, button, content));
-    item.append(button, content);
-    section.append(item);
-  });
+  else appendEvidenceButtons(section, evidence);
   section.append(element('p', 'caption evidence-note', '허용된 위키 경로만 읽기 전용으로 조회하며 Markdown은 실행하지 않습니다.'));
   return section;
 }
@@ -275,7 +327,7 @@ function render(snapshot) {
   state.sessions = Array.isArray(snapshot.sessions) ? snapshot.sessions : [];
   state.conflicts = Array.isArray(snapshot.conflicts) ? snapshot.conflicts : [];
   state.participants = Array.isArray(snapshot.participants) ? snapshot.participants : [];
-  renderGoals(snapshot.goals);
+  renderGoals(snapshot.goals, snapshot);
   renderParticipants(state.participants, state.sessions);
   renderSessionAnalysis();
   fillFilters();
