@@ -57,6 +57,11 @@ test('serves a static shell with a restrictive policy and no snapshot interpolat
   assert.equal(response.status, 200);
   assert.match(response.headers.get('content-security-policy'), /script-src 'self'/);
   assert.doesNotMatch(html, /onerror=alert/);
+  assert.match(html, /id="nav-current"/);
+  assert.match(html, /id="nav-requests"/);
+  assert.match(html, /id="nav-records"/);
+  assert.match(html, /id="nav-wiki"/);
+  assert.match(html, /role="tabpanel"/);
 
   const script = await (await fetch(`${origin}/app.js`)).text();
   assert.match(script, /textContent/);
@@ -67,6 +72,8 @@ test('serves a static shell with a restrictive policy and no snapshot interpolat
 
   const styles = await (await fetch(`${origin}/styles.css`)).text();
   assert.match(styles, /\[hidden\]\s*{\s*display:\s*none\s*!important;/);
+  assert.match(styles, /body\s*{[^}]*overflow:\s*hidden;/);
+  assert.match(styles, /height:\s*100dvh/);
 });
 
 test('supports empty snapshots and validates startup arguments', async (t) => {
