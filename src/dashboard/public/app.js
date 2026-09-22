@@ -55,6 +55,7 @@ const empty = (message) => element('p', 'empty', message);
 
 function applyStaticUi() {
   byId('brand-home').setAttribute('aria-label', t('brandHome'));
+  document.querySelector('.app-nav').setAttribute('aria-label', t('navLabel'));
   byId('source-badge').textContent = t('source');
   byId('sync-badge').textContent = t('syncing');
   byId('nav-current').textContent = t('current');
@@ -70,9 +71,19 @@ function applyStaticUi() {
   byId('ticket-search').placeholder = t('searchTickets');
   byId('wiki-query').placeholder = t('searchWiki');
   byId('wiki-participant').placeholder = t('all');
+  byId('ticket-search').closest('label').firstElementChild.textContent = t('search');
+  byId('status-filter').closest('label').firstElementChild.textContent = t('status');
+  byId('kind-filter').closest('label').firstElementChild.textContent = t('kind');
+  byId('peer-filter').closest('label').firstElementChild.textContent = t('peerFilter');
+  byId('wiki-query').closest('label').firstElementChild.textContent = t('search');
+  byId('wiki-participant').closest('label').firstElementChild.textContent = t('participant');
+  byId('wiki-status').closest('label').firstElementChild.textContent = t('status');
+  byId('wiki-record-type').closest('label').firstElementChild.textContent = t('recordType');
+  byId('wiki-include-superseded').parentElement.lastChild.nodeValue = ` ${t('includeSuperseded')}`;
   document.querySelector('.wiki-submit').textContent = t('submitSearch');
   document.querySelector('.brand-lockup h1').textContent = t('dashboardTitle');
   document.querySelector('.brand-lockup p').textContent = t('dashboardDescription');
+  document.querySelector('.brand-lockup p').hidden = !t('dashboardDescription');
   document.querySelector('#sample-banner strong').textContent = t('sample');
   document.querySelector('#sample-banner span').textContent = t('sampleDescription');
   document.querySelector('#error-panel strong').textContent = t('loadFailed');
@@ -82,6 +93,7 @@ function applyStaticUi() {
   document.querySelector('.records-heading h2').textContent = t('recordedWork');
   document.querySelector('.records-heading p').textContent = t('recordsDescription');
   document.querySelector('.records-heading label span').textContent = t('period');
+  byId('panel-records').querySelector('.records-summary .caption').textContent = '';
   const wikiPanel = byId('panel-wiki');
   wikiPanel.querySelector('.panel-heading h2').textContent = t('wikiTitle');
   wikiPanel.querySelector('.panel-heading p').textContent = t('wikiDescription');
@@ -96,6 +108,11 @@ function applyStaticUi() {
   recordHeadings[2].textContent = t('scopeTime');
   byId('tickets').setAttribute('aria-label', t('requests'));
   byId('wiki-records').setAttribute('aria-label', t('wikiTitle'));
+  document.querySelector('#panel-requests .compact-tabs').setAttribute('aria-label', t('compactRequests'));
+  document.querySelector('#panel-records .compact-tabs').setAttribute('aria-label', t('compactRecords'));
+  document.querySelector('#panel-wiki .compact-tabs').setAttribute('aria-label', t('compactWiki'));
+  document.querySelector('#panel-requests .tabs').setAttribute('aria-label', t('requestView'));
+  document.querySelector('#panel-wiki .tabs').setAttribute('aria-label', t('wikiView'));
   document.querySelector('.delivery-panel span').textContent = t('delivery');
   document.querySelector('.delivery-panel div:nth-child(2) span').textContent = t('peer');
   document.querySelector('.delivery-panel div:nth-child(2) strong').textContent = t('peerHint');
