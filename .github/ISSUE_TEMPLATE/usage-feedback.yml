@@ -1,0 +1,46 @@
+name: Usage feedback
+description: Share an installation or two-person collaboration experience.
+title: '[Feedback] '
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue is public. Share only material you may disclose, without partner notes, private project records, credentials, or full chats.
+        Maintainers review reports to improve onboarding, AI guidance, and regression scenarios. Reports are not automatically ingested into a RAG system.
+  - type: textarea
+    id: expected
+    attributes:
+      label: Task and expected behavior
+      description: Which setup or collaboration step did you try, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: What actually happened
+      description: Describe the observed result. Distinguish observations from guesses.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Share the smallest permitted steps or say that reproduction is unknown.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Relevant environment
+      description: Version (node bin/duobrain.js --version), OS, Node version, AI tool, and relevant command/status if known.
+  - type: textarea
+    id: improvement
+    attributes:
+      label: What would help?
+  - type: checkboxes
+    id: sharing
+    attributes:
+      label: Public sharing
+      options:
+        - label: I may share this material publicly and have removed private or third-party information I cannot disclose.
+          required: true
