@@ -95,7 +95,7 @@ nickname 변경을 이유로 바꾸지 않는다. 새 저장소에서만 두 par
 ```sh
 node /path/to/duobrain/bin/duobrain.js init \
   --repository /path/to/product \
-  --participants alice,bob --participant alice
+  --participants member-a,member-b --participant member-a
 ```
 
 nickname은 participant ID와 분리된 공유 프로필이다. 생략하고 싶으면 participant ID 또는
@@ -104,8 +104,8 @@ nickname은 participant ID와 분리된 공유 프로필이다. 생략하고 싶
 
 ```sh
 node /path/to/duobrain/bin/duobrain.js profile-set \
-  --repository /path/to/product --nickname "Ali" \
-  --github-login alice-gh --actor ai
+  --repository /path/to/product --nickname "A" \
+  --github-login member-a --actor ai
 ```
 
 ## 4. 현재 기준점과 수정안을 한 번에 검토한다
@@ -121,7 +121,8 @@ node /path/to/duobrain/bin/duobrain.js profile-set \
 원문 기획, 기존 역할, 코드, 브랜치와 기존 AI 지침은 유지한다. 수정안은 기존 기록에서 확인된
 내용과 AI 제안을 구분해 사용자에게 보여준다. 한 사람의 검토를 두 사람의 합의로 기록하지
 않는다. 검토된 전체 projection만 `plan-set`으로 남기고 체크포인트의 `planReviewed`를
-`true`로 갱신한다.
+`true`로 갱신한다. 검토는 그때 보이는 plan revision에 연결된다. 이후 기획이 바뀌면
+다음 실행에서 변경된 내용만 다시 검토하며 과거 확인을 새 기획의 승인으로 쓰지 않는다.
 
 두 번째 참여자는 공유 plan과 역할, 열린 요청을 먼저 읽는다. 본인의 profile과 배정 범위만
 확인하고 `roleReviewed: true`로 갱신한다. 전체 기획 인터뷰를 다시 하지 않는다.

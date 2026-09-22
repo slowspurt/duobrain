@@ -208,7 +208,7 @@ For all commands, run `node bin/duobrain.js --help` or read the [CLI reference](
 
 ## AI-led first run
 
-> **Current alpha.** The CLI provides resumable onboarding state, authenticated GitHub CLI account lookup and editable nickname profiles. Your existing AI performs the project reading and asks for missing facts. Dashboard controls for the local language preference are handled by the dashboard UI.
+> **Current alpha.** The CLI provides resumable onboarding state, authenticated GitHub CLI account lookup and editable nickname profiles. Your existing AI performs the project reading and asks for missing facts. The locale preference is stored locally; dashboard language controls and translated UI text are not included in this integration.
 
 After downloading duobrain, tell your existing AI:
 
@@ -228,11 +228,11 @@ From there, your AI guides you through four steps:
 
 **Joining second? Pick up where your partner left off.** Your AI reads the shared plan, helps you set your nickname and review your assigned scope, then gets you started. You don't repeat the full planning interview.
 
-Dashboard language is a per-clone local preference and defaults to the system language. It does not add a language question to onboarding or translate shared source text.
+The dashboard locale setting is a per-clone preference, stored as `system` by default. It does not add a language question to onboarding or translate shared source text.
 
 ## Help shape the alpha
 
-The local alpha has passed **85 tests**, including onboarding and two-clone collaboration flows, plus a clean local-clone check. Acceptance testing with two people on separate machines and their existing AI tools is **still pending**. See [verification details](docs/implementation-status.md).
+The local alpha has passed **87 tests**, including onboarding and two-clone collaboration flows, plus a clean local-clone check. Acceptance testing with two people on separate machines and their existing AI tools is **still pending**. See [verification details](docs/implementation-status.md).
 
 Try a small shared project and [tell us what happened](https://github.com/slowspurt/duobrain/issues): what you asked, what you expected and where the handoff fell short. Include a shareable example.
 

@@ -456,18 +456,18 @@ async function sharedStateAvailability(layout) {
 }
 
 async function repositoryOnboardingFacts(layout) {
-  const [head, branch, count, dirty, files] = await Promise.all([
-    git(layout.repositoryPath, ['rev-parse', 'HEAD']),
+  const [head, branch, dirty, files] = await Promise.all([
+    git(layout.repositoryPath, ['rev-parse', '--verify', 'HEAD'], { allowFailure: true }),
     git(layout.repositoryPath, ['branch', '--show-current']),
-    git(layout.repositoryPath, ['rev-list', '--count', 'HEAD']),
     git(layout.repositoryPath, ['status', '--porcelain']),
     git(layout.repositoryPath, ['ls-files']),
   ]);
+  const count = head.ok ? await git(layout.repositoryPath, ['rev-list', '--count', 'HEAD']) : null;
   const contextPattern = /(^|\/)(readme(?:\.[^/]*)?|[^/]*(?:plan|roadmap|brief|meeting|requirements)[^/]*)$/i;
   return {
-    head: head.stdout,
+    head: head.ok ? head.stdout : null,
     branch: branch.stdout || null,
-    commitCount: Number.parseInt(count.stdout, 10),
+    commitCount: count ? Number.parseInt(count.stdout, 10) : 0,
     hasWorkingChanges: dirty.stdout !== '',
     contextCandidates: files.stdout.split('\n').filter((name) => contextPattern.test(name)).slice(0, 50),
   };
@@ -479,8 +479,11 @@ function nextOnboardingStage({ progress, initialized, snapshot, localProfile }) 
   if (!localProfile) return 'profile';
   if (!progress.context.summary || progress.context.missingFacts.length > 0) return 'review-context';
   if (!snapshot.plan) return 'review-plan';
-  if (progress.mode === 'join-existing' && !progress.roleReviewed) return 'review-role';
-  if (progress.mode !== 'join-existing' && !progress.planReviewed) return 'review-plan';
+  const currentRevision = snapshot.plan.history.at(-1)?.id;
+  if (progress.mode === 'join-existing'
+    && (!progress.roleReviewed || progress.reviewedRoleRevision !== currentRevision)) return 'review-role';
+  if (progress.mode !== 'join-existing'
+    && (!progress.planReviewed || progress.reviewedPlanRevision !== currentRevision)) return 'review-plan';
   if (snapshot.sync.status !== 'synced') return 'sync';
   return 'ready';
 }
@@ -545,6 +548,22 @@ export async function saveOnboardingProgress({ repository = '.', progress } = {}
   if (normalized.mode === 'join-existing' && sharedState.status === 'absent') {
     throw new EngineError('join-existing requires an existing duobrain/state branch.', { code: 'INVALID_ONBOARDING' });
   }
+  // A local review applies to the plan that was actually visible at that time.
+  // Never carry a boolean approval forward to a different plan revision.
+  let currentRevision = null;
+  if (progress.planReviewed === true || progress.roleReviewed === true) {
+    const snapshot = await buildSnapshot(await loadLayout(repository));
+    currentRevision = snapshot.plan?.history.at(-1)?.id ?? null;
+    if (!currentRevision) {
+      throw new EngineError('A valid shared plan is required before recording its review.', {
+        code: 'INVALID_ONBOARDING',
+      });
+    }
+  }
+  normalized.reviewedPlanRevision = normalized.planReviewed
+    ? (progress.planReviewed === true ? currentRevision : previous.reviewedPlanRevision ?? null) : null;
+  normalized.reviewedRoleRevision = normalized.roleReviewed
+    ? (progress.roleReviewed === true ? currentRevision : previous.reviewedRoleRevision ?? null) : null;
   await writeJsonAtomic(layout.onboardingPath, normalized);
   return inspectOnboarding({ repository: layout.repositoryPath });
 }

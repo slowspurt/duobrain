@@ -275,3 +275,55 @@ test('onboarding CLI saves progress, defaults profile nickname, and keeps locale
   assert.equal(status.snapshot.profiles[0].nickname, 'alice-gh');
   assert.equal(status.snapshot.localPreferences.dashboardLocale, 'en');
 });
+
+test('a changed plan requires a fresh local review for both initial and joining participants', async (t) => {
+  const setup = await fixture();
+  t.after(() => rm(setup.root, { recursive: true, force: true }));
+  await initSharedStore({ repository: setup.alice, participants: ['alice', 'bob'], participant: 'alice' });
+  await initSharedStore({ repository: setup.bob, participants: ['alice', 'bob'], participant: 'bob' });
+  for (const repository of [setup.alice, setup.bob]) {
+    await setParticipantProfile({ repository });
+  }
+  const plan = {
+    goals: { project: 'Ship', mediumTerm: 'Connect', currentPhase: 'First scope' },
+    assignments: [
+      { participant: 'alice', scope: ['src/ui'], next: 'Build the UI' },
+      { participant: 'bob', scope: ['src/api'], next: 'Build the API' },
+    ],
+    status: 'proposed', evidence: [], body: 'Initial plan for local review.',
+  };
+  await setPlan({ repository: setup.alice, plan });
+  await syncStore({ repository: setup.bob });
+  await saveOnboardingProgress({ repository: setup.alice, progress: progress({ planReviewed: true }) });
+  await saveOnboardingProgress({ repository: setup.bob, progress: progress({ mode: 'join-existing', roleReviewed: true }) });
+  assert.equal((await inspectOnboarding({ repository: setup.alice })).ready, true);
+  assert.equal((await inspectOnboarding({ repository: setup.bob })).ready, true);
+
+  await setPlan({ repository: setup.alice, plan: { ...plan, body: 'Revised scope for review.' } });
+  await syncStore({ repository: setup.bob });
+  // Unrelated checkpoint writes must not silently approve the new revision.
+  await saveOnboardingProgress({ repository: setup.alice, progress: { context: { summary: 'Resuming work.' } } });
+  assert.equal((await inspectOnboarding({ repository: setup.alice })).nextStage, 'review-plan');
+  assert.equal((await inspectOnboarding({ repository: setup.bob })).nextStage, 'review-role');
+  await saveOnboardingProgress({ repository: setup.alice, progress: { planReviewed: true } });
+  await saveOnboardingProgress({ repository: setup.bob, progress: { roleReviewed: true } });
+  assert.equal((await inspectOnboarding({ repository: setup.alice })).ready, true);
+  assert.equal((await inspectOnboarding({ repository: setup.bob })).ready, true);
+  assert.equal((await getSnapshot({ repository: setup.alice })).plan.status, 'proposed');
+});
+
+test('first-run inspection supports a new Git project before its first commit', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'duobrain-empty-project-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await execFileAsync('git', ['init', root]);
+  const inspected = await inspectOnboarding({ repository: root });
+  assert.equal(inspected.repository.head, null);
+  assert.equal(inspected.repository.commitCount, 0);
+  assert.equal(inspected.projectKindProposal, 'undetermined');
+  assert.equal(inspected.nextStage, 'assess-project');
+  const saved = await saveOnboardingProgress({
+    repository: root,
+    progress: progress({ mode: 'new-project', projectKind: 'new', projectEvidence: [] }),
+  });
+  assert.equal(saved.nextStage, 'initialize');
+});
