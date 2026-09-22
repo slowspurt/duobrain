@@ -62,6 +62,10 @@ test('serves a static shell with a restrictive policy and no snapshot interpolat
   assert.match(html, /id="nav-records"/);
   assert.match(html, /id="nav-wiki"/);
   assert.match(html, /role="tabpanel"/);
+  assert.match(html, /data-compact-group="records"/);
+  assert.match(html, /data-compact-view="work"/);
+  assert.match(html, /data-compact-pane="requests:filters"/);
+  assert.match(html, /data-compact-pane="wiki:filters"/);
 
   const script = await (await fetch(`${origin}/app.js`)).text();
   assert.match(script, /textContent/);
@@ -74,6 +78,9 @@ test('serves a static shell with a restrictive policy and no snapshot interpolat
   assert.match(styles, /\[hidden\]\s*{\s*display:\s*none\s*!important;/);
   assert.match(styles, /body\s*{[^}]*overflow:\s*hidden;/);
   assert.match(styles, /height:\s*100dvh/);
+  assert.match(styles, /@media\s*\(max-width:900px\)/);
+  assert.doesNotMatch(styles, /blockers-column\s*{\s*display:\s*none/);
+  assert.doesNotMatch(styles, /overflow-x:\s*auto/);
 });
 
 test('supports empty snapshots and validates startup arguments', async (t) => {

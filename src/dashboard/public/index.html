@@ -13,9 +13,9 @@
     <header class="topbar">
       <div class="brand-lockup">
         <button id="brand-home" class="wordmark" type="button" aria-label="duobrain 현재 화면"><span>duo</span>brain</button>
-        <div><h1>협업 대시보드</h1><p>두 사람의 작업 기록과 요청을 확인합니다.</p></div>
+        <div><h1>협업 대시보드</h1><p>두 사람의 작업 정보와 결정 근거를 확인합니다.</p></div>
       </div>
-      <div class="source-state"><span id="source-badge">데이터 확인 중</span><span id="sync-badge" class="status unknown">동기화 확인 중</span></div>
+      <div class="source-state"><span id="source-badge" hidden>실제 엔진 기록</span><span id="sync-badge" class="status unknown">동기화 확인 중</span></div>
     </header>
 
     <nav class="app-nav" role="tablist" aria-label="대시보드 영역">
@@ -49,36 +49,38 @@
 
       <section id="panel-requests" class="workspace-panel" role="tabpanel" aria-labelledby="nav-requests" hidden>
         <div class="panel-heading"><div><h2>요청</h2><p id="ticket-context"></p></div><span id="ticket-count" class="plain-count"></span></div>
-        <div class="ticket-toolbar">
+        <div class="compact-tabs" role="tablist" aria-label="좁은 화면 요청 보기"><button id="compact-requests-list" class="compact-tab active" type="button" role="tab" aria-selected="true" data-compact-group="requests" data-compact-view="list">목록</button><button id="compact-requests-detail" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="requests" data-compact-view="detail">상세</button><button id="compact-requests-filters" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="requests" data-compact-view="filters">필터</button></div>
+        <div class="ticket-toolbar" data-compact-pane="requests:filters">
           <div class="tabs" role="tablist" aria-label="요청 보기"><button id="inbox-tab" class="tab active" type="button" role="tab" aria-selected="true">요청함</button><button id="history-tab" class="tab" type="button" role="tab" aria-selected="false">처리 이력</button></div>
           <label class="search"><span>검색</span><input id="ticket-search" type="search" placeholder="제목, 내용, 목표, 근거"></label>
           <label><span>상태</span><select id="status-filter"><option value="">전체</option></select></label>
           <label><span>종류</span><select id="kind-filter"><option value="">전체</option><option value="information">정보 보충</option><option value="feedback">직접 피드백</option></select></label>
           <label><span>상대</span><select id="peer-filter"><option value="">전체</option></select></label>
         </div>
-        <div class="split-workspace request-workspace"><div id="tickets" class="ticket-list" aria-label="요청 목록"></div><div id="ticket-detail-pane" class="detail-pane" aria-live="polite"></div></div>
+        <div class="split-workspace request-workspace"><div id="tickets" class="ticket-list" aria-label="요청 목록" data-compact-pane="requests:list"></div><div id="ticket-detail-pane" class="detail-pane" aria-live="polite" data-compact-pane="requests:detail"></div></div>
       </section>
 
       <section id="panel-records" class="workspace-panel" role="tabpanel" aria-labelledby="nav-records" hidden>
         <div class="panel-heading records-heading"><div><h2>기록된 작업</h2><p>기록 시각의 구간이며 실제 근무·집중 시간이나 생산성 평가가 아닙니다.</p></div><label class="period-control"><span>표시 기간</span><select id="session-period"><option value="7d">최근 7일</option><option value="30d" selected>최근 30일</option><option value="all">전체 기록</option></select></label></div>
+        <div class="compact-tabs" role="tablist" aria-label="좁은 화면 기록 보기"><button id="compact-records-work" class="compact-tab active" type="button" role="tab" aria-selected="true" data-compact-group="records" data-compact-view="work">작업</button><button id="compact-records-blockers" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="records" data-compact-view="blockers">병목</button><button id="compact-records-time" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="records" data-compact-view="time">시간</button></div>
         <div class="records-workspace">
-          <aside class="records-summary"><h3>시간 요약</h3><div id="time-overview" class="time-overview"></div><h3>사람별 기록 구간</h3><div id="participant-time" class="metric-list"></div><h3>사람·범위별</h3><div id="scope-time" class="metric-list"></div><p class="caption">한 세션의 여러 범위와 겹친 세션은 서로 합산하지 않습니다.</p></aside>
-          <section class="records-column"><h3>최근 세션</h3><div id="session-records" class="session-list"></div></section>
-          <section class="records-column blockers-column"><h3>기록된 병목</h3><div id="blocker-list" class="blocker-list"></div></section>
+          <section class="records-column work-column" data-compact-pane="records:work"><h3>최근 작업</h3><div id="session-records" class="session-list"></div></section>
+          <section class="records-column blockers-column" data-compact-pane="records:blockers"><h3>기록된 병목</h3><div id="blocker-list" class="blocker-list"></div></section>
+          <aside class="records-summary" data-compact-pane="records:time"><h3>시간 요약</h3><div id="time-overview" class="time-overview"></div><h3>사람별 기록 시간</h3><div id="participant-time" class="metric-list"></div><h3>사람·작업 범위별 기록</h3><div id="scope-time" class="metric-list"></div><p class="caption">한 작업의 여러 범위와 겹친 기록은 서로 합산하지 않습니다.</p></aside>
         </div>
       </section>
 
       <section id="panel-wiki" class="workspace-panel" role="tabpanel" aria-labelledby="nav-wiki" hidden>
         <div class="panel-heading"><div><h2>공유 위키</h2><p>작업 안에서 공유된 근거와 연결된 기록을 탐색합니다.</p></div><span id="wiki-count" class="plain-count"></span></div>
-        <div class="wiki-toolbar">
+        <div class="compact-tabs" role="tablist" aria-label="좁은 화면 위키 보기"><button id="compact-wiki-list" class="compact-tab active" type="button" role="tab" aria-selected="true" data-compact-group="wiki" data-compact-view="list">목록</button><button id="compact-wiki-detail" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="wiki" data-compact-view="detail">상세</button><button id="compact-wiki-filters" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="wiki" data-compact-view="filters">필터</button></div>
+        <div class="wiki-toolbar" data-compact-pane="wiki:filters">
           <div class="tabs" role="tablist" aria-label="공유 위키 보기"><button id="wiki-all-tab" class="tab active" type="button" role="tab" aria-selected="true">전체 기록</button><button id="wiki-search-tab" class="tab" type="button" role="tab" aria-selected="false">검색 결과</button><button id="wiki-refinement-tab" class="tab" type="button" role="tab" aria-selected="false">일일 정제</button></div>
           <form id="wiki-search-form" class="wiki-search-form"><label class="search"><span>검색</span><input id="wiki-query" type="search" maxlength="500" placeholder="제목, 본문, 작업 맥락"></label><label><span>참여자</span><input id="wiki-participant" type="text" maxlength="100" placeholder="전체"></label><label><span>상태</span><select id="wiki-status"><option value="">전체</option><option value="personal">개인</option><option value="proposed">제안</option><option value="agreed">합의</option><option value="superseded">대체됨</option></select></label><label><span>종류</span><select id="wiki-record-type"><option value="">전체</option><option value="source-note">소스 노트</option><option value="summary">요약</option></select></label><label class="check"><input id="wiki-include-superseded" type="checkbox" checked> 대체 기록 포함</label><button class="wiki-submit" type="submit">검색</button></form>
         </div>
         <div id="wiki-state" class="wiki-state"></div>
-        <div class="split-workspace wiki-workspace"><div id="wiki-records" class="wiki-list" aria-label="위키 기록 목록"></div><div class="wiki-detail-column"><div id="wiki-detail-pane" class="detail-pane" aria-live="polite"></div><details class="developer-details"><summary>개발자 정보</summary><p>방법 비교는 브라우저가 아닌 <code>duobrain method-compare --file comparison.json</code>에서 실행합니다.</p><div id="wiki-context-differences"></div></details></div></div>
+        <div class="split-workspace wiki-workspace"><div id="wiki-records" class="wiki-list" aria-label="위키 기록 목록" data-compact-pane="wiki:list"></div><div class="wiki-detail-column" data-compact-pane="wiki:detail"><div id="wiki-detail-pane" class="detail-pane" aria-live="polite"></div><details class="developer-details"><summary>개발자 정보</summary><p>방법 비교는 브라우저가 아닌 <code>duobrain method-compare --file comparison.json</code>에서 실행합니다.</p><div id="wiki-context-differences"></div></details></div></div>
       </section>
     </main>
-    <footer>읽기 전용 · 기록된 사실만 표시</footer>
   </div>
 </body>
 </html>

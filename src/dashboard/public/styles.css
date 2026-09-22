@@ -7,7 +7,7 @@ button, input, select { font: inherit; }
 button { color: inherit; }
 h1, h2, h3, h4, p { margin: 0; }
 button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid #7b60e8; outline-offset: 2px; }
-.app-shell { display:grid; height:100dvh; grid-template-rows:72px 50px minmax(0,1fr) 30px; background:var(--surface); }
+.app-shell { display:grid; height:100dvh; grid-template-rows:72px 50px minmax(0,1fr); background:var(--surface); }
 .topbar { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:0 28px; color:white; background:var(--charcoal); }
 .brand-lockup { display:flex; align-items:center; min-width:0; gap:18px; }
 .wordmark { flex:none; padding:0; border:0; color:white; background:transparent; font-size:1.3rem; font-weight:800; letter-spacing:-.06em; cursor:pointer; }
@@ -107,6 +107,9 @@ main { position:relative; min-height:0; overflow:hidden; background:#f0f2ed; }
 .tabs { display:flex; flex:none; padding:2px; background:#e3e7e1; }
 .tab { min-height:32px; padding:0 11px; border:0; background:transparent; color:#5f6a64; font-size:.72rem; font-weight:750; cursor:pointer; }
 .tab.active { color:white; background:var(--charcoal); }
+.compact-tabs { display:none; }
+.compact-tab { min-height:34px; flex:1; border:0; border-bottom:2px solid transparent; background:transparent; color:var(--muted); font-size:.74rem; font-weight:750; cursor:pointer; }
+.compact-tab.active { border-bottom-color:var(--lime); color:var(--ink); background:#f5f7f3; }
 .split-workspace { display:grid; min-height:0; border:1px solid var(--line); background:white; }
 .request-workspace { min-height:0; flex:1; grid-template-columns:minmax(280px,.72fr) minmax(0,1.28fr); }
 .ticket-list, .wiki-list { min-height:0; overflow:auto; border-right:1px solid var(--line); background:#f5f7f3; }
@@ -130,19 +133,23 @@ main { position:relative; min-height:0; overflow:hidden; background:#f0f2ed; }
 .timeline-type { font-family:ui-monospace,monospace; font-size:.7rem; font-weight:750; }
 .timeline-body { margin-top:4px; font-size:.78rem; line-height:1.5; }
 .records-heading { height:48px; }
-.records-workspace { display:grid; min-height:0; flex:1; grid-template-columns:minmax(250px,.72fr) minmax(320px,1.15fr) minmax(260px,.8fr); border:1px solid var(--line); background:white; }
+.records-workspace { display:grid; min-height:0; flex:1; grid-template-columns:minmax(320px,1.2fr) minmax(260px,.8fr) minmax(250px,.72fr); border:1px solid var(--line); background:white; }
 .records-summary, .records-column { min-width:0; min-height:0; padding:18px; overflow:auto; border-right:1px solid var(--line); }
 .records-column:last-child { border-right:0; }
 .records-summary > h3, .records-column > h3 { margin-bottom:11px; font-size:.8rem; }
 .records-summary > h3:not(:first-child) { margin-top:18px; }
 .time-overview, .metric-list, .session-list, .blocker-list { display:grid; gap:7px; }
-.metric-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 10px; background:#f0f3ee; font-size:.71rem; }
+.metric-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 2px; border-bottom:1px solid var(--line); font-size:.71rem; }
 .metric-row .caption { margin-top:2px; font-size:.64rem; }
 .metric-value { flex:none; font-weight:800; font-variant-numeric:tabular-nums; }
 .session-record-card { padding:13px 0; border-top:1px solid var(--line); }
 .session-record-card:first-child { border-top:0; padding-top:0; }
 .session-times { display:grid; grid-template-columns:repeat(2,1fr); gap:5px; margin-top:9px; }
 .session-metadata { margin-top:8px; overflow-wrap:anywhere; color:var(--muted); font:.65rem/1.5 ui-monospace,monospace; }
+.session-summary { margin-top:9px; color:#3f4a44; font-size:.76rem; line-height:1.5; }
+.session-technical { margin-top:12px; border-top:1px solid var(--line); }
+.session-technical > summary { padding-top:9px; color:var(--muted); font-size:.68rem; font-weight:750; cursor:pointer; }
+.session-technical-body { padding-top:7px; }
 .scope-change { margin-top:7px; padding:7px; color:#435149; background:#e8eee9; font-size:.68rem; line-height:1.45; }
 .blocker-row { padding:12px; border-left:3px solid #ba7149; background:#f7ebe4; }
 .blocker-row p:last-child { margin-top:5px; font-size:.75rem; line-height:1.5; }
@@ -175,7 +182,17 @@ main { position:relative; min-height:0; overflow:hidden; background:#f0f2ed; }
 .sample-evidence { color:#554516; background:#fff2b9; }
 .note-markdown { max-height:360px; margin:0; padding:12px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; border:1px solid var(--line); background:white; font:.7rem/1.55 ui-monospace,monospace; }
 .evidence-note { margin-top:2px; }
-footer { display:flex; align-items:center; padding:0 28px; color:#738078; border-top:1px solid var(--line); background:white; font-size:.65rem; }
-@media (max-width:900px) { .current-grid{grid-template-columns:1fr;grid-template-rows:minmax(145px,.68fr) minmax(200px,1fr) minmax(150px,.7fr) auto}.goal-section,.people-section,.attention-section{grid-column:1/-1}.delivery-panel{grid-template-columns:1fr 1fr}.delivery-panel p{display:none}.records-workspace{grid-template-columns:minmax(220px,.7fr) minmax(300px,1fr)}.blockers-column{display:none}.ticket-toolbar label:not(.search){display:none}.wiki-search-form label:not(.search),.wiki-search-form .check{display:none} }
-@media (max-width:680px) { .app-shell{grid-template-rows:62px 48px minmax(0,1fr) 26px}.topbar{padding:0 14px}.brand-lockup{gap:10px}.brand-lockup p,.source-state>span:first-child{display:none}.app-nav{justify-content:space-around;padding:0}.app-tab{min-width:0;flex:1;padding:0 8px}.app-tab::after{right:8px;left:8px}.workspace-panel{padding:12px}.notice,.error-panel{right:12px;left:12px}.notice{align-items:flex-start}.notice:not([hidden])~.workspace-panel:not([hidden]){padding-top:68px}.current-grid{grid-template-columns:1fr;grid-template-rows:minmax(145px,.7fr) minmax(190px,1fr) minmax(120px,.65fr) auto;gap:8px}.goal-section,.people-section,.attention-section,.delivery-panel{grid-column:1;padding:12px}.goal-grid{grid-template-columns:1fr 1fr}.current-goal{grid-column:1/-1}.goal-card:nth-child(2){border-left:0;padding-left:0}.goal-card:nth-child(3){padding-left:10px}.goal-copy{font-size:.68rem}.current-goal .goal-copy{font-size:.92rem}.section-heading .caption{display:none}.people-grid{grid-template-columns:1fr 1fr}.person-card{padding:9px 9px 4px 0}.person-card+.person-card{padding-left:9px}.person-role{grid-template-columns:1fr;gap:2px;margin-top:6px}.person-role dd{font-size:.68rem}.recorded-time,.blockers{display:none}.delivery-panel{grid-template-columns:1fr 1fr}.panel-heading{height:48px}.panel-heading p{display:none}.ticket-toolbar,.wiki-toolbar{display:flex;overflow-x:auto}.ticket-toolbar .search{min-width:150px}.request-workspace,.wiki-workspace{grid-template-columns:minmax(125px,.42fr) minmax(0,1fr)}.ticket-list-item,.wiki-list-item{padding:11px 9px}.ticket-list-item .ticket-meta,.ticket-list-item .caption,.wiki-list-item .caption{display:none}.ticket-list-item h3,.wiki-list-item h3{font-size:.7rem}.detail-pane{padding:16px 14px}.ticket-detail-header h3,.wiki-card-heading h3{font-size:1.05rem}.ticket-detail-facts{grid-template-columns:1fr}.records-workspace{grid-template-columns:minmax(130px,.48fr) minmax(0,1fr)}.records-summary,.records-column{padding:12px 9px}.records-summary .caption,#scope-time{display:none}.session-times{grid-template-columns:1fr}.wiki-toolbar{display:grid;grid-template-columns:auto 1fr}.wiki-search-form{min-width:150px}.developer-details{display:none}footer{padding:0 14px} }
-@media (max-height:700px) { .app-shell{grid-template-rows:58px 44px minmax(0,1fr) 24px}.workspace-panel{padding-top:12px;padding-bottom:12px}.notice:not([hidden])~.workspace-panel:not([hidden]){padding-top:58px}.current-grid{grid-template-rows:minmax(125px,.65fr) minmax(150px,1fr) minmax(92px,.55fr) minmax(52px,auto);gap:8px}.goal-section,.people-section,.attention-section{padding-top:10px;padding-bottom:10px}.recorded-time{display:none}.delivery-panel{padding-top:7px;padding-bottom:7px} }
+@media (max-width:900px) {
+  .current-grid{grid-template-columns:1fr;grid-template-rows:minmax(145px,.68fr) minmax(200px,1fr) minmax(150px,.7fr) auto}.goal-section,.people-section,.attention-section{grid-column:1/-1}.delivery-panel{grid-template-columns:1fr 1fr}.delivery-panel p{display:none}
+  .compact-tabs{display:flex;flex:none;margin-bottom:10px;border-bottom:1px solid var(--line)}
+  .request-workspace,.records-workspace,.wiki-workspace{grid-template-columns:1fr}
+  [data-compact-pane]{display:none}
+  #panel-requests[data-compact-view="list"] [data-compact-pane="requests:list"],#panel-requests[data-compact-view="detail"] [data-compact-pane="requests:detail"],#panel-records[data-compact-view="work"] [data-compact-pane="records:work"],#panel-records[data-compact-view="blockers"] [data-compact-pane="records:blockers"],#panel-records[data-compact-view="time"] [data-compact-pane="records:time"],#panel-wiki[data-compact-view="list"] [data-compact-pane="wiki:list"],#panel-wiki[data-compact-view="detail"] [data-compact-pane="wiki:detail"]{display:block}
+  #panel-requests[data-compact-view="filters"] .request-workspace,#panel-wiki[data-compact-view="filters"] .wiki-workspace{display:none}
+  #panel-requests[data-compact-view="filters"] [data-compact-pane="requests:filters"]{display:grid;grid-template-columns:1fr 1fr;align-content:start}
+  #panel-wiki[data-compact-view="filters"] [data-compact-pane="wiki:filters"]{display:grid;grid-template-columns:1fr;align-content:start}
+  #panel-wiki[data-compact-view="filters"] .wiki-search-form{display:grid;grid-template-columns:1fr 1fr}
+  .ticket-list,.wiki-list{border-right:0}.records-summary,.records-column{border-right:0}.ticket-toolbar .search,.wiki-search-form .search{grid-column:1/-1;min-width:0}
+}
+@media (max-width:680px) { .app-shell{grid-template-rows:62px 48px minmax(0,1fr)}.topbar{padding:0 14px}.brand-lockup{gap:10px}.brand-lockup p,.source-state>span:first-child{display:none}.app-nav{justify-content:space-around;padding:0}.app-tab{min-width:0;flex:1;padding:0 8px}.app-tab::after{right:8px;left:8px}.workspace-panel{padding:12px}.notice,.error-panel{right:12px;left:12px}.notice{align-items:flex-start}.notice:not([hidden])~.workspace-panel:not([hidden]){padding-top:68px}.current-grid{grid-template-columns:1fr;grid-template-rows:minmax(145px,.7fr) minmax(190px,1fr) minmax(120px,.65fr) auto;gap:8px}.goal-section,.people-section,.attention-section,.delivery-panel{grid-column:1;padding:12px}.goal-grid{grid-template-columns:1fr 1fr}.current-goal{grid-column:1/-1}.goal-card:nth-child(2){border-left:0;padding-left:0}.goal-card:nth-child(3){padding-left:10px}.goal-copy{font-size:.68rem}.current-goal .goal-copy{font-size:.92rem}.section-heading .caption{display:none}.people-grid{grid-template-columns:1fr 1fr}.person-card{padding:9px 9px 4px 0}.person-card+.person-card{padding-left:9px}.person-role{grid-template-columns:1fr;gap:2px;margin-top:6px}.person-role dd{font-size:.68rem}.recorded-time,.blockers{display:none}.delivery-panel{grid-template-columns:1fr 1fr}.panel-heading{height:48px}.panel-heading p{display:none}.ticket-list-item,.wiki-list-item{padding:12px}.detail-pane{padding:16px 14px}.ticket-detail-header h3,.wiki-card-heading h3{font-size:1.05rem}.ticket-detail-facts{grid-template-columns:1fr}.records-summary,.records-column{padding:12px}.session-times{grid-template-columns:1fr}.developer-details{display:none} }
+@media (max-height:700px) { .app-shell{grid-template-rows:58px 44px minmax(0,1fr)}.workspace-panel{padding-top:12px;padding-bottom:12px}.notice:not([hidden])~.workspace-panel:not([hidden]){padding-top:58px}.current-grid{grid-template-rows:minmax(125px,.65fr) minmax(150px,1fr) minmax(92px,.55fr) minmax(52px,auto);gap:8px}.goal-section,.people-section,.attention-section{padding-top:10px;padding-bottom:10px}.recorded-time{display:none}.delivery-panel{padding-top:7px;padding-bottom:7px} }

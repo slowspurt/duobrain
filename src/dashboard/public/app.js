@@ -24,6 +24,7 @@ const state = {
   tab: 'inbox', query: '', status: '', kind: '', peer: '', period: '30d',
   wikiTab: 'all', wikiRecords: [], wikiSearchResults: [], wikiIssues: [],
   section: 'current', selectedTicketId: null, selectedWikiPath: null, assignments: [],
+  compactViews: { requests: 'list', records: 'work', wiki: 'list' },
 };
 const text = (value, fallback = '미확인') => typeof value === 'string' && value.trim() ? value : fallback;
 const participantLabel = (value) => {
@@ -201,14 +202,20 @@ function renderSessionAnalysis() {
   const result = aggregateSessions(state.sessions, { conflicts: state.conflicts, ...selectedPeriod() });
   const overview = byId('time-overview');
   overview.replaceChildren();
-  overview.append(metricRow('프로젝트 벽시계 구간', formatDuration(result.projectWallClockMs), '종료가 확인된 세션 구간의 합집합'));
-  overview.append(metricRow('시간 미확인 세션', `${result.unknownSessionCount}건`, '미종료·시간 오류·충돌·활동 이력 누락'));
+  overview.append(metricRow('함께 기록된 전체 구간', formatDuration(result.projectWallClockMs), '종료가 확인된 작업 구간의 합집합'));
+  overview.append(metricRow('시간을 계산할 수 없는 기록', `${result.unknownSessionCount}건`, '미종료·시간 오류·충돌·활동 이력 누락'));
 
   const participant = byId('participant-time');
   participant.replaceChildren();
-  if (!result.participantTotals.length) participant.append(empty('집계할 참여자 기록이 없습니다.'));
-  for (const item of result.participantTotals) {
-    const note = item.unknownSessionCount ? `시간 미확인 ${item.unknownSessionCount}건 별도` : '겹치는 세션 구간 중복 제거';
+  const participantIds = [...new Set([...state.participants, ...result.participantTotals.map((item) => item.participant)])];
+  if (!participantIds.length) participant.append(empty('집계할 참여자 기록이 없습니다.'));
+  for (const participantId of participantIds) {
+    const item = result.participantTotals.find((entry) => entry.participant === participantId);
+    if (!item) {
+      participant.append(metricRow(participantLabel(participantId), '기록 없음', '집계할 작업 기록 없음'));
+      continue;
+    }
+    const note = item.unknownSessionCount ? `계산할 수 없는 기록 ${item.unknownSessionCount}건 별도` : '겹치는 작업 구간 중복 제거';
     participant.append(metricRow(participantLabel(item.participant), formatDuration(item.recordedActiveMs), note));
   }
 
@@ -225,15 +232,20 @@ function renderSessionAnalysis() {
     const heading = element('div', 'person-heading');
     heading.append(element('strong', '', displayCopy(item.title, '제목 미확인')), element('span', `time-state ${item.timeStatus}`, item.timeStatus === 'known' ? '시간 확인' : '시간 미확인'));
     card.append(heading, element('p', 'caption', `${participantLabel(item.participant)} · ${formatDate(item.startedAt, '시작 미확인')}`));
+    if (item.summary) card.append(element('p', 'session-summary', displayCopy(item.summary)));
+    const technical = element('details', 'session-technical');
+    technical.append(element('summary', '', '시간·개발자 정보'));
+    const technicalBody = element('div', 'session-technical-body');
     const timings = element('div', 'session-times');
-    timings.append(metricRow('벽시계 경과', formatDuration(item.wallClockMs)));
-    timings.append(metricRow('pause 제외 기록상 활동', formatDuration(item.recordedActiveMs), item.timeReason));
-    card.append(timings);
-    const metadata = element('p', 'session-metadata', `요약 ${displayCopy(item.summary)} · 브랜치 ${text(item.branch)} · 기준 커밋 ${text(item.baseCommit)}`);
-    card.append(metadata);
+    timings.append(metricRow('전체 기록 구간', formatDuration(item.wallClockMs)));
+    timings.append(metricRow('중지 시간을 뺀 기록 구간', formatDuration(item.recordedActiveMs), item.timeReason));
+    technicalBody.append(timings);
+    technicalBody.append(element('p', 'session-metadata', `브랜치 ${text(item.branch)} · 기준 커밋 ${text(item.baseCommit)}`));
     for (const change of item.scopeChanges) {
-      card.append(element('p', 'scope-change', `범위 변경 ${formatDate(change.at)} · ${(change.scope ?? []).join(', ') || '범위 미확인'} · 사유 ${text(change.reason)}`));
+      technicalBody.append(element('p', 'scope-change', `범위 변경 ${formatDate(change.at)} · ${(change.scope ?? []).join(', ') || '범위 미확인'} · 사유 ${text(change.reason)}`));
     }
+    technical.append(technicalBody);
+    card.append(technical);
     sessions.append(card);
   }
 
@@ -373,6 +385,7 @@ function wikiRecordListItem(record) {
   button.addEventListener('click', () => {
     state.selectedWikiPath = record.path;
     renderWiki();
+    selectCompactView('wiki', 'detail');
   });
   return button;
 }
@@ -480,7 +493,7 @@ function ticketListItem(ticket) {
   meta.append(element('span', `kind ${ticket.kind ?? 'unknown'}`, text(labels[ticket.kind], '유형 미확인')));
   meta.append(element('span', `status ${ticket.status ?? 'unknown'}`, text(labels[ticket.status], '상태 미확인')));
   card.append(meta, element('h3', '', displayCopy(ticket.title, '제목 미확인')), element('p', 'caption', `${participantLabel(ticket.requester)} → ${participantLabel(ticket.assignee)} · ${peerConfirmation(ticket.status)}`));
-  card.addEventListener('click', () => { state.selectedTicketId = ticket.id; renderTickets(); });
+  card.addEventListener('click', () => { state.selectedTicketId = ticket.id; renderTickets(); selectCompactView('requests', 'detail'); });
   return card;
 }
 
@@ -529,7 +542,7 @@ function renderAttention() {
     const button = element('button', 'attention-item');
     button.type = 'button';
     button.append(element('span', '', ticket.kind === 'feedback' ? '직접 피드백' : '정보 보충'), element('strong', '', displayCopy(ticket.title)), element('small', '', text(labels[ticket.status], '상태 미확인')));
-    button.addEventListener('click', () => { state.selectedTicketId = ticket.id; selectSection('requests'); });
+    button.addEventListener('click', () => { state.selectedTicketId = ticket.id; selectCompactView('requests', 'detail'); selectSection('requests'); });
     container.append(button);
   }
   for (const { session, blocker } of blockers) {
@@ -572,7 +585,7 @@ function render(snapshot) {
   const sample = snapshot.sample === true;
   state.sample = sample;
   byId('sample-banner').hidden = !sample;
-  byId('source-badge').textContent = sample ? '예시 스냅샷' : '실제 엔진 기록';
+  byId('source-badge').hidden = sample;
   state.tickets = Array.isArray(snapshot.tickets) ? snapshot.tickets : [];
   state.sessions = Array.isArray(snapshot.sessions) ? snapshot.sessions : [];
   state.conflicts = Array.isArray(snapshot.conflicts) ? snapshot.conflicts : [];
@@ -625,9 +638,21 @@ function selectSection(section) {
   history.replaceState(null, '', `#${section}`);
 }
 
+function selectCompactView(group, view) {
+  state.compactViews[group] = view;
+  const panel = byId(`panel-${group}`);
+  panel.dataset.compactView = view;
+  for (const button of document.querySelectorAll(`[data-compact-group="${group}"]`)) {
+    const selected = button.dataset.compactView === view;
+    button.classList.toggle('active', selected);
+    button.setAttribute('aria-selected', String(selected));
+  }
+}
+
 byId('retry').addEventListener('click', load);
 byId('brand-home').addEventListener('click', () => selectSection('current'));
 for (const section of ['current', 'requests', 'records', 'wiki']) byId(`nav-${section}`).addEventListener('click', () => selectSection(section));
+for (const button of document.querySelectorAll('[data-compact-group]')) button.addEventListener('click', () => selectCompactView(button.dataset.compactGroup, button.dataset.compactView));
 byId('inbox-tab').addEventListener('click', () => selectTab('inbox'));
 byId('history-tab').addEventListener('click', () => selectTab('history'));
 byId('ticket-search').addEventListener('input', (event) => { state.query = event.target.value; renderTickets(); });
@@ -639,4 +664,5 @@ byId('wiki-refinement-tab').addEventListener('click', () => selectWikiTab('refin
 byId('wiki-search-form').addEventListener('submit', searchWiki);
 const initialSection = location.hash.slice(1);
 if (['current', 'requests', 'records', 'wiki'].includes(initialSection)) selectSection(initialSection);
+for (const [group, view] of Object.entries(state.compactViews)) selectCompactView(group, view);
 load();
