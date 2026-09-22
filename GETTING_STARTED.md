@@ -38,11 +38,16 @@ node /path/to/duobrain/src/dashboard/run.js --repository /path/to/product
 
 ## 기존 AI에게 첫 작업 맡기기
 
-아래 내용을 기존 AI의 프로젝트 지침에 추가하거나 첫 요청으로 전달한다. 경로와 ID를 실제 값으로 바꾼다.
+제품 저장소에서 기존 AI에 다음 요청을 전달한다. duobrain 경로를 실제 값으로 바꾼다.
 
-> 이 프로젝트는 두 사람이 duobrain으로 협업한다. 제품 경로는 `/path/to/product`, 도구 경로는 `/path/to/duobrain`, 내 참여자 ID는 `alice`, 상대는 `bob`이다. 먼저 도구의 `guides/duobrain-ai.md`와 `docs/agent-guidance/repository-onboarding.md`를 읽고 기존 프로젝트 지침과 함께 적용해라. 허용된 협업 기록을 동기화하고 현재 기획·회의록·목표·각자 범위·단계별 계획을 점검해라. 빠진 내용은 현재 상황이나 회의록을 요청하고, 기록이 없다는 이유로 목표나 합의를 추측하지 마라. 현재 할 일, 상대 작업과 겹치는 범위, 열린 정보 요청과 사람 피드백을 짧게 알려줘. 사전 허용 범위의 시작·마무리 기록, 정보 요청 보충과 커밋·푸시를 수행하고 전달 실패는 구분해서 남겨라.
+> duobrain으로 이 프로젝트 협업 준비해 줘. `/path/to/duobrain/guides/duobrain-onboarding.md`를 읽고 현재 단계부터 이어서 진행해.
 
-이후에는 “B는 이 작업을 어떻게 했어?”, “B 어디까지 했어? 나는 뭐 하면 돼?”처럼 질문한다. AI가 근거를 찾고 부족하면 요청 티켓을 남기는 절차와 실제 명령은 [온보딩 안내](docs/agent-guidance/repository-onboarding.md)에 있다. AI는 사용 중인 도구에서 실행하며 duobrain이 별도 AI 서버를 띄우지는 않는다.
+AI는 `onboarding-inspect`로 이전 진행 단계를 확인하고, 허용된 기획·회의록·코드와 Git 상태를
+읽어 새 프로젝트인지 진행 중 프로젝트인지 근거와 함께 제안한다. 확인할 수 없는 사실만
+질문한다. 두 번째 참여자는 기존 plan과 본인 역할부터 확인한다. 자세한 상태 전이와 실제
+명령은 [AI 온보딩 시작 지침](guides/duobrain-onboarding.md)에 있다.
+
+준비 후에는 “B는 이 작업을 어떻게 했어?”, “B 어디까지 했어? 나는 뭐 하면 돼?”처럼 질문한다. AI가 근거를 찾고 부족하면 요청 티켓을 남기는 절차와 실제 명령은 [상세 저장소 안내](docs/agent-guidance/repository-onboarding.md)에 있다. AI는 사용 중인 도구에서 실행하며 duobrain이 별도 AI 서버를 띄우지는 않는다.
 
 ## 하루 정제 설정
 

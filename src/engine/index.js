@@ -22,6 +22,10 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3
 const WIKI_PATH_PATTERN = /^wiki\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.md$/i;
 const NONTERMINAL_TICKET_STATUSES = new Set(['open', 'acknowledged', 'needs_information', 'answered']);
 const MAX_WIKI_NOTE_BYTES = 1024 * 1024;
+const ONBOARDING_MODES = new Set(['new-project', 'existing-project', 'join-existing']);
+const PROJECT_KINDS = new Set(['new', 'existing']);
+const IDENTITY_STATUSES = new Set(['confirmed', 'explicit', 'unavailable']);
+const LOCALE_PATTERN = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
 
 export class EngineError extends Error {
   constructor(message, { code = 'ENGINE_ERROR', cause } = {}) {
@@ -167,6 +171,8 @@ async function resolveLayout(repository = '.') {
     statePath: path.join(root, 'state'),
     identityPath: path.join(root, 'identity.json'),
     statusPath: path.join(root, 'sync-status.json'),
+    onboardingPath: path.join(root, 'onboarding.json'),
+    preferencesPath: path.join(root, 'preferences.json'),
   };
 }
 
@@ -256,6 +262,20 @@ export async function initSharedStore({
         code: 'INCOMPATIBLE_CONFIG',
       });
     }
+    if (!(await exists(layout.identityPath))) {
+      await writeJsonAtomic(layout.identityPath, { schemaVersion: 1, participant });
+      if (!(await exists(layout.statusPath))) {
+        await setSyncStatus(layout, 'unknown', 'Shared state has not been synchronized yet.');
+      }
+      const sync = await syncStore({ repository: layout.repositoryPath });
+      return {
+        initialized: false,
+        recoveredIdentity: true,
+        participant,
+        storePath: layout.statePath,
+        sync,
+      };
+    }
     const identity = await loadIdentity(layout);
     if (identity.participant !== participant) {
       throw new EngineError(`This checkout already belongs to participant ${identity.participant}.`, {
@@ -288,6 +308,264 @@ export async function initSharedStore({
   await setSyncStatus(layout, 'unknown', 'Shared state has not been synchronized yet.');
   const sync = await syncStore({ repository: layout.repositoryPath });
   return { initialized: true, participant, storePath: layout.statePath, sync };
+}
+
+function cleanCommandFailure(result) {
+  const message = result.stderr || result.stdout || 'command unavailable';
+  return message.split('\n')[0].slice(0, 240);
+}
+
+/**
+ * Confirm the GitHub account exposed by the authenticated GitHub CLI session.
+ * This intentionally does not inspect Git author metadata or the origin owner.
+ */
+export async function detectGithubAccount({ executable = 'gh' } = {}) {
+  try {
+    const { stdout } = await execFileAsync(executable, ['api', 'user', '--jq', '.login'], {
+      encoding: 'utf8',
+      maxBuffer: 1024 * 1024,
+    });
+    const login = stdout.trim();
+    if (!login || /[\s/]/.test(login)) {
+      return { provider: 'github', status: 'unavailable', login: null, reason: 'Authenticated account did not return a valid login.' };
+    }
+    return { provider: 'github', status: 'confirmed', login, source: 'gh-api-user' };
+  } catch (error) {
+    return {
+      provider: 'github',
+      status: 'unavailable',
+      login: null,
+      reason: cleanCommandFailure({ stdout: error.stdout, stderr: error.stderr }),
+    };
+  }
+}
+
+function normalizeEvidence(input) {
+  if (input === undefined) return [];
+  if (!Array.isArray(input)) {
+    throw new EngineError('projectEvidence must be an array.', { code: 'INVALID_ONBOARDING' });
+  }
+  return input.map((item, index) => {
+    if (item === null || typeof item !== 'object' || Array.isArray(item)) {
+      throw new EngineError(`projectEvidence[${index}] must be an object.`, { code: 'INVALID_ONBOARDING' });
+    }
+    assertString(item.source, `projectEvidence[${index}].source`);
+    assertString(item.fact, `projectEvidence[${index}].fact`);
+    return { source: item.source, fact: item.fact };
+  });
+}
+
+function normalizeStringList(value, label) {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string' || item.trim() === '')) {
+    throw new EngineError(`${label} must contain non-empty strings.`, { code: 'INVALID_ONBOARDING' });
+  }
+  return [...value];
+}
+
+function normalizeOnboardingProgress(input, previous = {}) {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+    throw new EngineError('Onboarding progress must be an object.', { code: 'INVALID_ONBOARDING' });
+  }
+  const merged = {
+    ...previous,
+    ...input,
+    identity: { ...(previous.identity ?? {}), ...(input.identity ?? {}) },
+    context: { ...(previous.context ?? {}), ...(input.context ?? {}) },
+  };
+  if (!ONBOARDING_MODES.has(merged.mode)) {
+    throw new EngineError('mode must be new-project, existing-project, or join-existing.', { code: 'INVALID_ONBOARDING' });
+  }
+  if (!PROJECT_KINDS.has(merged.projectKind)) {
+    throw new EngineError('projectKind must be new or existing.', { code: 'INVALID_ONBOARDING' });
+  }
+  if (merged.mode === 'new-project' && merged.projectKind !== 'new') {
+    throw new EngineError('new-project mode requires projectKind new.', { code: 'INVALID_ONBOARDING' });
+  }
+  if (merged.mode !== 'new-project' && merged.projectKind !== 'existing') {
+    throw new EngineError('Existing and joining modes require projectKind existing.', { code: 'INVALID_ONBOARDING' });
+  }
+  const projectEvidence = normalizeEvidence(merged.projectEvidence);
+  if (merged.projectKind === 'existing' && projectEvidence.length === 0) {
+    throw new EngineError('Existing projects require at least one observed project fact.', { code: 'INVALID_ONBOARDING' });
+  }
+  const identityStatus = merged.identity?.status;
+  if (!IDENTITY_STATUSES.has(identityStatus)) {
+    throw new EngineError('identity.status must be confirmed, explicit, or unavailable.', { code: 'INVALID_ONBOARDING' });
+  }
+  const githubLogin = merged.identity.githubLogin ?? null;
+  if (githubLogin !== null) {
+    assertString(githubLogin, 'identity.githubLogin');
+    if (/[\s/]/.test(githubLogin)) {
+      throw new EngineError('identity.githubLogin must be one GitHub login.', { code: 'INVALID_ONBOARDING' });
+    }
+  }
+  if (['confirmed', 'explicit'].includes(identityStatus) && githubLogin === null) {
+    throw new EngineError('Confirmed or explicit identity requires githubLogin.', { code: 'INVALID_ONBOARDING' });
+  }
+  const context = merged.context ?? {};
+  const summary = context.summary ?? null;
+  if (summary !== null) assertString(summary, 'context.summary');
+  for (const flag of ['planReviewed', 'roleReviewed']) {
+    if (merged[flag] !== undefined && typeof merged[flag] !== 'boolean') {
+      throw new EngineError(`${flag} must be boolean.`, { code: 'INVALID_ONBOARDING' });
+    }
+  }
+  return {
+    schemaVersion: 1,
+    mode: merged.mode,
+    projectKind: merged.projectKind,
+    projectEvidence,
+    identity: { status: identityStatus, githubLogin },
+    context: {
+      sources: normalizeStringList(context.sources, 'context.sources'),
+      summary,
+      missingFacts: normalizeStringList(context.missingFacts, 'context.missingFacts'),
+    },
+    planReviewed: merged.planReviewed === true,
+    roleReviewed: merged.roleReviewed === true,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+async function localPreferences(layout) {
+  if (!(await exists(layout.preferencesPath))) return { schemaVersion: 1, dashboardLocale: 'system' };
+  const preferences = await readJson(layout.preferencesPath);
+  return { schemaVersion: 1, dashboardLocale: preferences.dashboardLocale ?? 'system' };
+}
+
+export async function setDashboardLocale({ repository = '.', locale } = {}) {
+  const layout = await resolveLayout(repository);
+  if (locale !== 'system' && (typeof locale !== 'string' || !LOCALE_PATTERN.test(locale))) {
+    throw new EngineError('locale must be system or a BCP 47 language tag.', { code: 'INVALID_LOCALE' });
+  }
+  const preferences = { schemaVersion: 1, dashboardLocale: locale };
+  await writeJsonAtomic(layout.preferencesPath, preferences);
+  return preferences;
+}
+
+async function sharedStateAvailability(layout) {
+  const result = await git(
+    layout.repositoryPath,
+    ['ls-remote', '--exit-code', '--heads', 'origin', `refs/heads/${STATE_BRANCH}`],
+    { allowFailure: true },
+  );
+  if (result.ok) return { status: 'available' };
+  if (result.code === 2 && result.stdout === '') return { status: 'absent' };
+  return { status: 'unknown', reason: cleanCommandFailure(result) };
+}
+
+async function repositoryOnboardingFacts(layout) {
+  const [head, branch, dirty, files] = await Promise.all([
+    git(layout.repositoryPath, ['rev-parse', '--verify', 'HEAD'], { allowFailure: true }),
+    git(layout.repositoryPath, ['branch', '--show-current']),
+    git(layout.repositoryPath, ['status', '--porcelain']),
+    git(layout.repositoryPath, ['ls-files']),
+  ]);
+  const count = head.ok ? await git(layout.repositoryPath, ['rev-list', '--count', 'HEAD']) : null;
+  const contextPattern = /(^|\/)(readme(?:\.[^/]*)?|[^/]*(?:plan|roadmap|brief|meeting|requirements)[^/]*)$/i;
+  return {
+    head: head.ok ? head.stdout : null,
+    branch: branch.stdout || null,
+    commitCount: count ? Number.parseInt(count.stdout, 10) : 0,
+    hasWorkingChanges: dirty.stdout !== '',
+    contextCandidates: files.stdout.split('\n').filter((name) => contextPattern.test(name)).slice(0, 50),
+  };
+}
+
+function nextOnboardingStage({ progress, initialized, snapshot, localProfile }) {
+  if (!progress) return 'assess-project';
+  if (!initialized) return 'initialize';
+  if (!localProfile) return 'profile';
+  if (!progress.context.summary || progress.context.missingFacts.length > 0) return 'review-context';
+  if (!snapshot.plan) return 'review-plan';
+  const currentRevision = snapshot.plan.history.at(-1)?.id;
+  if (progress.mode === 'join-existing'
+    && (!progress.roleReviewed || progress.reviewedRoleRevision !== currentRevision)) return 'review-role';
+  if (progress.mode !== 'join-existing'
+    && (!progress.planReviewed || progress.reviewedPlanRevision !== currentRevision)) return 'review-plan';
+  if (snapshot.sync.status !== 'synced') return 'sync';
+  return 'ready';
+}
+
+export async function inspectOnboarding({ repository = '.' } = {}) {
+  const layout = await resolveLayout(repository);
+  const initialized = await exists(path.join(layout.statePath, '.git'));
+  const [repositoryFacts, sharedState, preferences] = await Promise.all([
+    repositoryOnboardingFacts(layout),
+    sharedStateAvailability(layout),
+    localPreferences(layout),
+  ]);
+  const progress = (await exists(layout.onboardingPath)) ? await readJson(layout.onboardingPath) : null;
+  let participant = null;
+  let snapshot = null;
+  let localProfile = null;
+  const identityAvailable = initialized && await exists(layout.identityPath);
+  if (identityAvailable) {
+    const identity = await loadIdentity(layout);
+    participant = identity.participant;
+    snapshot = await buildSnapshot(layout);
+    localProfile = snapshot.profiles.find((profile) => profile.participant === participant) ?? null;
+  }
+  const suggestedMode = progress?.mode
+    ?? (sharedState.status === 'available' && !initialized ? 'join-existing' : null);
+  const projectKindProposal = progress?.projectKind
+    ?? (snapshot?.plan || snapshot?.sessions.length > 0 ? 'existing' : 'undetermined');
+  const nextStage = nextOnboardingStage({
+    progress,
+    initialized: initialized && identityAvailable,
+    snapshot,
+    localProfile,
+  });
+  return {
+    schemaVersion: 1,
+    initialized,
+    identityAvailable,
+    participant,
+    sharedState,
+    repository: repositoryFacts,
+    progress,
+    suggestedMode,
+    projectKindProposal,
+    nextStage,
+    ready: nextStage === 'ready',
+    shared: snapshot === null ? null : {
+      participants: snapshot.participants,
+      planStatus: snapshot.plan?.status ?? null,
+      sessionCount: snapshot.sessions.length,
+      ticketCount: snapshot.tickets.length,
+      sync: snapshot.sync,
+    },
+    local: { profile: localProfile, dashboardLocale: preferences.dashboardLocale },
+  };
+}
+
+export async function saveOnboardingProgress({ repository = '.', progress } = {}) {
+  const layout = await resolveLayout(repository);
+  const previous = (await exists(layout.onboardingPath)) ? await readJson(layout.onboardingPath) : {};
+  const normalized = normalizeOnboardingProgress(progress, previous);
+  const sharedState = await sharedStateAvailability(layout);
+  if (normalized.mode === 'join-existing' && sharedState.status === 'absent') {
+    throw new EngineError('join-existing requires an existing duobrain/state branch.', { code: 'INVALID_ONBOARDING' });
+  }
+  // A local review applies to the plan that was actually visible at that time.
+  // Never carry a boolean approval forward to a different plan revision.
+  let currentRevision = null;
+  if (progress.planReviewed === true || progress.roleReviewed === true) {
+    const snapshot = await buildSnapshot(await loadLayout(repository));
+    currentRevision = snapshot.plan?.history.at(-1)?.id ?? null;
+    if (!currentRevision) {
+      throw new EngineError('A valid shared plan is required before recording its review.', {
+        code: 'INVALID_ONBOARDING',
+      });
+    }
+  }
+  normalized.reviewedPlanRevision = normalized.planReviewed
+    ? (progress.planReviewed === true ? currentRevision : previous.reviewedPlanRevision ?? null) : null;
+  normalized.reviewedRoleRevision = normalized.roleReviewed
+    ? (progress.roleReviewed === true ? currentRevision : previous.reviewedRoleRevision ?? null) : null;
+  await writeJsonAtomic(layout.onboardingPath, normalized);
+  return inspectOnboarding({ repository: layout.repositoryPath });
 }
 
 async function changedPaths(statePath, base, head) {
@@ -1700,6 +1978,153 @@ async function buildPlanState(layout, config, events) {
   }
 }
 
+function validateProfileEvent(event, config, participant, expectedType) {
+  if (
+    event.schemaVersion !== 1
+    || !UUID_PATTERN.test(event.id ?? '')
+    || !UUID_PATTERN.test(event.entityId ?? '')
+    || validDateMs(event.at) === null
+    || event.type !== expectedType
+    || event.actor?.participant !== participant
+    || !config.participants.includes(participant)
+    || !['human', 'ai'].includes(event.actor?.kind)
+    || event.data === null
+    || typeof event.data !== 'object'
+    || Array.isArray(event.data)
+  ) {
+    throw new EngineError(`Invalid ${expectedType} event metadata.`, { code: 'INVALID_PROFILE_EVENT' });
+  }
+  assertString(event.data.nickname, 'profile nickname');
+  if (event.data.githubLogin !== null) {
+    assertString(event.data.githubLogin, 'profile githubLogin');
+    if (/[\s/]/.test(event.data.githubLogin)) {
+      throw new EngineError('profile githubLogin must be one GitHub login.', { code: 'INVALID_PROFILE_EVENT' });
+    }
+  }
+  return { nickname: event.data.nickname, githubLogin: event.data.githubLogin };
+}
+
+function buildProfileState(config, events) {
+  const profiles = [];
+  const conflicts = [];
+  for (const participant of config.participants) {
+    const participantEvents = events.filter(
+      (event) => event.actor?.participant === participant
+        && typeof event.type === 'string'
+        && event.type.startsWith('profile.'),
+    );
+    if (participantEvents.length === 0) continue;
+    const roots = participantEvents.filter(
+      (event) => event.type === 'profile.created' && event.previous === null,
+    );
+    if (roots.length !== 1) {
+      conflicts.push({
+        entityId: `profile:${participant}`,
+        participant,
+        previous: null,
+        eventIds: roots.map((event) => event.id).sort(),
+        message: roots.length === 0
+          ? 'Profile updates exist without one valid root.'
+          : 'Multiple independent profile roots conflict.',
+      });
+      continue;
+    }
+    const root = roots[0];
+    const entityEvents = participantEvents.filter((event) => event.entityId === root.entityId);
+    const collected = collectEntityHistory(root, entityEvents);
+    const unreachable = participantEvents.filter(
+      (event) => event.entityId !== root.entityId
+        || (event.id !== root.id && !collected.history.some((item) => item.id === event.id)),
+    );
+    if (collected.conflicts.length > 0 || unreachable.length > 0) {
+      conflicts.push(
+        ...collected.conflicts.map((conflict) => ({ ...conflict, participant })),
+        ...(unreachable.length > 0 ? [{
+          entityId: root.entityId,
+          participant,
+          previous: null,
+          eventIds: unreachable.map((event) => event.id).sort(),
+          message: 'Profile history contains an unreachable or unrelated event.',
+        }] : []),
+      );
+      continue;
+    }
+    const chain = [root, ...collected.history];
+    try {
+      let projected = validateProfileEvent(root, config, participant, 'profile.created');
+      for (const event of collected.history) {
+        projected = validateProfileEvent(event, config, participant, 'profile.updated');
+      }
+      profiles.push({
+        id: root.entityId,
+        participant,
+        ...projected,
+        history: chain.map((event) => ({
+          id: event.id,
+          type: event.type,
+          at: event.at,
+          actor: event.actor,
+          previous: event.previous,
+          data: event.data,
+        })),
+      });
+    } catch (error) {
+      conflicts.push({
+        entityId: root.entityId,
+        participant,
+        previous: null,
+        eventIds: chain.map((event) => event.id),
+        message: `Invalid profile history: ${error.message}`,
+      });
+    }
+  }
+  return { profiles, conflicts };
+}
+
+export async function setParticipantProfile({
+  repository = '.',
+  nickname,
+  githubLogin,
+  actorKind = 'human',
+  sync = true,
+} = {}) {
+  assertActorKind(actorKind);
+  if (nickname !== undefined) assertString(nickname, 'nickname');
+  if (githubLogin !== undefined && githubLogin !== null) {
+    assertString(githubLogin, 'githubLogin');
+    if (/[\s/]/.test(githubLogin)) {
+      throw new EngineError('githubLogin must be one GitHub login.', { code: 'INVALID_PROFILE' });
+    }
+  }
+  const layout = await loadLayout(repository);
+  const identity = await loadIdentity(layout);
+  const config = await loadConfig(layout);
+  const events = await readEvents(layout);
+  const state = buildProfileState(config, events);
+  const current = state.profiles.find((profile) => profile.participant === identity.participant) ?? null;
+  if (state.conflicts.some((conflict) => conflict.participant === identity.participant)) {
+    throw new EngineError('The local profile history is conflicted or invalid.', { code: 'PROFILE_CONFLICT' });
+  }
+  const previous = current?.history.at(-1) ?? null;
+  const entityId = current?.id ?? randomUUID();
+  const normalizedGithubLogin = githubLogin === undefined
+    ? current?.githubLogin ?? null
+    : githubLogin;
+  const normalizedNickname = nickname
+    ?? current?.nickname
+    ?? normalizedGithubLogin
+    ?? identity.participant;
+  const event = createEvent({
+    identity,
+    entityId,
+    type: current ? 'profile.updated' : 'profile.created',
+    previous: previous?.id ?? null,
+    data: { nickname: normalizedNickname, githubLogin: normalizedGithubLogin },
+    actorKind,
+  });
+  return recordEvent(layout, event, sync);
+}
+
 export async function setPlan({
   repository = '.',
   plan,
@@ -2076,7 +2501,9 @@ async function buildSnapshot(layout) {
   const tickets = [];
   const conflicts = [];
   const planState = await buildPlanState(layout, config, events);
+  const profileState = buildProfileState(config, events);
   conflicts.push(...planState.conflicts);
+  conflicts.push(...profileState.conflicts);
 
   for (const root of sessionRoots) {
     const entityEvents = events.filter((event) => event.entityId === root.entityId);
@@ -2190,6 +2617,8 @@ async function buildSnapshot(layout) {
     schemaVersion: 1,
     sample: false,
     participants: config.participants,
+    profiles: profileState.profiles,
+    localPreferences: await localPreferences(layout),
     goals: planState.plan ? { ...planState.plan.goals } : { ...NULL_GOALS },
     plan: planState.plan,
     sessions,

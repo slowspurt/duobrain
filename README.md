@@ -206,31 +206,33 @@ Create the JSON file before running the command. duobrain checks the configured 
 
 For all commands, run `node bin/duobrain.js --help` or read the [CLI reference](docs/engine/README.md). The [AI collaboration guide](guides/duobrain-ai.md) and [dashboard guide](docs/dashboard/README.md) are currently in Korean.
 
-## The first-run experience we're building
+## AI-led first run
 
-> **Planned onboarding.** The alpha already includes the CLI, local dashboard, AI guides, documentation and examples. The guided flow below—including GitHub account discovery and editable nicknames—is not yet implemented end to end. Use [Get started](#get-started) for the current setup.
+> **Current alpha.** The CLI provides resumable onboarding state, authenticated GitHub CLI account lookup and editable nickname profiles. Your existing AI performs the project reading and asks for missing facts. The locale preference is stored locally; dashboard language controls and translated UI text are not included in this integration.
 
 After downloading duobrain, tell your existing AI:
 
 **“Set this project up for collaboration with duobrain.”**
 
+Point the AI to [`guides/duobrain-onboarding.md`](guides/duobrain-onboarding.md). The download does not start an AI process.
+
 From there, your AI guides you through four steps:
 
-1. **Make it yours.** Use your GitHub username when the signed-in account can be confirmed; otherwise, ask for it. Shared records belong to `@username`, while the dashboard shows **Nickname · @username**. A nickname is optional and defaults to your username. Change it later without losing the connection to your history.
+1. **Resume or inspect.** Read the saved onboarding stage first. Your existing AI checks permitted project material and proposes new project, existing project, or second-participant join with the evidence it used.
 
-2. **Pick up the plan you already have.** Read the project brief and meeting notes first. Ask only for missing context: “How did you two originally divide the work?” Capture the existing roles, current stage and decisions without asking you to repeat what's already recorded.
+2. **Make it yours.** Use your GitHub username when the authenticated `gh` account can be confirmed; otherwise, ask once or continue without one. Shared records retain the immutable participant ID, while an editable nickname can change without losing history.
 
-3. **Review a plan built for collaboration.** Prepare a concrete revision with each person's scope, step-by-step goals and handoff conditions: “I've organized your existing plan for the two of you. Here's what I'd change—please review it.” Keep existing agreements distinct from new AI proposals. One person's approval does not count as both people's agreement.
+3. **Pick up and review the plan.** Read the project brief and meeting notes first. Ask only for missing context, then prepare a concrete revision with each person's scope, goals and handoff conditions. Keep existing agreements distinct from new AI proposals. One person's approval does not count as both people's agreement.
 
-4. **Start with a clear next step.** After your review, save and sync the permitted plan, record the agreed work session, and connect you to the dashboard: “You're ready. Start with the interface work; the API details you need from your partner are in the request inbox.” Only report shared setup as complete when the records have actually synced.
+4. **Start with a clear next step.** After review, save and sync the permitted plan and connect the first task to the existing session workflow. Only report shared setup as complete when the records have actually synced.
 
 **Joining second? Pick up where your partner left off.** Your AI reads the shared plan, helps you set your nickname and review your assigned scope, then gets you started. You don't repeat the full planning interview.
 
-Downloading alone won't launch an AI. The intended experience starts with one request to the AI you already use, which then guides you from the missing context to your first task.
+The dashboard locale setting is a per-clone preference, stored as `system` by default. It does not add a language question to onboarding or translate shared source text.
 
 ## Help shape the alpha
 
-The local alpha has passed **77 tests**, including two-clone collaboration flows, plus a clean local-clone check. Acceptance testing with two people on separate machines and their existing AI tools is **still pending**. See [verification details](docs/implementation-status.md).
+The local alpha has passed **87 tests**, including onboarding and two-clone collaboration flows, plus a clean local-clone check. Acceptance testing with two people on separate machines and their existing AI tools is **still pending**. See [verification details](docs/implementation-status.md).
 
 Try a small shared project and [tell us what happened](https://github.com/slowspurt/duobrain/issues): what you asked, what you expected and where the handoff fell short. Include a shareable example.
 

@@ -1,6 +1,6 @@
 # Implementation status
 
-Verified on 2026-09-20. The local alpha implementation is integrated; release and actual two-person acceptance remain open. Start with [Getting started](../GETTING_STARTED.md). The original roadmap describes the intended product; this document describes executable behavior.
+Verified on 2026-09-23. The local alpha implementation is integrated; release and actual two-person acceptance remain open. Start with [Getting started](../GETTING_STARTED.md). The original roadmap describes the intended product; this document describes executable behavior.
 
 ## Integrated capabilities
 
@@ -13,8 +13,10 @@ Verified on 2026-09-20. The local alpha implementation is integrated; release an
 | Daily refinement | Evidence-based importance and recency, preserved sources and decisions, immutable summary indexes, one designated scheduled participant, timezone and once-per-date guards, delivery-aware retries. Manual refresh detects policy/timezone changes too. |
 | Dashboard | Live local records, goals/assignments and conflicts, scope-aware recorded intervals, declared blockers, ticket inbox/history/detail, evidence bodies, wiki search/lineage and daily indexes. |
 | AI guidance | Existing-repository intake, missing planning inputs, start briefings, information supplementation, direct human feedback, comparison, concurrent work and handoff procedures for the user's existing AI. |
+| AI-led onboarding | One startup instruction; pre-init inspection; evidence-backed new/existing/join classification by the user's AI; local resumable checkpoints; authenticated GitHub CLI lookup with explicit fallback; immutable participant profiles and nickname changes. |
+| Local preferences | Dashboard locale is stored as `system` by default and stays local to each clone. Language controls, translated UI text and nickname rendering remain dashboard follow-up work. |
 
-The engine, wiki and dashboard suite passes **77 tests** on the integrated runtime. This includes policy validation before refinement deduplication, policy/timezone refresh behavior, and the dashboard's live wiki routes. Tests use temporary repositories; they do not write collaboration records to this project's public remote.
+The engine, wiki and dashboard suite passes **87 tests** on the integrated runtime. This includes ten onboarding tests for evidence-neutral inspection, resumable stages, interrupted-init recovery, shared nickname history, local dashboard locale, second-participant joining, authenticated-account detection, direct CLI routing, review invalidation after plan changes, and inspection before the first Git commit. Tests use temporary repositories; they do not write collaboration records to this project's public remote.
 
 ## Connected acceptance evidence
 
@@ -35,7 +37,7 @@ The dashboard is read-only and binds to `127.0.0.1`. It reads locally synchroniz
 ## Remaining release and user acceptance work
 
 1. Choose an explicit license before describing this as a licensed open-source release. No license has been selected, npm package published, or release deployment performed. `package.json` remains private to prevent accidental registry publication; Git checkout execution is available.
-2. On two actual machines, each person connects their product clone and existing AI using the [onboarding recipe](agent-guidance/repository-onboarding.md). Verify a missing-plan intake, a shared plan and start briefing, an information request answered on the peer's next AI invocation, human feedback, and dashboard history after sync.
+2. On two actual machines, each person connects their product clone and existing AI using the [AI onboarding entry](../guides/duobrain-onboarding.md). Verify a missing-plan intake, a shared plan and start briefing, an information request answered on the peer's next AI invocation, human feedback, profile display and dashboard history after sync.
 3. On the designated participant's machine, configure the desired external daily schedule and confirm a real invocation and log. Development validated the runner using controlled timestamps; it did not install a scheduler on either person's behalf.
 
 The separate website and competition demo have independent deployment and acceptance. Their successful demonstration does not substitute for the runtime checks above.

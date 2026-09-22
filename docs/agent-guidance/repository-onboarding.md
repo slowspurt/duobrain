@@ -2,6 +2,12 @@
 
 This recipe adds duobrain records to an existing two-person Git project. It does not install a hook, start a server, schedule work, or run either person's AI in the background. Each person chooses when to give the companion guidance to their existing AI.
 
+For the resumable AI-led entry, start with
+[`guides/duobrain-onboarding.md`](../../guides/duobrain-onboarding.md). The user's existing
+AI inspects permitted project evidence and proposes whether this is a new project, an existing project,
+or a second-participant join. Git history is a clue, not a decision by itself. This recipe remains the
+detailed command and evidence reference after that classification.
+
 ## 1. Keep the product checkout and duobrain checkout separate
 
 For example, Alice can keep the product at `/Users/alice/work/reading-app` and a checkout of this duobrain repository at `/Users/alice/tools/duobrain`. Bob uses his own clone of the same product remote and his own duobrain checkout. The product clones need the same `origin`; duobrain records use the product repository's isolated `duobrain/state` checkout and do not change product files, the product branch, index, or uncommitted changes.
