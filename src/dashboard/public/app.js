@@ -23,8 +23,24 @@ const state = {
   tickets: [], sessions: [], conflicts: [], participants: [], sample: false,
   tab: 'inbox', query: '', status: '', kind: '', peer: '', period: '30d',
   wikiTab: 'all', wikiRecords: [], wikiSearchResults: [], wikiIssues: [],
+  section: 'current', selectedTicketId: null, selectedWikiPath: null, assignments: [],
 };
 const text = (value, fallback = '미확인') => typeof value === 'string' && value.trim() ? value : fallback;
+const participantLabel = (value) => {
+  if (!state.sample) return text(value);
+  const index = state.participants.indexOf(value);
+  return index >= 0 && index < 26 ? String.fromCharCode(65 + index) : text(value);
+};
+const displayCopy = (value, fallback = '미확인') => {
+  let result = text(value, fallback);
+  if (!state.sample) return result;
+  state.participants.forEach((participant, index) => {
+    if (typeof participant !== 'string' || !participant) return;
+    const escaped = participant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    result = result.replace(new RegExp(`\\b${escaped}\\b`, 'gi'), String.fromCharCode(65 + index));
+  });
+  return result;
+};
 
 function element(tag, className, value) {
   const node = document.createElement(tag);
@@ -50,8 +66,8 @@ function appendEvidenceButtons(container, evidence) {
 function renderGoals(goals = {}, snapshot = {}) {
   const container = byId('goals');
   container.replaceChildren();
-  for (const key of ['project', 'mediumTerm', 'currentPhase']) {
-    const card = element('article', 'goal-card');
+  for (const key of ['currentPhase', 'project', 'mediumTerm']) {
+    const card = element('article', `goal-card${key === 'currentPhase' ? ' current-goal' : ''}`);
     card.append(element('p', 'label', labels[key]), element('p', 'goal-copy', text(goals[key])));
     container.append(card);
   }
@@ -70,26 +86,30 @@ function renderGoals(goals = {}, snapshot = {}) {
     }
     return;
   }
-  detail.append(element('p', 'plan-body', text(presentation.plan.body, '계획 근거 설명 미확인')));
+  state.assignments = Array.isArray(presentation.plan.assignments) ? presentation.plan.assignments : [];
+  const explorer = element('details', 'plan-explorer');
+  explorer.append(element('summary', '', '공유 계획과 근거 보기'));
+  const explorerBody = element('div', 'plan-explorer-body');
+  explorerBody.append(element('p', 'plan-body', text(presentation.plan.body, '계획 근거 설명 미확인')));
   const assignments = element('div', 'assignment-grid');
-  for (const assignment of Array.isArray(presentation.plan.assignments) ? presentation.plan.assignments : []) {
+  for (const assignment of state.assignments) {
     const card = element('article', 'assignment-card');
-    card.append(element('h3', '', text(assignment?.participant)));
+    card.append(element('h3', '', participantLabel(assignment?.participant)));
     const scopes = element('div', 'chips');
     const scopeItems = Array.isArray(assignment?.scope) ? assignment.scope : [];
     (scopeItems.length ? scopeItems : ['할당 범위 없음']).forEach((scope) => scopes.append(element('span', `chip${scopeItems.length ? '' : ' muted'}`, scope)));
-    card.append(scopes, element('p', 'assignment-next', `다음 · ${text(assignment?.next, '미확인')}`));
+    card.append(scopes, element('p', 'assignment-next', `다음 · ${displayCopy(assignment?.next)}`));
     assignments.append(card);
   }
-  detail.append(assignments);
+  explorerBody.append(assignments);
   const expandable = element('details', 'plan-history');
   expandable.append(element('summary', '', '계획 이력·근거 보기'));
   const history = element('div', 'plan-history-list');
   for (const event of Array.isArray(presentation.plan.history) ? presentation.plan.history : []) {
     const item = element('article', 'timeline-item');
     item.append(element('p', 'timeline-type', text(event?.type, '이벤트 유형 미확인')));
-    item.append(element('p', 'caption', `${formatDate(event?.at)} · ${text(event?.actor?.participant)} (${text(event?.actor?.kind, '주체 미확인')})`));
-    if (event?.data?.body) item.append(element('p', 'timeline-body', event.data.body));
+    item.append(element('p', 'caption', `${formatDate(event?.at)} · ${participantLabel(event?.actor?.participant)} (${text(event?.actor?.kind, '주체 미확인')})`));
+    if (event?.data?.body) item.append(element('p', 'timeline-body', displayCopy(event.data.body)));
     history.append(item);
   }
   if (!history.children.length) history.append(empty('계획 이력이 없습니다.'));
@@ -98,7 +118,9 @@ function renderGoals(goals = {}, snapshot = {}) {
   if (evidence.length) appendEvidenceButtons(history, evidence);
   else history.append(empty(presentation.state === 'proposed' ? '제안 상태에는 공동 합의 근거가 없습니다.' : '근거 경로가 없습니다.'));
   expandable.append(history);
-  detail.append(expandable);
+  explorerBody.append(expandable);
+  explorer.append(explorerBody);
+  detail.append(explorer);
 }
 
 function formatDate(value, fallback = '시각 미확인') {
@@ -118,18 +140,24 @@ function renderParticipants(participants = [], sessions = []) {
   const container = byId('participants');
   container.replaceChildren();
   if (!participants.length) return container.append(empty('참여자 기록이 없습니다.'));
-  for (const participant of participants) {
+  participants.forEach((participant) => {
     const recent = sessions.filter((session) => session?.participant === participant).at(-1);
+    const assignment = state.assignments.find((item) => item?.participant === participant);
     const card = element('article', 'person-card');
     const heading = element('div', 'person-heading');
-    heading.append(element('h3', '', text(participant)), element('span', `status ${recent ? recent.status : 'unknown'}`, recent ? text(labels[recent.status], '상태 미확인') : '기록 없음'));
+    heading.append(element('h3', '', participantLabel(participant)), element('span', `status ${recent ? recent.status : 'unknown'}`, recent ? text(labels[recent.status], '상태 미확인') : '기록 없음'));
     card.append(heading);
+    const role = element('dl', 'person-role');
+    const scopes = Array.isArray(assignment?.scope) ? assignment.scope : [];
+    role.append(element('dt', '', '담당 범위'), element('dd', '', scopes.join(', ') || (recent?.scope ?? []).join(', ') || '미확인'));
+    role.append(element('dt', '', '다음 행동'), element('dd', '', displayCopy(assignment?.next ?? recent?.next)));
+    card.append(role);
     if (!recent) {
       card.append(empty('최근 작업 기록이 없어 현재 활동과 범위를 확인할 수 없습니다.'));
       container.append(card);
-      continue;
+      return;
     }
-    card.append(element('p', 'session-title', text(recent.title, '제목 미확인')), element('p', 'recorded-time', formatRecordedRange(recent)));
+    card.append(element('p', 'session-title', displayCopy(recent.title, '제목 미확인')), element('p', 'recorded-time', formatRecordedRange(recent)));
     const scope = element('div', 'chips');
     const scopeItems = Array.isArray(recent.scope) ? recent.scope : [];
     (scopeItems.length ? scopeItems : ['범위 미확인']).forEach((item) => scope.append(element('span', `chip${scopeItems.length ? '' : ' muted'}`, text(item))));
@@ -137,10 +165,10 @@ function renderParticipants(participants = [], sessions = []) {
     const blockers = element('div', 'blockers');
     blockers.append(element('p', 'label', '기록된 병목'));
     const blockerItems = Array.isArray(recent.blockers) ? recent.blockers : [];
-    blockers.append(blockerItems.length ? element('p', '', blockerItems.map((item) => text(item)).join(' · ')) : empty('기록된 병목 없음'));
+    blockers.append(blockerItems.length ? element('p', '', blockerItems.map((item) => displayCopy(item)).join(' · ')) : empty('기록된 병목 없음'));
     card.append(blockers);
     container.append(card);
-  }
+  });
 }
 
 function formatDuration(milliseconds) {
@@ -181,13 +209,13 @@ function renderSessionAnalysis() {
   if (!result.participantTotals.length) participant.append(empty('집계할 참여자 기록이 없습니다.'));
   for (const item of result.participantTotals) {
     const note = item.unknownSessionCount ? `시간 미확인 ${item.unknownSessionCount}건 별도` : '겹치는 세션 구간 중복 제거';
-    participant.append(metricRow(item.participant, formatDuration(item.recordedActiveMs), note));
+    participant.append(metricRow(participantLabel(item.participant), formatDuration(item.recordedActiveMs), note));
   }
 
   const scopes = byId('scope-time');
   scopes.replaceChildren();
   if (!result.scopeTotals.length) scopes.append(empty('집계 가능한 범위 기록이 없습니다.'));
-  for (const item of result.scopeTotals) scopes.append(metricRow(`${item.participant} · ${item.scope ?? '귀속 미확인'}`, formatDuration(item.recordedActiveMs)));
+  for (const item of result.scopeTotals) scopes.append(metricRow(`${participantLabel(item.participant)} · ${item.scope ?? '귀속 미확인'}`, formatDuration(item.recordedActiveMs)));
 
   const sessions = byId('session-records');
   sessions.replaceChildren();
@@ -195,13 +223,13 @@ function renderSessionAnalysis() {
   for (const item of result.sessions) {
     const card = element('article', 'session-record-card');
     const heading = element('div', 'person-heading');
-    heading.append(element('strong', '', text(item.title, '제목 미확인')), element('span', `time-state ${item.timeStatus}`, item.timeStatus === 'known' ? '시간 확인' : '시간 미확인'));
-    card.append(heading, element('p', 'caption', `${text(item.participant)} · ${formatDate(item.startedAt, '시작 미확인')}`));
+    heading.append(element('strong', '', displayCopy(item.title, '제목 미확인')), element('span', `time-state ${item.timeStatus}`, item.timeStatus === 'known' ? '시간 확인' : '시간 미확인'));
+    card.append(heading, element('p', 'caption', `${participantLabel(item.participant)} · ${formatDate(item.startedAt, '시작 미확인')}`));
     const timings = element('div', 'session-times');
     timings.append(metricRow('벽시계 경과', formatDuration(item.wallClockMs)));
     timings.append(metricRow('pause 제외 기록상 활동', formatDuration(item.recordedActiveMs), item.timeReason));
     card.append(timings);
-    const metadata = element('p', 'session-metadata', `요약 ${text(item.summary)} · 브랜치 ${text(item.branch)} · 기준 커밋 ${text(item.baseCommit)}`);
+    const metadata = element('p', 'session-metadata', `요약 ${displayCopy(item.summary)} · 브랜치 ${text(item.branch)} · 기준 커밋 ${text(item.baseCommit)}`);
     card.append(metadata);
     for (const change of item.scopeChanges) {
       card.append(element('p', 'scope-change', `범위 변경 ${formatDate(change.at)} · ${(change.scope ?? []).join(', ') || '범위 미확인'} · 사유 ${text(change.reason)}`));
@@ -214,7 +242,7 @@ function renderSessionAnalysis() {
   if (!result.blockers.length) blockers.append(empty('명시적으로 기록된 병목이 없습니다.'));
   for (const item of result.blockers) {
     const row = element('article', 'blocker-row');
-    row.append(element('p', 'label', `${text(item.participant)} · ${text(item.title)}`), element('p', '', item.blocker));
+    row.append(element('p', 'label', `${participantLabel(item.participant)} · ${displayCopy(item.title)}`), element('p', '', displayCopy(item.blocker)));
     blockers.append(row);
   }
 }
@@ -227,8 +255,8 @@ function renderTimeline(ticket) {
   for (const event of history) {
     const item = element('article', 'timeline-item');
     item.append(element('p', 'timeline-type', text(event?.type, '이벤트 유형 미확인')));
-    item.append(element('p', 'caption', `${formatDate(event?.at)} · ${text(event?.actor?.participant)} (${text(event?.actor?.kind, '주체 미확인')})`));
-    if (event?.data?.body) item.append(element('p', 'timeline-body', text(event.data.body)));
+    item.append(element('p', 'caption', `${formatDate(event?.at)} · ${participantLabel(event?.actor?.participant)} (${text(event?.actor?.kind, '주체 미확인')})`));
+    if (event?.data?.body) item.append(element('p', 'timeline-body', displayCopy(event.data.body)));
     section.append(item);
   }
   const evidence = ticketEvidence(ticket);
@@ -272,7 +300,7 @@ function wikiMetadata(record) {
   const parts = [
     text(record.recordType, '종류 미확인'),
     text(record.status, '상태 미확인'),
-    text(record.author?.participant, '작성자 미확인'),
+    state.sample ? participantLabel(record.author?.participant) : text(record.author?.participant, '작성자 미확인'),
     formatDate(record.observedAt),
   ];
   return parts.join(' · ');
@@ -303,7 +331,7 @@ async function loadLineage(path, button, content) {
   }
 }
 
-function wikiRecordCard(record) {
+function wikiRecordDetail(record) {
   const card = element('article', 'wiki-card');
   const heading = element('div', 'wiki-card-heading');
   heading.append(element('h3', '', text(record.title, record.format === 'legacy' ? '레거시 위키 기록' : '제목 미확인')));
@@ -337,6 +365,18 @@ function wikiRecordCard(record) {
   return card;
 }
 
+function wikiRecordListItem(record) {
+  const button = element('button', `wiki-list-item${record.path === state.selectedWikiPath ? ' selected' : ''}`);
+  button.type = 'button';
+  button.append(element('h3', '', text(record.title, record.format === 'legacy' ? '레거시 위키 기록' : '제목 미확인')));
+  button.append(element('p', 'caption', wikiMetadata(record)));
+  button.addEventListener('click', () => {
+    state.selectedWikiPath = record.path;
+    renderWiki();
+  });
+  return button;
+}
+
 function renderWikiContext(records) {
   const container = byId('wiki-context-differences');
   container.replaceChildren();
@@ -359,7 +399,15 @@ function renderWiki() {
   if (!records.length) {
     const message = state.wikiTab === 'refinement' ? '유효한 일일 정제 결과가 없습니다.' : '조건에 맞는 공유 위키 기록이 없습니다.';
     container.append(empty(message));
-  } else records.forEach((record) => container.append(wikiRecordCard(record)));
+  } else {
+    if (!records.some((record) => record.path === state.selectedWikiPath)) state.selectedWikiPath = records[0].path;
+    records.forEach((record) => container.append(wikiRecordListItem(record)));
+  }
+  const detail = byId('wiki-detail-pane');
+  detail.replaceChildren();
+  const selected = records.find((record) => record.path === state.selectedWikiPath);
+  if (selected) detail.append(wikiRecordDetail(selected));
+  else detail.append(element('p', 'detail-empty', '표시할 공유 기록이 없습니다.'));
   renderWikiContext(records);
 }
 
@@ -425,22 +473,34 @@ async function searchWiki(event) {
   }
 }
 
-function ticketCard(ticket) {
-  const card = element('article', 'ticket-card');
-  const summary = element('div', 'ticket-summary');
+function ticketListItem(ticket) {
+  const card = element('button', `ticket-list-item${ticket.id === state.selectedTicketId ? ' selected' : ''}`);
+  card.type = 'button';
   const meta = element('div', 'ticket-meta');
   meta.append(element('span', `kind ${ticket.kind ?? 'unknown'}`, text(labels[ticket.kind], '유형 미확인')));
   meta.append(element('span', `status ${ticket.status ?? 'unknown'}`, text(labels[ticket.status], '상태 미확인')));
-  summary.append(meta, element('h3', '', text(ticket.title, '제목 미확인')), element('p', 'ticket-body', text(ticket.body, '내용 미확인')));
-  summary.append(
-    element('p', 'route', `${text(ticket.requester)} → ${text(ticket.assignee)}`),
-    element('p', 'receipt', peerConfirmation(ticket.status)),
-    element('p', 'ticket-goal', `연결 목표 · ${text(ticket.goal)}`),
-  );
-  const details = element('details', 'ticket-details');
-  details.append(element('summary', '', '상세·근거 보기'), renderTimeline(ticket));
-  card.append(summary, details);
+  card.append(meta, element('h3', '', displayCopy(ticket.title, '제목 미확인')), element('p', 'caption', `${participantLabel(ticket.requester)} → ${participantLabel(ticket.assignee)} · ${peerConfirmation(ticket.status)}`));
+  card.addEventListener('click', () => { state.selectedTicketId = ticket.id; renderTickets(); });
   return card;
+}
+
+function renderTicketDetail(ticket) {
+  const pane = byId('ticket-detail-pane');
+  pane.replaceChildren();
+  if (!ticket) return pane.append(element('p', 'detail-empty', '표시할 요청이 없습니다.'));
+  const header = element('header', 'ticket-detail-header');
+  const meta = element('div', 'ticket-meta');
+  meta.append(element('span', `kind ${ticket.kind ?? 'unknown'}`, text(labels[ticket.kind], '유형 미확인')));
+  meta.append(element('span', `status ${ticket.status ?? 'unknown'}`, text(labels[ticket.status], '상태 미확인')));
+  header.append(meta, element('h3', '', displayCopy(ticket.title, '제목 미확인')), element('p', 'ticket-body', displayCopy(ticket.body, '내용 미확인')));
+  const facts = element('div', 'ticket-detail-facts');
+  for (const [label, value] of [['요청 흐름', `${participantLabel(ticket.requester)} → ${participantLabel(ticket.assignee)}`], ['상대 확인', peerConfirmation(ticket.status)], ['연결 목표', displayCopy(ticket.goal)]]) {
+    const fact = element('div', '');
+    fact.append(element('span', '', label), element('strong', '', value));
+    facts.append(fact);
+  }
+  header.append(facts);
+  pane.append(header, renderTimeline(ticket));
 }
 
 function renderTickets() {
@@ -451,8 +511,35 @@ function renderTickets() {
   byId('ticket-context').textContent = state.tab === 'inbox'
     ? '미종결 요청입니다. 응답 도착(answered)은 해결 확인(resolved)이 아닙니다.'
     : 'resolved와 closed를 구분한 종결 기록입니다.';
-  if (!matches.length) return container.append(empty(state.tab === 'inbox' ? '조건에 맞는 진행 중 요청이 없습니다.' : '조건에 맞는 처리 이력이 없습니다.'));
-  matches.forEach((ticket) => container.append(ticketCard(ticket)));
+  if (!matches.some((ticket) => ticket.id === state.selectedTicketId)) state.selectedTicketId = matches[0]?.id ?? null;
+  if (!matches.length) container.append(empty(state.tab === 'inbox' ? '조건에 맞는 진행 중 요청이 없습니다.' : '조건에 맞는 처리 이력이 없습니다.'));
+  matches.forEach((ticket) => container.append(ticketListItem(ticket)));
+  renderTicketDetail(matches.find((ticket) => ticket.id === state.selectedTicketId));
+}
+
+function renderAttention() {
+  const container = byId('attention-list');
+  container.replaceChildren();
+  const openTickets = filterTickets(state.tickets, { tab: 'inbox' });
+  const blockers = state.sessions.flatMap((session) => (session?.blockers ?? []).map((blocker) => ({ session, blocker })));
+  const total = openTickets.length + blockers.length;
+  byId('attention-count').textContent = total ? `${total}건` : '확인할 항목 없음';
+  byId('nav-requests-count').textContent = openTickets.length ? String(openTickets.length) : '';
+  for (const ticket of openTickets) {
+    const button = element('button', 'attention-item');
+    button.type = 'button';
+    button.append(element('span', '', ticket.kind === 'feedback' ? '직접 피드백' : '정보 보충'), element('strong', '', displayCopy(ticket.title)), element('small', '', text(labels[ticket.status], '상태 미확인')));
+    button.addEventListener('click', () => { state.selectedTicketId = ticket.id; selectSection('requests'); });
+    container.append(button);
+  }
+  for (const { session, blocker } of blockers) {
+    const button = element('button', 'attention-item');
+    button.type = 'button';
+    button.append(element('span', '', '기록된 병목'), element('strong', '', displayCopy(blocker)), element('small', '', participantLabel(session?.participant)));
+    button.addEventListener('click', () => selectSection('records'));
+    container.append(button);
+  }
+  if (!total) container.append(empty('현재 기록에서 확인할 요청이나 병목이 없습니다.'));
 }
 
 function fillFilters() {
@@ -464,7 +551,7 @@ function fillFilters() {
   status.value = state.status;
   const peer = byId('peer-filter');
   peer.replaceChildren(new Option('전체', ''));
-  state.participants.forEach((value) => peer.add(new Option(text(value), value)));
+  state.participants.forEach((value) => peer.add(new Option(participantLabel(value), value)));
   peer.value = state.peer;
 }
 
@@ -490,11 +577,13 @@ function render(snapshot) {
   state.sessions = Array.isArray(snapshot.sessions) ? snapshot.sessions : [];
   state.conflicts = Array.isArray(snapshot.conflicts) ? snapshot.conflicts : [];
   state.participants = Array.isArray(snapshot.participants) ? snapshot.participants : [];
+  state.assignments = [];
   renderGoals(snapshot.goals, snapshot);
   renderParticipants(state.participants, state.sessions);
   renderSessionAnalysis();
   fillFilters();
   renderTickets();
+  renderAttention();
   renderSync(snapshot.sync);
   loadWikiList();
 }
@@ -523,7 +612,22 @@ function selectTab(tab) {
   renderTickets();
 }
 
+function selectSection(section) {
+  state.section = section;
+  for (const name of ['current', 'requests', 'records', 'wiki']) {
+    const selected = name === section;
+    const button = byId(`nav-${name}`);
+    const panel = byId(`panel-${name}`);
+    button.classList.toggle('active', selected);
+    button.setAttribute('aria-selected', String(selected));
+    panel.hidden = !selected;
+  }
+  history.replaceState(null, '', `#${section}`);
+}
+
 byId('retry').addEventListener('click', load);
+byId('brand-home').addEventListener('click', () => selectSection('current'));
+for (const section of ['current', 'requests', 'records', 'wiki']) byId(`nav-${section}`).addEventListener('click', () => selectSection(section));
 byId('inbox-tab').addEventListener('click', () => selectTab('inbox'));
 byId('history-tab').addEventListener('click', () => selectTab('history'));
 byId('ticket-search').addEventListener('input', (event) => { state.query = event.target.value; renderTickets(); });
@@ -533,4 +637,6 @@ byId('wiki-all-tab').addEventListener('click', () => selectWikiTab('all'));
 byId('wiki-search-tab').addEventListener('click', () => selectWikiTab('search'));
 byId('wiki-refinement-tab').addEventListener('click', () => selectWikiTab('refinement'));
 byId('wiki-search-form').addEventListener('submit', searchWiki);
+const initialSection = location.hash.slice(1);
+if (['current', 'requests', 'records', 'wiki'].includes(initialSection)) selectSection(initialSection);
 load();

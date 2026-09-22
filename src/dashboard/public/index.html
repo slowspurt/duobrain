@@ -1,133 +1,84 @@
 <!doctype html>
 <html lang="ko">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="light">
-    <title>duobrain 기록 대시보드</title>
-    <link rel="stylesheet" href="/styles.css">
-    <script type="module" src="/app.js"></script>
-  </head>
-  <body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>duobrain 대시보드</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
     <header class="topbar">
-      <div>
-        <p class="eyebrow">DUOBRAIN / READ-ONLY</p>
-        <h1>함께 만든 기록의 현재 위치</h1>
+      <div class="brand-lockup">
+        <button id="brand-home" class="wordmark" type="button" aria-label="duobrain 현재 화면"><span>duo</span>brain</button>
+        <div><h1>협업 대시보드</h1><p>두 사람의 작업 기록과 요청을 확인합니다.</p></div>
       </div>
-      <div class="source-state">
-        <span id="source-badge" class="source-badge">데이터 확인 중</span>
-        <span id="sync-badge" class="status unknown">동기화 확인 중</span>
-      </div>
+      <div class="source-state"><span id="source-badge">데이터 확인 중</span><span id="sync-badge" class="status unknown">동기화 확인 중</span></div>
     </header>
 
+    <nav class="app-nav" role="tablist" aria-label="대시보드 영역">
+      <button id="nav-current" class="app-tab active" type="button" role="tab" aria-selected="true" aria-controls="panel-current">현재</button>
+      <button id="nav-requests" class="app-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-requests">요청 <span id="nav-requests-count" class="nav-count"></span></button>
+      <button id="nav-records" class="app-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-records">기록</button>
+      <button id="nav-wiki" class="app-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-wiki">위키</button>
+    </nav>
+
     <main>
-      <aside id="sample-banner" class="notice" hidden>
-        <strong>예시 데이터</strong>
-        <span>이 화면은 제품 흐름 확인용이며 실제 프로젝트 상태가 아닙니다.</span>
-      </aside>
+      <aside id="sample-banner" class="notice" hidden><strong>예시 데이터</strong><span>제품 흐름을 확인하기 위한 샘플이며 실제 프로젝트나 동기화 상태가 아닙니다.</span></aside>
+      <section id="error-panel" class="error-panel" hidden><div><strong>기록을 불러오지 못했습니다.</strong><span>서버 연결과 스냅샷 읽기 상태를 확인해 주세요.</span></div><button id="retry" type="button">다시 불러오기</button></section>
 
-      <aside id="delivery-panel" class="delivery-panel">
-        <div><p class="label">원격 전송</p><strong id="delivery-copy">확인 중</strong></div>
-        <div><p class="label">상대 확인</p><strong>요청별 상태에서 별도 확인</strong></div>
-        <p id="sync-message" class="caption"></p>
-      </aside>
-
-      <section id="error-panel" class="error-panel" hidden>
-        <strong>기록을 불러오지 못했습니다.</strong>
-        <span>서버 연결과 스냅샷 읽기 상태를 확인해 주세요.</span>
-        <button id="retry" type="button">다시 불러오기</button>
-      </section>
-
-      <section aria-labelledby="goals-title">
-        <div class="section-heading">
-          <div><p class="eyebrow">DIRECTION</p><h2 id="goals-title">목표</h2></div>
-          <span id="plan-status" class="plan-status none">계획 확인 중</span>
-        </div>
-        <div id="goals" class="goal-grid"></div>
-        <div id="plan-detail" class="plan-detail"></div>
-      </section>
-
-      <section aria-labelledby="people-title">
-        <div class="section-heading">
-          <div><p class="eyebrow">TWO PEOPLE</p><h2 id="people-title">작업 범위와 최근 기록</h2></div>
-          <span class="caption">기록이 없으면 활동을 추정하지 않습니다.</span>
-        </div>
-        <div id="participants" class="people-grid"></div>
-      </section>
-
-      <section aria-labelledby="time-title">
-        <div class="section-heading">
-          <div><p class="eyebrow">RECORDED TIME</p><h2 id="time-title">최근 작업 시간과 병목</h2></div>
-          <label class="period-control">표시 기간
-            <select id="session-period">
-              <option value="7d">최근 7일</option>
-              <option value="30d" selected>최근 30일</option>
-              <option value="all">전체 기록</option>
-            </select>
-          </label>
-        </div>
-        <p class="time-disclaimer">기록 시각의 구간 집계이며 실제 근무·집중 시간이나 생산성 평가가 아닙니다.</p>
-        <div id="time-overview" class="time-overview"></div>
-        <div class="analysis-grid">
-          <div><h3>사람별 기록상 활동 구간</h3><div id="participant-time" class="metric-list"></div></div>
-          <div><h3>사람·범위별 기록 구간</h3><div id="scope-time" class="metric-list"></div><p class="caption">한 세션의 여러 범위와 겹친 세션은 서로 합산하지 않습니다.</p></div>
-        </div>
-        <div class="analysis-grid records-grid">
-          <div><h3>최근 세션 기록</h3><div id="session-records" class="session-list"></div></div>
-          <div><h3>명시적으로 기록된 병목</h3><div id="blocker-list" class="blocker-list"></div></div>
+      <section id="panel-current" class="workspace-panel current-panel" role="tabpanel" aria-labelledby="nav-current">
+        <div class="current-grid">
+          <section class="goal-section" aria-labelledby="goals-title">
+            <div class="section-heading"><h2 id="goals-title">지금 향하는 곳</h2><span id="plan-status" class="plan-status none">계획 확인 중</span></div>
+            <div id="goals" class="goal-grid"></div><div id="plan-detail" class="plan-detail"></div>
+          </section>
+          <section class="people-section" aria-labelledby="people-title">
+            <div class="section-heading"><h2 id="people-title">두 사람의 다음 행동</h2><span class="caption">기록되지 않은 활동은 추정하지 않습니다.</span></div>
+            <div id="participants" class="people-grid"></div>
+          </section>
+          <section class="attention-section" aria-labelledby="attention-title">
+            <div class="section-heading"><h2 id="attention-title">지금 확인할 일</h2><span id="attention-count" class="plain-count"></span></div>
+            <div id="attention-list" class="attention-list"></div>
+          </section>
+          <aside id="delivery-panel" class="delivery-panel"><div><span>원격 전송</span><strong id="delivery-copy">확인 중</strong></div><div><span>상대 확인</span><strong>요청 상태에서 확인</strong></div><p id="sync-message"></p></aside>
         </div>
       </section>
 
-      <section aria-labelledby="wiki-title">
-        <div class="section-heading">
-          <div><p class="eyebrow">SHARED WIKI</p><h2 id="wiki-title">공유 위키 탐색</h2></div>
-          <span id="wiki-count" class="count"></span>
+      <section id="panel-requests" class="workspace-panel" role="tabpanel" aria-labelledby="nav-requests" hidden>
+        <div class="panel-heading"><div><h2>요청</h2><p id="ticket-context"></p></div><span id="ticket-count" class="plain-count"></span></div>
+        <div class="ticket-toolbar">
+          <div class="tabs" role="tablist" aria-label="요청 보기"><button id="inbox-tab" class="tab active" type="button" role="tab" aria-selected="true">요청함</button><button id="history-tab" class="tab" type="button" role="tab" aria-selected="false">처리 이력</button></div>
+          <label class="search"><span>검색</span><input id="ticket-search" type="search" placeholder="제목, 내용, 목표, 근거"></label>
+          <label><span>상태</span><select id="status-filter"><option value="">전체</option></select></label>
+          <label><span>종류</span><select id="kind-filter"><option value="">전체</option><option value="information">정보 보충</option><option value="feedback">직접 피드백</option></select></label>
+          <label><span>상대</span><select id="peer-filter"><option value="">전체</option></select></label>
         </div>
-        <p class="wiki-disclaimer">공유 저장소의 위키 UUID 기록만 읽습니다. 기록된 컨텍스트 차이와 계보는 원인이나 성과를 증명하지 않습니다.</p>
+        <div class="split-workspace request-workspace"><div id="tickets" class="ticket-list" aria-label="요청 목록"></div><div id="ticket-detail-pane" class="detail-pane" aria-live="polite"></div></div>
+      </section>
+
+      <section id="panel-records" class="workspace-panel" role="tabpanel" aria-labelledby="nav-records" hidden>
+        <div class="panel-heading records-heading"><div><h2>기록된 작업</h2><p>기록 시각의 구간이며 실제 근무·집중 시간이나 생산성 평가가 아닙니다.</p></div><label class="period-control"><span>표시 기간</span><select id="session-period"><option value="7d">최근 7일</option><option value="30d" selected>최근 30일</option><option value="all">전체 기록</option></select></label></div>
+        <div class="records-workspace">
+          <aside class="records-summary"><h3>시간 요약</h3><div id="time-overview" class="time-overview"></div><h3>사람별 기록 구간</h3><div id="participant-time" class="metric-list"></div><h3>사람·범위별</h3><div id="scope-time" class="metric-list"></div><p class="caption">한 세션의 여러 범위와 겹친 세션은 서로 합산하지 않습니다.</p></aside>
+          <section class="records-column"><h3>최근 세션</h3><div id="session-records" class="session-list"></div></section>
+          <section class="records-column blockers-column"><h3>기록된 병목</h3><div id="blocker-list" class="blocker-list"></div></section>
+        </div>
+      </section>
+
+      <section id="panel-wiki" class="workspace-panel" role="tabpanel" aria-labelledby="nav-wiki" hidden>
+        <div class="panel-heading"><div><h2>공유 위키</h2><p>작업 안에서 공유된 근거와 연결된 기록을 탐색합니다.</p></div><span id="wiki-count" class="plain-count"></span></div>
         <div class="wiki-toolbar">
-          <div class="tabs" role="tablist" aria-label="공유 위키 보기">
-            <button id="wiki-all-tab" class="tab active" type="button" role="tab" aria-selected="true">전체 기록</button>
-            <button id="wiki-search-tab" class="tab" type="button" role="tab" aria-selected="false">검색 결과</button>
-            <button id="wiki-refinement-tab" class="tab" type="button" role="tab" aria-selected="false">일일 정제</button>
-          </div>
-          <form id="wiki-search-form" class="wiki-search-form">
-            <label class="search">검색 <input id="wiki-query" type="search" maxlength="500" placeholder="제목, 본문, 컨텍스트"></label>
-            <label>참여자 <input id="wiki-participant" type="text" maxlength="100" placeholder="전체"></label>
-            <label>상태 <select id="wiki-status"><option value="">전체</option><option value="personal">개인</option><option value="proposed">제안</option><option value="agreed">합의</option><option value="superseded">대체됨</option></select></label>
-            <label>종류 <select id="wiki-record-type"><option value="">전체</option><option value="source-note">소스 노트</option><option value="summary">요약</option></select></label>
-            <label class="check"><input id="wiki-include-superseded" type="checkbox" checked> 대체 기록 포함</label>
-            <button class="wiki-submit" type="submit">검색</button>
-          </form>
+          <div class="tabs" role="tablist" aria-label="공유 위키 보기"><button id="wiki-all-tab" class="tab active" type="button" role="tab" aria-selected="true">전체 기록</button><button id="wiki-search-tab" class="tab" type="button" role="tab" aria-selected="false">검색 결과</button><button id="wiki-refinement-tab" class="tab" type="button" role="tab" aria-selected="false">일일 정제</button></div>
+          <form id="wiki-search-form" class="wiki-search-form"><label class="search"><span>검색</span><input id="wiki-query" type="search" maxlength="500" placeholder="제목, 본문, 작업 맥락"></label><label><span>참여자</span><input id="wiki-participant" type="text" maxlength="100" placeholder="전체"></label><label><span>상태</span><select id="wiki-status"><option value="">전체</option><option value="personal">개인</option><option value="proposed">제안</option><option value="agreed">합의</option><option value="superseded">대체됨</option></select></label><label><span>종류</span><select id="wiki-record-type"><option value="">전체</option><option value="source-note">소스 노트</option><option value="summary">요약</option></select></label><label class="check"><input id="wiki-include-superseded" type="checkbox" checked> 대체 기록 포함</label><button class="wiki-submit" type="submit">검색</button></form>
         </div>
         <div id="wiki-state" class="wiki-state"></div>
-        <div id="wiki-records" class="wiki-list"></div>
-        <aside class="comparison-guide">
-          <strong>방법 비교는 CLI에서 명시적으로 실행</strong>
-          <code>duobrain method-compare --file comparison.json</code>
-          <p>브라우저에는 민감할 수 있는 artifact manifest를 넣지 않습니다. 아래 기록은 source-note의 promptRef/harnessRef 차이와 lineage만 읽기 전용으로 표시합니다.</p>
-          <div id="wiki-context-differences"></div>
-        </aside>
-      </section>
-
-      <section aria-labelledby="tickets-title">
-        <div class="section-heading">
-          <div><p class="eyebrow">ACTIVE REQUESTS</p><h2 id="tickets-title">진행 중 요청</h2></div>
-          <span id="ticket-count" class="count"></span>
-        </div>
-        <div class="ticket-toolbar">
-          <div class="tabs" role="tablist" aria-label="요청 보기">
-            <button id="inbox-tab" class="tab active" type="button" role="tab" aria-selected="true">요청함</button>
-            <button id="history-tab" class="tab" type="button" role="tab" aria-selected="false">처리 이력</button>
-          </div>
-          <label class="search">검색 <input id="ticket-search" type="search" placeholder="제목, 내용, 목표, 근거"></label>
-          <label>상태 <select id="status-filter"><option value="">전체</option></select></label>
-          <label>종류 <select id="kind-filter"><option value="">전체</option><option value="information">정보 보충</option><option value="feedback">직접 피드백</option></select></label>
-          <label>상대 <select id="peer-filter"><option value="">전체</option></select></label>
-        </div>
-        <p id="ticket-context" class="ticket-context"></p>
-        <div id="tickets" class="ticket-list"></div>
+        <div class="split-workspace wiki-workspace"><div id="wiki-records" class="wiki-list" aria-label="위키 기록 목록"></div><div class="wiki-detail-column"><div id="wiki-detail-pane" class="detail-pane" aria-live="polite"></div><details class="developer-details"><summary>개발자 정보</summary><p>방법 비교는 브라우저가 아닌 <code>duobrain method-compare --file comparison.json</code>에서 실행합니다.</p><div id="wiki-context-differences"></div></details></div></div>
       </section>
     </main>
     <footer>읽기 전용 · 기록된 사실만 표시</footer>
-  </body>
+  </div>
+</body>
 </html>
