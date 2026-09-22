@@ -27,6 +27,38 @@ locally in the isolated checkout, then attempt sync. A transport or push failure
 reported as `pending` with exit code 2; rerun `sync`. Validation or history conflicts
 are errors with exit code 1. No force push is used.
 
+### AI-led onboarding and local preferences
+
+`onboarding-inspect` works before initialization and returns repository clues, remote shared-state
+availability, any saved local checkpoint, and the next resumable stage. It never classifies a project as
+new or existing from commit count alone. The user's existing AI reads permitted plans, meeting notes,
+work lists, code and branch state, then saves its evidence-backed classification with
+`onboarding-save --file <json>`. Existing projects require at least one `{source, fact}` evidence item.
+
+The stages are `assess-project`, `initialize`, `profile`, `review-context`, `review-plan`,
+`review-role`, `sync`, and `ready`. Saved checkpoint fields merge on update, so the AI can continue after
+an interruption without duplicating initialized state or completed review. A second clone with a remote
+`duobrain/state` receives `suggestedMode: "join-existing"`; joining still requires that person's role
+review. See [`guides/duobrain-onboarding.md`](../../guides/duobrain-onboarding.md) for the complete AI
+procedure.
+If initialization created the isolated store but stopped before writing local identity, inspection returns
+`identityAvailable: false` and stage `initialize`; rerunning `init` with the established participant pair
+restores the local identity and resumes the flow.
+
+`account-detect` queries the authenticated GitHub CLI session through `gh api user`. An unavailable
+command or session returns `status: "unavailable"`; the engine does not inspect Git author identity or
+infer an account from the remote owner.
+
+`profile-set [--nickname <text>] [--github-login <login>]` appends a shared immutable profile revision for
+the local participant. The participant ID remains the ownership key, so nickname changes keep history
+attached to the same participant. A missing first nickname defaults to the GitHub login when supplied or
+the participant ID; a later nickname-only update retains the existing login. Snapshot `profiles` exposes
+current values and revision history.
+
+`dashboard-locale-set --locale <system|language-tag>` writes a local preference under the Git common
+directory. It is exposed as `snapshot.localPreferences.dashboardLocale`, defaults to `system`, and is
+never committed to `duobrain/state`. Dashboard language is not an onboarding gate.
+
 `goal`, `branch`, `baseCommit`, `blockers`, and `next` are recorded only when supplied;
 unknown snapshot goals remain `null`. Open sessions have `endedAt` and `elapsedMs` set
 to `null`; paused time is not presented as completed elapsed work. Only the session
@@ -178,7 +210,8 @@ const note = await getWikiNote({
 
 `repository` defaults to the current directory and may be any path inside the product
 Git worktree. The result matches the shared snapshot interface: `sample` is `false`,
-project goals are `null`, ticket records include their event `history`, and concurrent
+project goals are `null`, profiles include immutable nickname revisions, local preferences expose the
+dashboard language, ticket records include their event `history`, and concurrent
 entity histories are listed in `conflicts`. Session records include nullable `summary`,
 `branch`, and `baseCommit`; each session history entry includes its original `data` and
 `previous` link for handoff reconstruction. `getEngineStatus({repository})` additionally
