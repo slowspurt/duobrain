@@ -10,9 +10,11 @@ import {
   closeTicket,
   compareSharedMethods,
   createTicket,
+  detectGithubAccount,
   endSession,
   getEngineStatus,
   initSharedStore,
+  inspectOnboarding,
   listWikiNotes,
   pauseSession,
   prepareProductWorktree,
@@ -22,8 +24,11 @@ import {
   resolveTicket,
   respondToTicket,
   runDailyWikiRefinement,
+  saveOnboardingProgress,
   searchSharedWiki,
   setPlan,
+  setDashboardLocale,
+  setParticipantProfile,
   startSession,
   syncStore,
   traceSharedWiki,
@@ -33,7 +38,12 @@ import {
 const HELP = `duobrain — Git-backed collaboration records for exactly two people
 
 Usage:
+  duobrain onboarding-inspect [--repository <path>]
+  duobrain onboarding-save --file <json-path> [--repository <path>]
+  duobrain account-detect
   duobrain init --participants <id,id> --participant <id> [--repository <path>]
+  duobrain profile-set [--nickname <text>] [--github-login <login>] [--actor <human|ai>]
+  duobrain dashboard-locale-set --locale <system|language-tag>
   duobrain start --title <text> [--scope <path,path>] [--goal <text>]
                   [--branch <name>] [--base-commit <sha>] [--actor <human|ai>]
   duobrain pause --session <uuid> [--body <text>] [--actor <human|ai>]
@@ -68,7 +78,12 @@ start and end commit locally before attempting to sync. A failed push remains pe
 and can be retried with duobrain sync. Output is JSON.`;
 
 const COMMAND_HELP = {
+  'onboarding-inspect': 'Usage: duobrain onboarding-inspect [--repository <path>]',
+  'onboarding-save': 'Usage: duobrain onboarding-save --file <json-path> [--repository <path>]',
+  'account-detect': 'Usage: duobrain account-detect',
   init: 'Usage: duobrain init --participants <id,id> --participant <id> [--repository <path>]',
+  'profile-set': 'Usage: duobrain profile-set [--nickname <text>] [--github-login <login>] [--actor <human|ai>] [--repository <path>]',
+  'dashboard-locale-set': 'Usage: duobrain dashboard-locale-set --locale <system|language-tag> [--repository <path>]',
   start: 'Usage: duobrain start --title <text> [--scope <path,path>] [--goal <text>] [--branch <name>] [--base-commit <sha>] [--actor <human|ai>] [--repository <path>]',
   pause: 'Usage: duobrain pause --session <uuid> [--body <text>] [--actor <human|ai>] [--repository <path>]',
   resume: 'Usage: duobrain resume --session <uuid> [--body <text>] [--actor <human|ai>] [--repository <path>]',
@@ -143,11 +158,32 @@ async function main() {
   }
   const repository = options.repository ?? '.';
   let result;
-  if (command === 'init') {
+  if (command === 'onboarding-inspect') {
+    result = await inspectOnboarding({ repository });
+  } else if (command === 'onboarding-save') {
+    result = await saveOnboardingProgress({
+      repository,
+      progress: JSON.parse(await readFile(requireOption(options, 'file'), 'utf8')),
+    });
+  } else if (command === 'account-detect') {
+    result = await detectGithubAccount();
+  } else if (command === 'init') {
     result = await initSharedStore({
       repository,
       participants: list(requireOption(options, 'participants')),
       participant: requireOption(options, 'participant'),
+    });
+  } else if (command === 'profile-set') {
+    result = await setParticipantProfile({
+      repository,
+      nickname: options.nickname,
+      githubLogin: options['github-login'],
+      actorKind: options.actor ?? 'human',
+    });
+  } else if (command === 'dashboard-locale-set') {
+    result = await setDashboardLocale({
+      repository,
+      locale: requireOption(options, 'locale'),
     });
   } else if (command === 'start') {
     result = await startSession({

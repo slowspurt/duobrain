@@ -19,6 +19,17 @@ Code stays in its existing branch. Shared data lives on remote branch `duobrain/
 
 Every event has `schemaVersion: 1`, UUID `id`, ISO `at`, `actor: {participant, kind: "human" | "ai"}`, `entityId` (UUID), `type`, `previous` (preceding entity event UUID or null), and `data` (object). Ticket and session root types are `ticket.created` and `session.started`; plan history follows the extension contract. Other types append to an entity's history. Two events with the same `previous` create a conflict, not a last-writer-wins resolution; dashboard and CLI expose conflicts and block further mutation of that entity. Time is display data, never the authority for overwriting a decision.
 
+Participant display profiles use `profile.created` and `profile.updated`. Each participant owns one
+profile chain and can append only through their local identity. `data` contains a non-empty `nickname` and
+nullable `githubLogin`. The configured participant ID remains the immutable actor and ownership key; a
+nickname or GitHub login change updates the projected display profile without rewriting earlier events or
+creating a new participant. Same-predecessor updates and independent roots remain visible conflicts.
+
+Onboarding progress, authenticated-account discovery results and dashboard locale are local operational
+state under `<git-common-dir>/duobrain/`. They are not shared evidence or participant agreement. The
+dashboard locale defaults to `system`; changing it affects only that clone. Evidence-backed plans, profile
+events, sessions, tickets and wiki notes keep their existing shared-state rules.
+
 ## Ticket data
 
 - `ticket.created`: `{kind: "information" | "feedback", title, body, assignee, goal?}`. Assignee is the other participant. Initial status `open`.
