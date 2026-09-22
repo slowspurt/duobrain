@@ -3,6 +3,7 @@ import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { startDashboard } from '../../src/dashboard/index.js';
+import { resolveLocale, translator } from '../../src/dashboard/public/i18n.js';
 
 const fixtureUrl = new URL('../../examples/shared/snapshot.json', import.meta.url);
 
@@ -74,6 +75,9 @@ test('serves a static shell with a restrictive policy and no snapshot interpolat
   const model = await (await fetch(`${origin}/model.js`)).text();
   assert.match(model, /export function filterTickets/);
 
+  const i18n = await (await fetch(`${origin}/i18n.js`)).text();
+  assert.match(i18n, /resolveLocale/);
+
   const styles = await (await fetch(`${origin}/styles.css`)).text();
   assert.match(styles, /\[hidden\]\s*{\s*display:\s*none\s*!important;/);
   assert.match(styles, /body\s*{[^}]*overflow:\s*hidden;/);
@@ -81,6 +85,15 @@ test('serves a static shell with a restrictive policy and no snapshot interpolat
   assert.match(styles, /@media\s*\(max-width:900px\)/);
   assert.doesNotMatch(styles, /blockers-column\s*{\s*display:\s*none/);
   assert.doesNotMatch(styles, /overflow-x:\s*auto/);
+});
+
+test('chooses a browser locale with a reproducible query override', () => {
+  assert.equal(resolveLocale({ search: '?lang=en', languages: ['ko-KR'] }), 'en');
+  assert.equal(resolveLocale({ search: '?lang=ko', languages: ['en-US'] }), 'ko');
+  assert.equal(resolveLocale({ languages: ['ko-KR', 'en-US'] }), 'ko');
+  assert.equal(resolveLocale({ languages: ['fr-FR'] }), 'en');
+  assert.equal(translator('en')('requests'), 'Requests');
+  assert.equal(translator('ko')('requests'), '요청');
 });
 
 test('supports empty snapshots and validates startup arguments', async (t) => {

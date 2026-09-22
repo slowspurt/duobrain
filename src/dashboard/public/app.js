@@ -5,18 +5,22 @@ import {
   peerConfirmation,
   recordedContextDifferences,
   ticketEvidence,
-  ticketStatusLabels,
   wikiListRecords,
   wikiValidationPresentation,
 } from '/model.js';
+import { resolveLocale, translator } from '/i18n.js';
 
 const byId = (id) => document.getElementById(id);
+const locale = resolveLocale({ search: location.search, languages: navigator.languages });
+const t = translator(locale);
+document.documentElement.lang = locale;
+document.title = `duobrain ${t('dashboardTitle')}`;
 const labels = {
-  project: '전체 목표', mediumTerm: '중기 목표', currentPhase: '현 단계 목표',
-  active: '미종료 기록', paused: '일시 정지 기록', ended: '종료 기록',
-  information: '정보 보충', feedback: '직접 피드백',
-  synced: '동기화됨', pending: '공유 대기', error: '동기화 오류', unknown: '동기화 미확인',
-  ...ticketStatusLabels,
+  project: t('project'), mediumTerm: t('mediumTerm'), currentPhase: t('currentPhase'),
+  active: t('active'), paused: t('paused'), ended: t('ended'),
+  information: t('information'), feedback: t('feedback'),
+  synced: t('synced'), pending: t('pending'), error: t('error'), unknown: t('unknown'),
+  open: t('open'), acknowledged: t('acknowledged'), needs_information: t('needs_information'), answered: t('answered'), resolved: t('resolved'), closed: t('closed'),
 };
 
 const state = {
@@ -24,15 +28,15 @@ const state = {
   tab: 'inbox', query: '', status: '', kind: '', peer: '', period: '30d',
   wikiTab: 'all', wikiRecords: [], wikiSearchResults: [], wikiIssues: [],
   section: 'current', selectedTicketId: null, selectedWikiPath: null, assignments: [],
-  compactViews: { requests: 'list', records: 'work', wiki: 'list' },
+  compactViews: { requests: 'list', records: 'work', wiki: 'list' }, locale,
 };
-const text = (value, fallback = '미확인') => typeof value === 'string' && value.trim() ? value : fallback;
+const text = (value, fallback = locale === 'ko' ? '미확인' : 'Unknown') => typeof value === 'string' && value.trim() ? value : fallback;
 const participantLabel = (value) => {
   if (!state.sample) return text(value);
   const index = state.participants.indexOf(value);
   return index >= 0 && index < 26 ? String.fromCharCode(65 + index) : text(value);
 };
-const displayCopy = (value, fallback = '미확인') => {
+const displayCopy = (value, fallback = locale === 'ko' ? '미확인' : 'Unknown') => {
   let result = text(value, fallback);
   if (!state.sample) return result;
   state.participants.forEach((participant, index) => {
@@ -50,6 +54,54 @@ function element(tag, className, value) {
   return node;
 }
 const empty = (message) => element('p', 'empty', message);
+
+function applyStaticUi() {
+  byId('brand-home').setAttribute('aria-label', t('brandHome'));
+  byId('source-badge').textContent = t('source');
+  byId('sync-badge').textContent = t('syncing');
+  byId('nav-current').textContent = t('current');
+  byId('nav-requests').firstChild.textContent = t('requests') + ' ';
+  byId('nav-records').textContent = t('records');
+  byId('nav-wiki').textContent = t('wiki');
+  byId('retry').textContent = t('retry');
+  byId('goals-title').textContent = t('goals');
+  byId('people-title').textContent = t('people');
+  byId('attention-title').textContent = t('attention');
+  byId('inbox-tab').textContent = t('inbox');
+  byId('history-tab').textContent = t('history');
+  byId('ticket-search').placeholder = t('searchTickets');
+  byId('wiki-query').placeholder = t('searchWiki');
+  byId('wiki-participant').placeholder = t('all');
+  document.querySelector('.wiki-submit').textContent = t('submitSearch');
+  document.querySelector('.brand-lockup h1').textContent = t('dashboardTitle');
+  document.querySelector('.brand-lockup p').textContent = t('dashboardDescription');
+  document.querySelector('#sample-banner strong').textContent = t('sample');
+  document.querySelector('#sample-banner span').textContent = t('sampleDescription');
+  document.querySelector('#error-panel strong').textContent = t('loadFailed');
+  document.querySelector('#error-panel span').textContent = t('loadFailed');
+  document.querySelector('.people-section .caption').textContent = t('noInference');
+  document.querySelector('.panel-heading h2').textContent = t('requests');
+  document.querySelector('.records-heading h2').textContent = t('recordedWork');
+  document.querySelector('.records-heading p').textContent = t('recordsDescription');
+  document.querySelector('.records-heading label span').textContent = t('period');
+  const wikiPanel = byId('panel-wiki');
+  wikiPanel.querySelector('.panel-heading h2').textContent = t('wikiTitle');
+  wikiPanel.querySelector('.panel-heading p').textContent = t('wikiDescription');
+  document.querySelector('.delivery-panel span').textContent = t('delivery');
+  document.querySelector('.delivery-panel div:nth-child(2) span').textContent = t('peer');
+  document.querySelector('.delivery-panel div:nth-child(2) strong').textContent = t('peerHint');
+  for (const option of byId('session-period').options) option.textContent = t(option.value === '7d' ? 'days7' : option.value === '30d' ? 'days30' : 'allRecords');
+  for (const select of [byId('kind-filter'), byId('wiki-status'), byId('wiki-record-type')]) {
+    for (const option of select.options) {
+      const key = option.value === 'source-note' ? 'sourceNote' : option.value || 'all';
+      option.textContent = t(key);
+    }
+  }
+  for (const button of document.querySelectorAll('[data-compact-group="requests"], [data-compact-group="wiki"]')) {
+    button.textContent = t(button.dataset.compactView === 'list' ? 'list' : button.dataset.compactView === 'detail' ? 'detail' : 'filters');
+  }
+  for (const button of document.querySelectorAll('[data-compact-group="records"]')) button.textContent = t(button.dataset.compactView);
+}
 
 function appendEvidenceButtons(container, evidence) {
   for (const path of evidence) {
@@ -124,10 +176,10 @@ function renderGoals(goals = {}, snapshot = {}) {
   detail.append(explorer);
 }
 
-function formatDate(value, fallback = '시각 미확인') {
+function formatDate(value, fallback = locale === 'ko' ? '시각 미확인' : 'Time unknown') {
   const timestamp = Date.parse(value);
   return Number.isFinite(timestamp)
-    ? new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }).format(timestamp)
+    ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(timestamp)
     : fallback;
 }
 
@@ -662,6 +714,7 @@ byId('wiki-all-tab').addEventListener('click', () => selectWikiTab('all'));
 byId('wiki-search-tab').addEventListener('click', () => selectWikiTab('search'));
 byId('wiki-refinement-tab').addEventListener('click', () => selectWikiTab('refinement'));
 byId('wiki-search-form').addEventListener('submit', searchWiki);
+applyStaticUi();
 const initialSection = location.hash.slice(1);
 if (['current', 'requests', 'records', 'wiki'].includes(initialSection)) selectSection(initialSection);
 for (const [group, view] of Object.entries(state.compactViews)) selectCompactView(group, view);

@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 const assets = new Map([
   ['/', ['text/html; charset=utf-8', new URL('./public/index.html', import.meta.url)]],
   ['/app.js', ['text/javascript; charset=utf-8', new URL('./public/app.js', import.meta.url)]],
+  ['/i18n.js', ['text/javascript; charset=utf-8', new URL('./public/i18n.js', import.meta.url)]],
   ['/model.js', ['text/javascript; charset=utf-8', new URL('./public/model.js', import.meta.url)]],
   ['/styles.css', ['text/css; charset=utf-8', new URL('./public/styles.css', import.meta.url)]],
 ]);
