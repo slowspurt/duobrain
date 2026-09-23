@@ -36,7 +36,7 @@ The dashboard is read-only and binds to `127.0.0.1`. It reads locally synchroniz
 
 ## Remaining release and user acceptance work
 
-1. Choose an explicit license before describing this as a licensed open-source release. No license has been selected, npm package published, or release deployment performed. `package.json` remains private to prevent accidental registry publication; Git checkout execution is available.
+1. MIT is selected and v0.1.0 release metadata, notes, and draft-release automation are prepared. Publication and hosted CI results must be verified separately. `package.json` remains private; distribution uses GitHub source archives and Git checkout. See [release procedure](releases/README.md).
 2. On two actual machines, each person connects their product clone and existing AI using the [AI onboarding entry](../guides/duobrain-onboarding.md). Verify a missing-plan intake, a shared plan and start briefing, an information request answered on the peer's next AI invocation, human feedback, profile display and dashboard history after sync.
 3. On the designated participant's machine, configure the desired external daily schedule and confirm a real invocation and log. Development validated the runner using controlled timestamps; it did not install a scheduler on either person's behalf.
 

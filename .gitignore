@@ -3,3 +3,6 @@
 
 # Internal planning repository (managed separately)
 /.private/
+
+# Generated release archives
+/dist/

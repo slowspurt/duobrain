@@ -236,7 +236,7 @@ The local alpha has passed **87 tests**, including onboarding and two-clone coll
 
 Try a small shared project and [tell us what happened](https://github.com/slowspurt/duobrain/issues): what you asked, what you expected and where the handoff fell short. Include a shareable example.
 
-**License:** selection is pending. This is not yet a licensed open-source release.
+**License:** [MIT](LICENSE). See the [v0.1.0 release notes](docs/releases/v0.1.0.md) for distribution and current limits.
 
 ---
 

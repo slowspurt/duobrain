@@ -1,10 +1,19 @@
 {
   "name": "duobrain",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0",
   "private": true,
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/slowspurt/duobrain.git" },
+  "bugs": { "url": "https://github.com/slowspurt/duobrain/issues" },
+  "homepage": "https://github.com/slowspurt/duobrain#readme",
   "description": "Git-backed collaboration records and tickets for two people and their AI agents",
   "type": "module",
   "bin": { "duobrain": "bin/duobrain.js" },
-  "scripts": { "test": "node --test", "start": "node bin/duobrain.js" },
+  "scripts": {
+    "test": "node --test test/engine/*.test.js test/wiki/*.test.js test/dashboard/*.test.js",
+    "test:scenarios": "node examples/scenarios/verify-concurrent-flow.mjs && node examples/scenarios/verify-plan-refinement-flow.mjs && node examples/scenarios/verify-method-refinement-schedule-flow.mjs",
+    "release:check": "node scripts/check-release.mjs",
+    "start": "node bin/duobrain.js"
+  },
   "engines": { "node": ">=22" }
 }

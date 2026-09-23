@@ -38,6 +38,7 @@ import {
 const HELP = `duobrain — Git-backed collaboration records for exactly two people
 
 Usage:
+  duobrain --version
   duobrain onboarding-inspect [--repository <path>]
   duobrain onboarding-save --file <json-path> [--repository <path>]
   duobrain account-detect
@@ -146,6 +147,11 @@ function output(value) {
 
 async function main() {
   const [command, ...tokens] = process.argv.slice(2);
+  if (command === '--version' || command === '-v') {
+    const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+    process.stdout.write(`${version}\n`);
+    return;
+  }
   if (!command || command === '--help' || command === '-h') {
     process.stdout.write(`${HELP}\n`);
     return;

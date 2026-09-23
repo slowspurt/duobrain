@@ -1,0 +1,6 @@
+# Keep source bundles focused on the runnable product and public documentation.
+.github export-ignore
+docs/submission export-ignore
+docs/scenario-research export-ignore
+docs/championship-coordination.md export-ignore
+docs/work-assignments.md export-ignore
