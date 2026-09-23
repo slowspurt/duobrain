@@ -4,6 +4,5 @@
 # Internal planning repository (managed separately)
 /.private/
 
-# Generated release archives and local receiver credentials/evidence
+# Generated release archives
 /dist/
-/.oaap/private/
