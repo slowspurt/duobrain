@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 const assets = new Map([
   ['/', ['text/html; charset=utf-8', new URL('./public/index.html', import.meta.url)]],
   ['/app.js', ['text/javascript; charset=utf-8', new URL('./public/app.js', import.meta.url)]],
+  ['/i18n.js', ['text/javascript; charset=utf-8', new URL('./public/i18n.js', import.meta.url)]],
   ['/model.js', ['text/javascript; charset=utf-8', new URL('./public/model.js', import.meta.url)]],
   ['/styles.css', ['text/css; charset=utf-8', new URL('./public/styles.css', import.meta.url)]],
 ]);
@@ -32,28 +33,28 @@ function send(response, status, contentType, body, method = 'GET') {
 
 function wikiErrorResponse(error) {
   if (error?.code === 'INVALID_WIKI_PATH') {
-    return [400, { error: 'invalid_wiki_path', message: '올바른 위키 근거 경로가 아닙니다.' }];
+    return [400, { error: 'invalid_wiki_path', message: 'Invalid wiki evidence path.' }];
   }
   if (error?.code === 'WIKI_NOTE_NOT_FOUND') {
-    return [404, { error: 'wiki_note_not_found', message: '근거 노트를 찾을 수 없습니다.' }];
+    return [404, { error: 'wiki_note_not_found', message: 'Evidence note not found.' }];
   }
   if (error?.code === 'WIKI_NOTE_TOO_LARGE') {
-    return [413, { error: 'wiki_note_too_large', message: '근거 노트가 표시 가능한 크기를 초과했습니다.' }];
+    return [413, { error: 'wiki_note_too_large', message: 'Evidence note is too large to display.' }];
   }
-  return [503, { error: 'wiki_note_unavailable', message: '근거 노트를 불러오지 못했습니다.' }];
+  return [503, { error: 'wiki_note_unavailable', message: 'Could not load the evidence note.' }];
 }
 
 function wikiToolUnavailable(response, method) {
   send(response, 503, 'application/json; charset=utf-8', JSON.stringify({
     error: 'wiki_tools_unavailable',
-    message: '공유 위키 탐색 기능을 사용할 수 없습니다.',
+    message: 'Shared wiki tools are unavailable.',
   }), method);
 }
 
 function wikiToolFailure(response, method) {
   send(response, 503, 'application/json; charset=utf-8', JSON.stringify({
     error: 'wiki_tools_unavailable',
-    message: '공유 위키 기록을 불러오지 못했습니다.',
+    message: 'Could not load shared wiki records.',
   }), method);
 }
 
@@ -99,7 +100,8 @@ export function startDashboard({
 
     if (pathname === '/api/snapshot') {
       try {
-        const snapshot = await getSnapshot();
+        const lang = requestUrl.searchParams.get('lang');
+        const snapshot = await getSnapshot({ locale: lang === 'ko' ? 'ko' : 'en' });
         if (snapshot === null || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
           throw new TypeError('snapshot must be an object');
         }
@@ -109,7 +111,7 @@ export function startDashboard({
           response,
           503,
           'application/json; charset=utf-8',
-          JSON.stringify({ error: 'snapshot_unavailable', message: '기록을 불러오지 못했습니다.' }),
+          JSON.stringify({ error: 'snapshot_unavailable', message: 'Could not load the record.' }),
           method,
         );
       }
@@ -176,31 +178,31 @@ export function startDashboard({
       const params = requestUrl.searchParams;
       const queries = params.getAll('q');
       if (queries.length > 1 || (queries[0]?.length ?? 0) > maxWikiQueryLength) {
-        return badWikiRequest(response, method, '검색어는 하나이며 500자 이하여야 합니다.');
+        return badWikiRequest(response, method, 'Provide one search query of at most 500 characters.');
       }
       const filters = {};
       for (const key of ['participant', 'status', 'recordType', 'includeSuperseded']) {
-        if (params.getAll(key).length > 1) return badWikiRequest(response, method, '필터는 항목별로 하나만 지정할 수 있습니다.');
+        if (params.getAll(key).length > 1) return badWikiRequest(response, method, 'Each filter can be given only once.');
       }
       const participant = params.get('participant');
       const status = params.get('status');
       const recordType = params.get('recordType');
       const includeSuperseded = params.get('includeSuperseded');
       if (participant !== null) {
-        if (!participant.trim() || participant.length > 100) return badWikiRequest(response, method, '참여자 필터가 올바르지 않습니다.');
+        if (!participant.trim() || participant.length > 100) return badWikiRequest(response, method, 'Invalid participant filter.');
         filters.participant = participant;
       }
       if (status !== null) {
-        if (!wikiStatuses.has(status)) return badWikiRequest(response, method, '상태 필터가 올바르지 않습니다.');
+        if (!wikiStatuses.has(status)) return badWikiRequest(response, method, 'Invalid status filter.');
         filters.status = status;
       }
       if (recordType !== null) {
-        if (!wikiRecordTypes.has(recordType)) return badWikiRequest(response, method, '기록 종류 필터가 올바르지 않습니다.');
+        if (!wikiRecordTypes.has(recordType)) return badWikiRequest(response, method, 'Invalid record type filter.');
         filters.recordType = recordType;
       }
       if (includeSuperseded !== null) {
         if (includeSuperseded !== 'true' && includeSuperseded !== 'false') {
-          return badWikiRequest(response, method, '대체된 기록 포함 필터가 올바르지 않습니다.');
+          return badWikiRequest(response, method, 'Invalid includeSuperseded filter.');
         }
         filters.includeSuperseded = includeSuperseded === 'true';
       }
@@ -220,7 +222,7 @@ export function startDashboard({
       if (typeof traceSharedWiki !== 'function') return wikiToolUnavailable(response, method);
       const roots = requestUrl.searchParams.getAll('root');
       if (roots.length === 0 || roots.length > 20 || roots.some((root) => !wikiPathPattern.test(root))) {
-        return badWikiRequest(response, method, '1~20개의 올바른 위키 루트 경로가 필요합니다.');
+        return badWikiRequest(response, method, 'Provide 1 to 20 valid wiki root paths.');
       }
       try {
         const result = await traceSharedWiki({ roots });

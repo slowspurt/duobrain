@@ -1,14 +1,5 @@
 export const terminalTicketStatuses = new Set(['resolved', 'closed']);
 
-export const ticketStatusLabels = {
-  open: '미확인',
-  acknowledged: '읽음',
-  needs_information: '추가 정보 필요',
-  answered: '응답 도착',
-  resolved: '요청자가 해결 확인',
-  closed: '해결 없이 종료',
-};
-
 export function ticketEvidence(ticket) {
   const paths = Array.isArray(ticket?.evidence) ? ticket.evidence : [];
   const historyPaths = (Array.isArray(ticket?.history) ? ticket.history : [])
@@ -16,22 +7,23 @@ export function ticketEvidence(ticket) {
   return [...new Set([...paths, ...historyPaths].filter((path) => typeof path === 'string' && path.trim()))];
 }
 
+// Returns a locale-neutral code; the UI translates it with the `peer.<code>` key.
 export function peerConfirmation(status) {
-  if (status === 'open') return '상대 확인 안 됨';
-  if (status === 'acknowledged') return '상대 확인됨 · 답변 전';
-  if (status === 'needs_information') return '상대 확인됨 · 추가 정보 요청';
-  if (status === 'answered') return '응답 도착 · 해결 확인 전';
-  if (status === 'resolved') return '응답과 해결 확인 완료';
-  if (status === 'closed') return '해결되지 않고 종료';
-  return '상대 확인 상태 미확인';
+  if (status === 'open') return 'unseen';
+  if (status === 'acknowledged') return 'seen_unanswered';
+  if (status === 'needs_information') return 'seen_needs_information';
+  if (status === 'answered') return 'answered_unresolved';
+  if (status === 'resolved') return 'resolved';
+  if (status === 'closed') return 'closed_unresolved';
+  return 'unknown';
 }
 
 export function wikiValidationPresentation(validation) {
   const errors = Array.isArray(validation?.errors) ? validation.errors : [];
   const warnings = Array.isArray(validation?.warnings) ? validation.warnings : [];
-  if (validation?.valid !== true) return { kind: 'failure', title: '검증 실패', issues: errors };
-  if (warnings.length) return { kind: 'warning', title: '검증 경고', issues: warnings };
-  return { kind: 'valid', title: '검증 통과', issues: [] };
+  if (validation?.valid !== true) return { kind: 'failure', title: 'validationFailed', issues: errors };
+  if (warnings.length) return { kind: 'warning', title: 'validationWarning', issues: warnings };
+  return { kind: 'valid', title: 'validated', issues: [] };
 }
 
 export function wikiListRecords(notes) {
@@ -81,6 +73,14 @@ export function recordedContextDifferences(records) {
     promptDiffers: promptRefs.length > 1,
     harnessDiffers: harnessRefs.length > 1,
   };
+}
+
+// Who the still-open ticket is waiting on: the assignee must answer, the requester must add
+// information or confirm an answer. Finished or unknown tickets wait on nobody.
+export function ticketTurn(ticket) {
+  if (ticket?.status === 'open' || ticket?.status === 'acknowledged') return ticket.assignee ?? null;
+  if (ticket?.status === 'needs_information' || ticket?.status === 'answered') return ticket.requester ?? null;
+  return null;
 }
 
 export function filterTickets(tickets, { tab = 'inbox', query = '', status = '', kind = '', peer = '' } = {}) {
@@ -159,14 +159,14 @@ function sessionIntervals(session, conflicted, from, to) {
   const startedAt = timestamp(session?.startedAt);
   const endedAt = timestamp(session?.endedAt);
   const wall = startedAt === null || endedAt === null ? null : [startedAt, endedAt];
-  if (conflicted) return { status: 'unknown', reason: '기록 충돌', wall: null, active: null };
-  if (session?.status !== 'ended' || endedAt === null) return { status: 'unknown', reason: '종료 미확인', wall: null, active: null };
-  if (startedAt === null || endedAt < startedAt) return { status: 'unknown', reason: '시간 순서 오류', wall: null, active: null };
+  if (conflicted) return { status: 'unknown', reason: 'conflict', wall: null, active: null };
+  if (session?.status !== 'ended' || endedAt === null) return { status: 'unknown', reason: 'not_ended', wall: null, active: null };
+  if (startedAt === null || endedAt < startedAt) return { status: 'unknown', reason: 'time_order', wall: null, active: null };
 
   const history = Array.isArray(session.history) ? session.history : [];
   if (!history.length) {
     const clippedWall = clipped(wall, from, to);
-    return { status: 'partial', reason: '활동 구간 이력 없음', wall: clippedWall, active: null };
+    return { status: 'partial', reason: 'no_activity_history', wall: clippedWall, active: null };
   }
 
   let lifecycle = null;
@@ -184,10 +184,10 @@ function sessionIntervals(session, conflicted, from, to) {
   };
   for (const event of history) {
     const at = timestamp(event?.at);
-    if (at === null || (priorAt !== null && at < priorAt)) return { status: 'unknown', reason: '시간 순서 오류', wall: null, active: null };
-    if (event?.previous != null && event.previous !== priorId) return { status: 'unknown', reason: '이력 연결 오류', wall: null, active: null };
+    if (at === null || (priorAt !== null && at < priorAt)) return { status: 'unknown', reason: 'time_order', wall: null, active: null };
+    if (event?.previous != null && event.previous !== priorId) return { status: 'unknown', reason: 'history_link', wall: null, active: null };
     if (event?.type === 'session.started' && lifecycle === null) {
-      if (at !== startedAt) return { status: 'unknown', reason: '시작 시각 불일치', wall: null, active: null };
+      if (at !== startedAt) return { status: 'unknown', reason: 'start_mismatch', wall: null, active: null };
       lifecycle = 'active';
       activeStart = at;
       activeScopes = Array.isArray(event?.data?.scope) ? [...event.data.scope] : null;
@@ -199,7 +199,7 @@ function sessionIntervals(session, conflicted, from, to) {
       lifecycle = 'active';
       activeStart = at;
     } else if (event?.type === 'session.scope_updated' && (lifecycle === 'active' || lifecycle === 'paused')) {
-      if (!Array.isArray(event?.data?.scope)) return { status: 'unknown', reason: '범위 이력 오류', wall: null, active: null, scopedActive: null };
+      if (!Array.isArray(event?.data?.scope)) return { status: 'unknown', reason: 'scope_history', wall: null, active: null, scopedActive: null };
       if (lifecycle === 'active') {
         recordActive(at);
         activeStart = at;
@@ -210,12 +210,12 @@ function sessionIntervals(session, conflicted, from, to) {
       lifecycle = 'ended';
       recordedEnd = at;
     } else {
-      return { status: 'unknown', reason: '이력 순서 오류', wall: null, active: null };
+      return { status: 'unknown', reason: 'history_order', wall: null, active: null };
     }
     priorAt = at;
     priorId = event?.id ?? null;
   }
-  if (lifecycle !== 'ended' || recordedEnd !== endedAt) return { status: 'unknown', reason: '종료 시각 불일치', wall: null, active: null };
+  if (lifecycle !== 'ended' || recordedEnd !== endedAt) return { status: 'unknown', reason: 'end_mismatch', wall: null, active: null };
   const clippedWall = clipped(wall, from, to);
   const clippedActive = active.map((interval) => clipped(interval, from, to)).filter(Boolean);
   const clippedScopedActive = scopedActive
@@ -306,7 +306,6 @@ export function planPresentation(snapshot = {}) {
   if (plan && typeof plan === 'object') {
     return {
       state: plan.status === 'agreed' ? 'agreed' : 'proposed',
-      label: plan.status === 'agreed' ? '공동 합의' : '제안',
       plan,
       conflicts: [],
     };
@@ -325,6 +324,6 @@ export function planPresentation(snapshot = {}) {
         && !/(session|ticket|requester clarification)/i.test(conflict?.message ?? '')
       ),
   );
-  if (planConflicts.length) return { state: 'conflict', label: '충돌', plan: null, conflicts: planConflicts };
-  return { state: 'none', label: '계획 없음', plan: null, conflicts: [] };
+  if (planConflicts.length) return { state: 'conflict', plan: null, conflicts: planConflicts };
+  return { state: 'none', plan: null, conflicts: [] };
 }
