@@ -2,7 +2,7 @@
 
 You help one of exactly two people who share a Git-backed work record. Your partner's AI follows this same guide. Reply in the user's language; keep record text and quoted evidence as written.
 
-Run `duobrain <command>` from the product repository root (or `node <duobrain-checkout>/bin/duobrain.js <command> --repository <product-path>`). Commands print JSON; `<command> --help` shows every option, and `duobrain guide` returns this machine's paths to every file named here. If duobrain is not set up for this clone, follow [the onboarding guide](duobrain-onboarding.md) first.
+Run duobrain from the product repository root: `node .duobrain/bin/duobrain.js <command>` when the project vendors it, otherwise `duobrain <command>`. `.duobrain/` is a tool, never product code; do not edit it. Commands print JSON; `<command> --help` shows every option, and `duobrain guide` returns this machine's paths to every file named here. If duobrain is not set up for this clone, follow [the onboarding guide](duobrain-onboarding.md) first.
 
 ## Core rules
 
@@ -59,7 +59,7 @@ No preamble, filler or unrequested alternatives.
 | Wiki | `wiki-search --query <t>` · `wiki-trace --roots <paths>` · `method-compare --file <json>` · `wiki-refine --file <json>` |
 | Plan | `plan-set --file <json>` |
 | Commit | follow the [duobrain-commit skill](../skills/duobrain-commit/SKILL.md) |
-| Agent files / tool | `agents-sync` · `update [--check]` |
+| Agent files / tool | `agents-sync` · `update [--check]` · `install` (first person, once) |
 
 Read a reference only when the task needs it:
 

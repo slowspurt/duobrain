@@ -45,8 +45,11 @@ import {
   TOOL_ROOT,
   guidePaths,
   hasAgentsBlock,
+  installVendored,
+  isVendored,
   syncAgentFiles,
   updateTool,
+  updateVendored,
 } from '../src/tool/index.js';
 
 const execFileAsync = promisify(execFile);
@@ -56,12 +59,13 @@ const HELP = `duobrain — Git-backed collaboration records for exactly two peop
 Usage:
   duobrain --version
   duobrain guide
-  duobrain update [--check] [--repository <path>]
+  duobrain install [--repository <path>]
+  duobrain update [--check] [--ref <vX.Y.Z>] [--repository <path>]
   duobrain agents-sync [--dry-run] [--repository <path>]
   duobrain onboarding-inspect [--repository <path>]
   duobrain onboarding-save --file <json-path> [--repository <path>]
   duobrain account-detect
-  duobrain init --participants <id,id> --participant <id> [--no-agents] [--repository <path>]
+  duobrain init --participant <id> [--participants <id,id>] [--no-agents] [--repository <path>]
   duobrain profile-set [--nickname <text>] [--github-login <login>] [--actor <human|ai>]
   duobrain dashboard-locale-set --locale <system|language-tag>
   duobrain start --title <text> [--scope <path,path>] [--goal <text>]
@@ -106,9 +110,10 @@ const COMMAND_HELP = {
   'onboarding-save': 'Usage: duobrain onboarding-save --file <json-path> [--repository <path>]',
   'account-detect': 'Usage: duobrain account-detect',
   guide: 'Usage: duobrain guide',
-  update: 'Usage: duobrain update [--check] [--repository <path>]',
+  install: 'Usage: duobrain install [--repository <path>] (copies duobrain into <product>/.duobrain and writes the agent files)',
+  update: 'Usage: duobrain update [--check] [--ref <vX.Y.Z>] [--repository <path>]',
   'agents-sync': 'Usage: duobrain agents-sync [--dry-run] [--repository <path>]',
-  init: 'Usage: duobrain init --participants <id,id> --participant <id> [--no-agents] [--repository <path>]',
+  init: 'Usage: duobrain init --participant <id> [--participants <id,id>] [--no-agents] [--repository <path>] (the first person passes --participants; a joining person may omit it)',
   'profile-set': 'Usage: duobrain profile-set [--nickname <text>] [--github-login <login>] [--actor <human|ai>] [--repository <path>]',
   'dashboard-locale-set': 'Usage: duobrain dashboard-locale-set --locale <system|language-tag> [--repository <path>]',
   start: 'Usage: duobrain start --title <text> [--scope <path,path>] [--goal <text>] [--branch <name>] [--base-commit <sha>] [--actor <human|ai>] [--repository <path>]',
@@ -201,6 +206,26 @@ async function main() {
     result = await guidePaths();
   } else if (command === 'agents-sync') {
     result = await syncAgentFiles({ productRoot: await productRoot(repository), dryRun: options['dry-run'] === true });
+  } else if (command === 'install') {
+    const root = await productRoot(repository);
+    const installed = await installVendored({ productRoot: root });
+    // Write the agent files with the code that was just copied into the product.
+    const { stdout } = await execFileAsync(
+      process.execPath,
+      [path.join(installed.path, 'bin', 'duobrain.js'), 'agents-sync', '--repository', root],
+      { encoding: 'utf8' },
+    );
+    result = { ...installed, agents: JSON.parse(stdout) };
+  } else if (command === 'update' && await isVendored(TOOL_ROOT)) {
+    result = await updateVendored({ vendorRoot: TOOL_ROOT, check: options.check === true, ref: options.ref });
+    if (result.updated) {
+      const { stdout } = await execFileAsync(
+        process.execPath,
+        [path.join(TOOL_ROOT, 'bin', 'duobrain.js'), 'agents-sync', '--repository', path.dirname(TOOL_ROOT)],
+        { encoding: 'utf8' },
+      );
+      result = { ...result, agents: JSON.parse(stdout) };
+    }
   } else if (command === 'update') {
     result = await updateTool({ check: options.check === true });
     const root = await productRoot(repository).catch(() => null);
@@ -225,7 +250,7 @@ async function main() {
   } else if (command === 'init') {
     result = await initSharedStore({
       repository,
-      participants: list(requireOption(options, 'participants')),
+      participants: options.participants === undefined ? undefined : list(options.participants),
       participant: requireOption(options, 'participant'),
     });
     if (!options['no-agents']) {

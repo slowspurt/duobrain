@@ -7,7 +7,7 @@ description: Commit staged work in a duobrain project and record how and why it 
 
 Every commit leaves a work record for the partner's AI: the method, the requests, the decisions and their reasons, failed attempts, and verification. A cheap subagent writes the record from the conversation, so you only have to stage the work.
 
-Run every command from the product repository. `duobrain guide` returns the paths used below; if `duobrain` is not on PATH, use `node <checkout>/bin/duobrain.js`.
+Run every command from the product repository. In a vendored project, `duobrain` below means `node .duobrain/bin/duobrain.js`.
 
 ## Steps
 
