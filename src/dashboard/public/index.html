@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>duobrain dashboard</title>
+  <title>duobrain Dashboard</title>
   <link rel="stylesheet" href="/styles.css">
   <script type="module" src="/app.js"></script>
 </head>
@@ -12,73 +12,79 @@
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <button id="brand-home" class="wordmark" type="button" aria-label="duobrain current view"><span>duo</span>brain</button>
-        <div><h1>Collaboration dashboard</h1><p>Review the work record and decision evidence for two people.</p></div>
+        <button id="brand-home" class="wordmark" type="button" aria-label="duobrain current view" data-i18n-aria-label="brandHome"><span>duo</span>brain</button>
+        <div><h1 data-i18n="dashboardTitle">Dashboard</h1></div>
       </div>
-      <div class="source-state"><span id="source-badge" hidden>Live engine record</span><span id="sync-badge" class="status unknown">Checking sync</span></div>
+      <div class="source-state">
+        <span id="source-badge" hidden data-i18n="source">Live record</span>
+        <span id="sync-badge" class="status unknown" data-i18n="syncUnknown">Sync unknown</span>
+        <div class="language-switch" role="group" aria-label="Language" data-i18n-aria-label="language">
+          <button type="button" data-locale="en" lang="en">EN</button><button type="button" data-locale="ko" lang="ko">한국어</button>
+        </div>
+      </div>
     </header>
 
-    <nav class="app-nav" role="tablist" aria-label="Dashboard areas">
-      <button id="nav-current" class="app-tab active" type="button" role="tab" aria-selected="true" aria-controls="panel-current">Now</button>
-      <button id="nav-requests" class="app-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-requests">Requests <span id="nav-requests-count" class="nav-count"></span></button>
-      <button id="nav-records" class="app-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-records">Records</button>
-      <button id="nav-wiki" class="app-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-wiki">Wiki</button>
+    <nav class="app-nav" role="tablist" aria-label="Dashboard areas" data-i18n-aria-label="navLabel">
+      <button id="nav-current" class="app-tab active" type="button" role="tab" aria-selected="true" aria-controls="panel-current" data-i18n="current">Now</button>
+      <button id="nav-requests" class="app-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-requests"><span data-i18n="requests">Requests</span> <span id="nav-requests-count" class="nav-count"></span></button>
+      <button id="nav-records" class="app-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-records" data-i18n="records">Records</button>
+      <button id="nav-wiki" class="app-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-wiki" data-i18n="wiki">Wiki</button>
     </nav>
 
     <main>
-      <aside id="sample-banner" class="notice" hidden><strong>예시 데이터</strong><span>제품 흐름을 확인하기 위한 샘플이며 실제 프로젝트나 동기화 상태가 아닙니다.</span></aside>
-      <section id="error-panel" class="error-panel" hidden><div><strong>기록을 불러오지 못했습니다.</strong><span>서버 연결과 스냅샷 읽기 상태를 확인해 주세요.</span></div><button id="retry" type="button">다시 불러오기</button></section>
+      <aside id="sample-banner" class="notice" hidden><strong data-i18n="sample">Sample data</strong><span data-i18n="sampleDescription">This sample shows the product flow; it is not a real project or sync state.</span></aside>
+      <section id="error-panel" class="error-panel" hidden><div><strong data-i18n="loadFailed">Could not load the record.</strong><span data-i18n="loadFailedDetail">Check that the dashboard server is running and can read the snapshot.</span></div><button id="retry" type="button" data-i18n="retry">Try again</button></section>
 
       <section id="panel-current" class="workspace-panel current-panel" role="tabpanel" aria-labelledby="nav-current">
         <div class="current-grid">
           <section class="goal-section" aria-labelledby="goals-title">
-            <div class="section-heading"><h2 id="goals-title">지금 향하는 곳</h2><span id="plan-status" class="plan-status none">계획 확인 중</span></div>
+            <div class="section-heading"><h2 id="goals-title" data-i18n="goals">Goal</h2><span id="plan-status" class="plan-status none" data-i18n="planNone">No shared plan</span></div>
             <div id="goals" class="goal-grid"></div><div id="plan-detail" class="plan-detail"></div>
           </section>
           <section class="people-section" aria-labelledby="people-title">
-            <div class="section-heading"><h2 id="people-title">두 사람의 다음 행동</h2><span class="caption">기록되지 않은 활동은 추정하지 않습니다.</span></div>
+            <div class="section-heading"><h2 id="people-title" data-i18n="people">Next steps</h2><span class="caption" data-i18n="noInference">Only recorded activity is shown.</span></div>
             <div id="participants" class="people-grid"></div>
           </section>
           <section class="attention-section" aria-labelledby="attention-title">
-            <div class="section-heading"><h2 id="attention-title">지금 확인할 일</h2><span id="attention-count" class="plain-count"></span></div>
+            <div class="section-heading"><h2 id="attention-title" data-i18n="attention">Needs attention</h2><span id="attention-count" class="plain-count"></span></div>
             <div id="attention-list" class="attention-list"></div>
           </section>
-          <aside id="delivery-panel" class="delivery-panel"><div><span>원격 전송</span><strong id="delivery-copy">확인 중</strong></div><div><span>상대 확인</span><strong>요청 상태에서 확인</strong></div><p id="sync-message"></p></aside>
+          <aside id="delivery-panel" class="delivery-panel"><div><span data-i18n="delivery">Remote sharing</span><strong id="delivery-copy" data-i18n="unknownCopy">Remote sharing status unknown</strong></div><p id="sync-message"></p></aside>
         </div>
       </section>
 
       <section id="panel-requests" class="workspace-panel" role="tabpanel" aria-labelledby="nav-requests" hidden>
-        <div class="panel-heading"><div><h2>요청</h2><p id="ticket-context"></p></div><span id="ticket-count" class="plain-count"></span></div>
-        <div class="compact-tabs" role="tablist" aria-label="좁은 화면 요청 보기"><button id="compact-requests-list" class="compact-tab active" type="button" role="tab" aria-selected="true" data-compact-group="requests" data-compact-view="list">목록</button><button id="compact-requests-detail" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="requests" data-compact-view="detail">상세</button><button id="compact-requests-filters" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="requests" data-compact-view="filters">필터</button></div>
+        <div class="panel-heading"><div><h2 data-i18n="requests">Requests</h2><p id="ticket-context"></p></div><span id="ticket-count" class="plain-count"></span></div>
+        <div class="compact-tabs" role="tablist" aria-label="Request view on narrow screens" data-i18n-aria-label="compactRequests"><button id="compact-requests-list" class="compact-tab active" type="button" role="tab" aria-selected="true" data-compact-group="requests" data-compact-view="list" data-i18n="list">List</button><button id="compact-requests-detail" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="requests" data-compact-view="detail" data-i18n="detail">Details</button><button id="compact-requests-filters" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="requests" data-compact-view="filters" data-i18n="filters">Filters</button></div>
         <div class="ticket-toolbar" data-compact-pane="requests:filters">
-          <div class="tabs" role="tablist" aria-label="요청 보기"><button id="inbox-tab" class="tab active" type="button" role="tab" aria-selected="true">요청함</button><button id="history-tab" class="tab" type="button" role="tab" aria-selected="false">처리 이력</button></div>
-          <label class="search"><span>검색</span><input id="ticket-search" type="search" placeholder="제목, 내용, 목표, 근거"></label>
-          <label><span>상태</span><select id="status-filter"><option value="">전체</option></select></label>
-          <label><span>종류</span><select id="kind-filter"><option value="">전체</option><option value="information">정보 보충</option><option value="feedback">직접 피드백</option></select></label>
-          <label><span>상대</span><select id="peer-filter"><option value="">전체</option></select></label>
+          <div class="tabs" role="tablist" aria-label="Request view" data-i18n-aria-label="requestView"><button id="inbox-tab" class="tab active" type="button" role="tab" aria-selected="true" data-i18n="inbox">Open</button><button id="history-tab" class="tab" type="button" role="tab" aria-selected="false" data-i18n="history">Done</button></div>
+          <label class="search"><span data-i18n="search">Search</span><input id="ticket-search" type="search" placeholder="Title, body, goal, evidence" data-i18n-placeholder="searchTickets"></label>
+          <label><span data-i18n="status">Status</span><select id="status-filter"><option value="" data-i18n="all">All</option></select></label>
+          <label><span data-i18n="kind">Type</span><select id="kind-filter"><option value="" data-i18n="all">All</option><option value="information" data-i18n="information">Question</option><option value="feedback" data-i18n="feedback">Feedback</option></select></label>
+          <label><span data-i18n="peerFilter">Person</span><select id="peer-filter"><option value="" data-i18n="all">All</option></select></label>
         </div>
-        <div class="split-workspace request-workspace"><div id="tickets" class="ticket-list" aria-label="요청 목록" data-compact-pane="requests:list"></div><div id="ticket-detail-pane" class="detail-pane" aria-live="polite" data-compact-pane="requests:detail"></div></div>
+        <div class="split-workspace request-workspace"><div id="tickets" class="ticket-list" aria-label="Requests" data-i18n-aria-label="requests" data-compact-pane="requests:list"></div><div id="ticket-detail-pane" class="detail-pane" aria-live="polite" data-compact-pane="requests:detail"></div></div>
       </section>
 
       <section id="panel-records" class="workspace-panel" role="tabpanel" aria-labelledby="nav-records" hidden>
-        <div class="panel-heading records-heading"><div><h2>기록된 작업</h2><p>기록 시각의 구간이며 실제 근무·집중 시간이나 생산성 평가가 아닙니다.</p></div><label class="period-control"><span>표시 기간</span><select id="session-period"><option value="7d">최근 7일</option><option value="30d" selected>최근 30일</option><option value="all">전체 기록</option></select></label></div>
-        <div class="compact-tabs" role="tablist" aria-label="좁은 화면 기록 보기"><button id="compact-records-work" class="compact-tab active" type="button" role="tab" aria-selected="true" data-compact-group="records" data-compact-view="work">작업</button><button id="compact-records-blockers" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="records" data-compact-view="blockers">병목</button><button id="compact-records-time" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="records" data-compact-view="time">시간</button></div>
+        <div class="panel-heading records-heading"><div><h2 data-i18n="recordedWork">Records</h2><p data-i18n="recordsDescription">Recorded time spans only — not working hours or productivity.</p></div><label class="period-control"><span data-i18n="period">Period</span><select id="session-period"><option value="7d" data-i18n="days7">Last 7 days</option><option value="30d" selected data-i18n="days30">Last 30 days</option><option value="all" data-i18n="allRecords">All time</option></select></label></div>
+        <div class="compact-tabs" role="tablist" aria-label="Records view on narrow screens" data-i18n-aria-label="compactRecords"><button id="compact-records-work" class="compact-tab active" type="button" role="tab" aria-selected="true" data-compact-group="records" data-compact-view="work" data-i18n="work">Work</button><button id="compact-records-blockers" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="records" data-compact-view="blockers" data-i18n="blockers">Blockers</button><button id="compact-records-time" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="records" data-compact-view="time" data-i18n="time">Time</button></div>
         <div class="records-workspace">
-          <section class="records-column work-column" data-compact-pane="records:work"><h3>최근 작업</h3><div id="session-records" class="session-list"></div></section>
-          <section class="records-column blockers-column" data-compact-pane="records:blockers"><h3>기록된 병목</h3><div id="blocker-list" class="blocker-list"></div></section>
-          <aside class="records-summary" data-compact-pane="records:time"><h3>시간 요약</h3><div id="time-overview" class="time-overview"></div><h3>사람별 기록 시간</h3><div id="participant-time" class="metric-list"></div><h3>사람·작업 범위별 기록</h3><div id="scope-time" class="metric-list"></div><p class="caption">한 작업의 여러 범위와 겹친 기록은 서로 합산하지 않습니다.</p></aside>
+          <section class="records-column work-column" data-compact-pane="records:work"><h3 data-i18n="recentWork">Recent work</h3><div id="session-records" class="session-list"></div></section>
+          <section class="records-column blockers-column" data-compact-pane="records:blockers"><h3 data-i18n="blockers">Blockers</h3><div id="blocker-list" class="blocker-list"></div></section>
+          <aside class="records-summary" data-compact-pane="records:time"><h3 data-i18n="timeSummary">Time</h3><div id="time-overview" class="time-overview"></div><h3 data-i18n="participantTime">By person</h3><div id="participant-time" class="metric-list"></div><h3 data-i18n="scopeTime">By person and area</h3><div id="scope-time" class="metric-list"></div><p class="caption" data-i18n="scopeTimeNote">Overlapping areas are not added together.</p></aside>
         </div>
       </section>
 
       <section id="panel-wiki" class="workspace-panel" role="tabpanel" aria-labelledby="nav-wiki" hidden>
-        <div class="panel-heading"><div><h2>공유 위키</h2><p>작업 안에서 공유된 근거와 연결된 기록을 탐색합니다.</p></div><span id="wiki-count" class="plain-count"></span></div>
-        <div class="compact-tabs" role="tablist" aria-label="좁은 화면 위키 보기"><button id="compact-wiki-list" class="compact-tab active" type="button" role="tab" aria-selected="true" data-compact-group="wiki" data-compact-view="list">목록</button><button id="compact-wiki-detail" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="wiki" data-compact-view="detail">상세</button><button id="compact-wiki-filters" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="wiki" data-compact-view="filters">필터</button></div>
+        <div class="panel-heading"><div><h2 data-i18n="wikiTitle">Wiki</h2><p data-i18n="wikiDescription">Evidence and linked records shared during the work.</p></div><span id="wiki-count" class="plain-count"></span></div>
+        <div class="compact-tabs" role="tablist" aria-label="Wiki view on narrow screens" data-i18n-aria-label="compactWiki"><button id="compact-wiki-list" class="compact-tab active" type="button" role="tab" aria-selected="true" data-compact-group="wiki" data-compact-view="list" data-i18n="list">List</button><button id="compact-wiki-detail" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="wiki" data-compact-view="detail" data-i18n="detail">Details</button><button id="compact-wiki-filters" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="wiki" data-compact-view="filters" data-i18n="filters">Filters</button></div>
         <div class="wiki-toolbar" data-compact-pane="wiki:filters">
-          <div class="tabs" role="tablist" aria-label="공유 위키 보기"><button id="wiki-all-tab" class="tab active" type="button" role="tab" aria-selected="true">전체 기록</button><button id="wiki-search-tab" class="tab" type="button" role="tab" aria-selected="false">검색 결과</button><button id="wiki-refinement-tab" class="tab" type="button" role="tab" aria-selected="false">일일 정제</button></div>
-          <form id="wiki-search-form" class="wiki-search-form"><label class="search"><span>검색</span><input id="wiki-query" type="search" maxlength="500" placeholder="제목, 본문, 작업 맥락"></label><label><span>참여자</span><input id="wiki-participant" type="text" maxlength="100" placeholder="전체"></label><label><span>상태</span><select id="wiki-status"><option value="">전체</option><option value="personal">개인</option><option value="proposed">제안</option><option value="agreed">합의</option><option value="superseded">대체됨</option></select></label><label><span>종류</span><select id="wiki-record-type"><option value="">전체</option><option value="source-note">소스 노트</option><option value="summary">요약</option></select></label><label class="check"><input id="wiki-include-superseded" type="checkbox" checked> 대체 기록 포함</label><button class="wiki-submit" type="submit">검색</button></form>
+          <div class="tabs" role="tablist" aria-label="Wiki view" data-i18n-aria-label="wikiView"><button id="wiki-all-tab" class="tab active" type="button" role="tab" aria-selected="true" data-i18n="allRecords">All time</button><button id="wiki-search-tab" class="tab" type="button" role="tab" aria-selected="false" data-i18n="searchResults">Results</button><button id="wiki-refinement-tab" class="tab" type="button" role="tab" aria-selected="false" data-i18n="dailyRefinement">Refined</button></div>
+          <form id="wiki-search-form" class="wiki-search-form"><label class="search"><span data-i18n="search">Search</span><input id="wiki-query" type="search" maxlength="500" placeholder="Title, body, work context" data-i18n-placeholder="searchWiki"></label><label><span data-i18n="participant">Person</span><input id="wiki-participant" type="text" maxlength="100" placeholder="All" data-i18n-placeholder="all"></label><label><span data-i18n="status">Status</span><select id="wiki-status"><option value="" data-i18n="all">All</option><option value="personal" data-i18n="personal">Personal</option><option value="proposed" data-i18n="proposed">Proposed</option><option value="agreed" data-i18n="agreed">Agreed</option><option value="superseded" data-i18n="superseded">Replaced</option></select></label><label><span data-i18n="recordType">Record type</span><select id="wiki-record-type"><option value="" data-i18n="all">All</option><option value="source-note" data-i18n="sourceNote">Source note</option><option value="summary" data-i18n="summary">Summary</option></select></label><label class="check"><input id="wiki-include-superseded" type="checkbox" checked> <span data-i18n="includeSuperseded">Include replaced records</span></label><button class="wiki-submit" type="submit" data-i18n="submitSearch">Search</button></form>
         </div>
         <div id="wiki-state" class="wiki-state"></div>
-        <div class="split-workspace wiki-workspace"><div id="wiki-records" class="wiki-list" aria-label="Wiki records" data-compact-pane="wiki:list"></div><div class="wiki-detail-column" data-compact-pane="wiki:detail"><div id="wiki-detail-pane" class="detail-pane" aria-live="polite"></div></div></div>
+        <div class="split-workspace wiki-workspace"><div id="wiki-records" class="wiki-list" aria-label="Wiki" data-i18n-aria-label="wikiTitle" data-compact-pane="wiki:list"></div><div class="wiki-detail-column" data-compact-pane="wiki:detail"><div id="wiki-detail-pane" class="detail-pane" aria-live="polite"></div></div></div>
       </section>
     </main>
   </div>

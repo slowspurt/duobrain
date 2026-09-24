@@ -6,19 +6,19 @@
     "bob"
   ],
   "goals": {
-    "project": "Build a reading log app for two people",
-    "mediumTerm": "Complete the first flow that links adding a book to a reading log",
-    "currentPhase": "Connect the book registration API to the input screen"
+    "project": "두 사람이 사용할 독서 기록 앱 만들기",
+    "mediumTerm": "책 등록과 독서 기록을 연결한 첫 사용 흐름 완성",
+    "currentPhase": "책 등록 API와 입력 화면 연결"
   },
   "sessions": [
     {
       "id": "10000000-0000-4000-8000-000000000002",
       "participant": "alice",
-      "title": "Draft the book-list layout",
+      "title": "책 목록 레이아웃 초안",
       "scope": [
         "src/ui/books"
       ],
-      "goal": "Connect the book registration API to the input screen",
+      "goal": "책 등록 API와 입력 화면 연결",
       "status": "ended",
       "startedAt": "2026-09-21T01:00:00.000Z",
       "endedAt": "2026-09-21T04:00:00.000Z",
@@ -75,7 +75,7 @@
             "kind": "human"
           },
           "data": {
-            "summary": "List layout drafted; empty state still needs copy"
+            "summary": "목록 레이아웃 초안 완료, 빈 상태 문구는 미정"
           }
         }
       ]
@@ -83,19 +83,19 @@
     {
       "id": "10000000-0000-4000-8000-000000000001",
       "participant": "bob",
-      "title": "Clean up the book registration API response",
+      "title": "책 등록 API 응답 정리",
       "scope": [
         "src/api/books"
       ],
-      "goal": "Settle the response fields the input screen will use",
+      "goal": "입력 화면에서 사용할 응답 필드 정리",
       "status": "active",
       "startedAt": "2026-09-22T00:00:00.000Z",
       "endedAt": null,
       "elapsedMs": null,
       "blockers": [
-        "Need a second opinion on how to handle optional fields"
+        "선택 필드 처리 방식에 대한 의견 필요"
       ],
-      "next": "Share a sample response and confirm the wiring with Alice",
+      "next": "응답 예시를 공유하고 Alice에게 연결 방식 확인",
       "history": []
     }
   ],
@@ -103,12 +103,12 @@
     {
       "id": "20000000-0000-4000-8000-000000000001",
       "kind": "information",
-      "title": "How did B handle failed book registration responses?",
-      "body": "I'm wiring up the input screen. Please share the shape of the failure response and why it was chosen.",
+      "title": "B는 책 등록 실패 응답을 어떻게 처리했어?",
+      "body": "입력 화면을 연결하려고 해. 실패 응답의 형태와 결정 근거를 공유해줘.",
       "requester": "alice",
       "assignee": "bob",
       "status": "open",
-      "goal": "Connect the book registration API to the input screen",
+      "goal": "책 등록 API와 입력 화면 연결",
       "evidence": [],
       "history": [
         {
@@ -126,12 +126,12 @@
     {
       "id": "20000000-0000-4000-8000-000000000002",
       "kind": "feedback",
-      "title": "Which empty-state copy should the book list use?",
-      "body": "I drafted two options for the empty book list. Which one reads better?",
+      "title": "책 목록 빈 상태 문구는 어느 쪽이 좋아?",
+      "body": "빈 책 목록 문구를 두 가지로 써 봤어. 어느 쪽이 더 잘 읽혀?",
       "requester": "alice",
       "assignee": "bob",
       "status": "answered",
-      "goal": "Complete the first flow that links adding a book to a reading log",
+      "goal": "책 등록과 독서 기록을 연결한 첫 사용 흐름 완성",
       "evidence": [],
       "history": [
         {
@@ -153,7 +153,7 @@
             "kind": "human"
           },
           "data": {
-            "body": "Option 2 — it tells people what to do next."
+            "body": "2번이 좋아. 다음에 할 일을 알려 주니까."
           }
         }
       ]
@@ -162,7 +162,7 @@
   "sync": {
     "status": "unknown",
     "lastSyncedAt": null,
-    "message": "Sample for screen development; not a real sync state."
+    "message": "화면 개발용 예시이며 실제 동기화 상태가 아닙니다."
   },
   "conflicts": []
 }
