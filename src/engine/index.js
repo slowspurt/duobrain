@@ -10,10 +10,12 @@ import {
   compareKnowledgeMethods,
   parseWikiNote,
   planDailyWikiRefinement,
+  renderWikiNote,
   searchWikiNotes,
   traceWikiLineage,
   validateWikiNote,
 } from '../wiki/index.js';
+import { extractClaudeTranscript, findLatestClaudeTranscript, redact } from '../capture/index.js';
 
 const execFileAsync = promisify(execFile);
 const STATE_BRANCH = 'duobrain/state';
@@ -173,6 +175,7 @@ async function resolveLayout(repository = '.') {
     statusPath: path.join(root, 'sync-status.json'),
     onboardingPath: path.join(root, 'onboarding.json'),
     preferencesPath: path.join(root, 'preferences.json'),
+    capturePath: path.join(root, 'capture.json'),
   };
 }
 
@@ -1211,6 +1214,227 @@ export async function addWikiNote({
         : 'Existing note has not been synchronized.',
     );
   return { ...local, sync: syncResult };
+}
+
+async function stagedProductState(layout) {
+  const branch = await git(layout.repositoryPath, ['rev-parse', '--abbrev-ref', 'HEAD'], { allowFailure: true });
+  const head = await git(layout.repositoryPath, ['rev-parse', 'HEAD'], { allowFailure: true });
+  const staged = await git(layout.repositoryPath, ['diff', '--cached', '--name-only'], { allowFailure: true });
+  return {
+    branch: branch.ok ? branch.stdout : null,
+    head: head.ok ? head.stdout : null,
+    stagedFiles: staged.ok && staged.stdout ? staged.stdout.split('\n') : [],
+  };
+}
+
+async function readCaptureMarkers(layout) {
+  if (!(await exists(layout.capturePath))) return { schemaVersion: 1, transcripts: {} };
+  return readJson(layout.capturePath);
+}
+
+/**
+ * Extract the part of the local Claude Code transcript not yet captured into a
+ * commit note: human requests, assistant replies and tool calls, redacted.
+ * The window starts at this transcript's capture marker (or its beginning).
+ * Reads local files only; writes nothing.
+ */
+export async function captureWorkContext({
+  repository = '.',
+  transcript,
+  since,
+  until,
+  bundle = false,
+  diffLimit = 40000,
+} = {}) {
+  const layout = await resolveLayout(repository);
+  const transcriptPath = transcript
+    ? path.resolve(transcript)
+    : await findLatestClaudeTranscript(layout.repositoryPath);
+  if (!transcriptPath) {
+    throw new EngineError('No Claude Code transcript found for this repository; pass --transcript.', {
+      code: 'TRANSCRIPT_NOT_FOUND',
+    });
+  }
+  const markers = await readCaptureMarkers(layout);
+  const window = {
+    since: since ?? markers.transcripts[transcriptPath] ?? null,
+    until: until ?? new Date().toISOString(),
+  };
+  for (const [label, value] of Object.entries(window)) {
+    if (value !== null && validDateMs(value) === null) {
+      throw new EngineError(`${label} must be an ISO timestamp.`, { code: 'INVALID_INPUT' });
+    }
+  }
+  const extracted = extractClaudeTranscript(await readFile(transcriptPath, 'utf8'), window);
+  const text = bundle
+    ? await summarizerBundle(layout, extracted.text, diffLimit)
+    : extracted.text;
+  return {
+    capture: {
+      tool: 'claude-code',
+      transcript: transcriptPath,
+      sessionId: extracted.sessionId,
+      ...window,
+    },
+    counts: extracted.counts,
+    estimatedTokens: Math.ceil(text.length / 3),
+    product: await stagedProductState(layout),
+    text,
+  };
+}
+
+/** One file holding the summarizer instructions, the capture and the capped staged diff. */
+async function summarizerBundle(layout, captureText, diffLimit) {
+  const prompt = await readFile(new URL('../../skills/duobrain-commit/summarize-prompt.md', import.meta.url), 'utf8');
+  const stat = await git(layout.repositoryPath, ['diff', '--cached', '--stat'], { allowFailure: true });
+  const diff = await git(layout.repositoryPath, ['diff', '--cached'], { allowFailure: true });
+  const fullDiff = diff.ok ? redact(diff.stdout) : '';
+  const cappedDiff = fullDiff.length > diffLimit
+    ? `${fullDiff.slice(0, diffLimit)}\n…[diff truncated: ${fullDiff.length - diffLimit} more characters]`
+    : fullDiff;
+  return [
+    prompt.trim(),
+    '',
+    '=== CAPTURE ===',
+    captureText,
+    '',
+    '=== DIFF ===',
+    stat.ok ? stat.stdout : '',
+    '',
+    cappedDiff,
+  ].join('\n');
+}
+
+function summaryList(summary, field) {
+  const value = summary[field] ?? [];
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string' || item.trim() === '')) {
+    throw new EngineError(`${field} must be an array of non-empty strings.`, { code: 'INVALID_SUMMARY' });
+  }
+  return value.map((item) => redact(item.trim()));
+}
+
+function normalizeCommitSummary(summary) {
+  if (summary === null || typeof summary !== 'object' || Array.isArray(summary)) {
+    throw new EngineError('Commit summary must be a JSON object.', { code: 'INVALID_SUMMARY' });
+  }
+  for (const field of ['subject', 'why', 'method']) {
+    if (typeof summary[field] !== 'string' || summary[field].trim() === '') {
+      throw new EngineError(`${field} must be a non-empty string.`, { code: 'INVALID_SUMMARY' });
+    }
+  }
+  const subject = summary.subject.trim();
+  if (subject.includes('\n') || subject.length > 100) {
+    throw new EngineError('subject must be one line of at most 100 characters.', { code: 'INVALID_SUMMARY' });
+  }
+  const decisions = summary.decisions ?? [];
+  if (!Array.isArray(decisions) || decisions.some((item) => (
+    item === null || typeof item !== 'object'
+    || typeof item.decision !== 'string' || item.decision.trim() === ''
+    || typeof item.reason !== 'string' || item.reason.trim() === ''
+  ))) {
+    throw new EngineError('decisions must be objects with decision and reason.', { code: 'INVALID_SUMMARY' });
+  }
+  const capture = summary.capture ?? null;
+  if (capture !== null && (typeof capture !== 'object' || typeof capture.until !== 'string')) {
+    throw new EngineError('capture must be the object returned by capture-extract.', { code: 'INVALID_SUMMARY' });
+  }
+  return {
+    subject: redact(subject),
+    why: redact(summary.why.trim().replace(/\s+/g, ' ')),
+    title: redact((summary.title ?? subject).trim()),
+    method: redact(summary.method.trim()),
+    requests: summaryList(summary, 'requests'),
+    decisions: decisions.map(({ decision, reason }) => ({
+      decision: redact(decision.trim()),
+      reason: redact(reason.trim()),
+    })),
+    failedAttempts: summaryList(summary, 'failedAttempts'),
+    verification: summaryList(summary, 'verification'),
+    openQuestions: summaryList(summary, 'openQuestions'),
+    capture,
+  };
+}
+
+function renderCommitNoteBody(summary, product) {
+  const section = (heading, items) => (items.length === 0 ? [] : [`## ${heading}`, '', ...items, '']);
+  const bullets = (items) => items.map((item) => `- ${item}`);
+  return [
+    `# ${summary.title}`,
+    '',
+    `Commit: ${summary.subject}`,
+    `Branch: \`${product.branch ?? 'unknown'}\` · Parent: \`${product.head?.slice(0, 12) ?? 'none'}\``,
+    `Why: ${summary.why}`,
+    '',
+    '## Method',
+    '',
+    summary.method,
+    '',
+    ...section('Requests', bullets(summary.requests)),
+    ...section('Decisions', summary.decisions.map(({ decision, reason }) => `- **${decision}**: ${reason}`)),
+    ...section('Failed attempts', bullets(summary.failedAttempts)),
+    ...section('Verification', bullets(summary.verification)),
+    ...section('Open questions', bullets(summary.openQuestions)),
+    ...section('Files', bullets(product.stagedFiles.map((file) => `\`${file}\``))),
+  ].join('\n');
+}
+
+/**
+ * Store an AI-written commit summary as an immutable source note and return the
+ * commit message that links to it. Run it after staging and before `git commit`.
+ * With dryRun the note is rendered and validated but nothing is written.
+ */
+export async function recordCommitNote({
+  repository = '.',
+  summary,
+  dryRun = false,
+  sync = true,
+} = {}) {
+  const normalized = normalizeCommitSummary(summary);
+  const layout = dryRun ? await resolveLayout(repository) : await loadLayout(repository);
+  const identity = dryRun && !(await exists(layout.identityPath))
+    ? { participant: 'preview' }
+    : await loadIdentity(layout);
+  const product = await stagedProductState(layout);
+  const id = randomUUID();
+  const notePath = `wiki/${id}.md`;
+  const capture = normalized.capture;
+  const transcriptRef = capture
+    ? `transcript:${capture.tool ?? 'claude-code'}/${capture.sessionId ?? 'unknown'}#${capture.since ?? 'start'}..${capture.until}`
+    : null;
+  const markdown = renderWikiNote({
+    schemaVersion: 1,
+    id,
+    recordType: 'source-note',
+    title: normalized.title,
+    author: { participant: identity.participant, kind: 'ai' },
+    observedAt: new Date().toISOString(),
+    workContext: { promptRef: transcriptRef, harnessRef: 'duobrain:commit-note@1' },
+    status: 'personal',
+    sources: [
+      { kind: 'observation', ref: transcriptRef ?? `commit:${product.branch ?? 'unknown'}@${product.head ?? 'none'}` },
+      ...product.stagedFiles.slice(0, 50).map((file) => ({ kind: 'file', ref: file })),
+    ],
+    summarizes: [],
+    previousSummary: null,
+    decisionEvidence: [],
+    supersedes: [],
+  }, renderCommitNoteBody(normalized, product));
+  const validation = validateWikiNote(markdown, { path: notePath });
+  if (!validation.valid) {
+    throw new EngineError(`Commit note is invalid: ${validation.errors.map(({ message }) => message).join('; ')}`, {
+      code: 'INVALID_SUMMARY',
+    });
+  }
+  const message = `${normalized.subject}\n\nWhy: ${normalized.why}\nDuobrain-Record: ${notePath}\n`;
+  if (dryRun) return { dryRun: true, path: notePath, message, markdown };
+
+  const stored = await addWikiNote({ repository: layout.repositoryPath, markdown, id, sync });
+  if (capture?.transcript) {
+    const markers = await readCaptureMarkers(layout);
+    markers.transcripts[capture.transcript] = capture.until;
+    await writeJsonAtomic(layout.capturePath, markers);
+  }
+  return { path: stored.path, message, commit: stored.commit, sync: stored.sync };
 }
 
 export async function getWikiNote({ repository = '.', path: wikiPath } = {}) {
