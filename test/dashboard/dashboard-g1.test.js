@@ -102,7 +102,7 @@ test('live dashboard preserves the two-clone ticket lifecycle through its API an
   assert.equal(beforeAliceSync.sample, false);
   assert.equal(beforeAliceSync.sync.status, 'synced');
   assert.equal(beforeAliceSync.tickets[0].status, 'open');
-  assert.equal(peerConfirmation(beforeAliceSync.tickets[0].status), '상대 확인 안 됨');
+  assert.equal(peerConfirmation(beforeAliceSync.tickets[0].status), 'unseen');
 
   const noteId = randomUUID();
   const note = await addWikiNote({ repository: setup.bob, markdown: sourceNote(noteId) });
@@ -129,7 +129,7 @@ test('live dashboard preserves the two-clone ticket lifecycle through its API an
   assert.equal(live.tickets[0].status, 'answered');
   assert.deepEqual(filterTickets(live.tickets).map((ticket) => ticket.id), [ticketId]);
   assert.deepEqual(filterTickets(live.tickets, { tab: 'history' }), []);
-  assert.equal(peerConfirmation(live.tickets[0].status), '응답 도착 · 해결 확인 전');
+  assert.equal(peerConfirmation(live.tickets[0].status), 'answered_unresolved');
   assert.deepEqual(ticketEvidence(live.tickets[0]), [note.path]);
 
   const answeredHistory = live.tickets[0].history;
@@ -185,5 +185,5 @@ test('live dashboard preserves the two-clone ticket lifecycle through its API an
   const closedTicket = live.tickets.find((ticket) => ticket.id === closed.event.entityId);
   assert.equal(closedTicket.status, 'closed');
   assert.equal(closedTicket.history.at(-1).data.reason, 'duplicate');
-  assert.equal(peerConfirmation(closedTicket.status), '해결되지 않고 종료');
+  assert.equal(peerConfirmation(closedTicket.status), 'closed_unresolved');
 });

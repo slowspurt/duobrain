@@ -1,14 +1,20 @@
 import {
   aggregateSessions,
   filterTickets,
+  peerConfirmation,
   planPresentation,
   ticketEvidence,
   wikiListRecords,
+  wikiValidationPresentation,
 } from '/model.js';
 import { resolveLocale, translator } from '/i18n.js';
 
 const byId = (id) => document.getElementById(id);
-const locale = resolveLocale({ search: location.search, languages: navigator.languages });
+const localeStorageKey = 'duobrain.dashboard.locale';
+function storedLocale() {
+  try { return localStorage.getItem(localeStorageKey); } catch { return null; }
+}
+const locale = resolveLocale({ search: location.search, stored: storedLocale(), languages: navigator.languages });
 const t = translator(locale);
 document.documentElement.lang = locale;
 document.title = `duobrain ${t('dashboardTitle')}`;
@@ -16,7 +22,7 @@ const labels = {
   project: t('project'), mediumTerm: t('mediumTerm'), currentPhase: t('currentPhase'),
   active: t('active'), paused: t('paused'), ended: t('ended'),
   information: t('information'), feedback: t('feedback'),
-  synced: t('synced'), pending: t('pending'), error: t('error'), unknown: t('unknown'),
+  synced: t('synced'), pending: t('pending'), error: t('error'), unknown: t('unknown'), syncUnknown: t('syncUnknown'),
   open: t('open'), acknowledged: t('acknowledged'), needs_information: t('needs_information'), answered: t('answered'), resolved: t('resolved'), closed: t('closed'),
   personal: t('personal'), proposed: t('proposed'), agreed: t('agreed'), superseded: t('superseded'), sourceNote: t('sourceNote'), summary: t('summary'),
 };
@@ -28,13 +34,13 @@ const state = {
   section: 'current', selectedTicketId: null, selectedWikiPath: null, assignments: [],
   compactViews: { requests: 'list', records: 'work', wiki: 'list' }, locale,
 };
-const text = (value, fallback = locale === 'ko' ? '미확인' : 'Unknown') => typeof value === 'string' && value.trim() ? value : fallback;
+const text = (value, fallback = t('unknown')) => typeof value === 'string' && value.trim() ? value : fallback;
 const participantLabel = (value) => {
   if (!state.sample) return text(value);
   const index = state.participants.indexOf(value);
   return index >= 0 && index < 26 ? String.fromCharCode(65 + index) : text(value);
 };
-const displayCopy = (value, fallback = locale === 'ko' ? '미확인' : 'Unknown') => {
+const displayCopy = (value, fallback = t('unknown')) => {
   let result = text(value, fallback);
   if (!state.sample) return result;
   state.participants.forEach((participant, index) => {
@@ -54,79 +60,21 @@ function element(tag, className, value) {
 const empty = (message) => element('p', 'empty', message);
 
 function applyStaticUi() {
-  byId('brand-home').setAttribute('aria-label', t('brandHome'));
-  document.querySelector('.app-nav').setAttribute('aria-label', t('navLabel'));
-  byId('source-badge').textContent = t('source');
-  byId('sync-badge').textContent = t('syncing');
-  byId('nav-current').textContent = t('current');
-  byId('nav-requests').firstChild.textContent = t('requests') + ' ';
-  byId('nav-records').textContent = t('records');
-  byId('nav-wiki').textContent = t('wiki');
-  byId('retry').textContent = t('retry');
-  byId('goals-title').textContent = t('goals');
-  byId('people-title').textContent = t('people');
-  byId('attention-title').textContent = t('attention');
-  byId('inbox-tab').textContent = t('inbox');
-  byId('history-tab').textContent = t('history');
-  byId('ticket-search').placeholder = t('searchTickets');
-  byId('wiki-query').placeholder = t('searchWiki');
-  byId('wiki-participant').placeholder = t('all');
-  byId('ticket-search').closest('label').firstElementChild.textContent = t('search');
-  byId('status-filter').closest('label').firstElementChild.textContent = t('status');
-  byId('kind-filter').closest('label').firstElementChild.textContent = t('kind');
-  byId('peer-filter').closest('label').firstElementChild.textContent = t('peerFilter');
-  byId('wiki-query').closest('label').firstElementChild.textContent = t('search');
-  byId('wiki-participant').closest('label').firstElementChild.textContent = t('participant');
-  byId('wiki-status').closest('label').firstElementChild.textContent = t('status');
-  byId('wiki-record-type').closest('label').firstElementChild.textContent = t('recordType');
-  byId('wiki-include-superseded').parentElement.lastChild.nodeValue = ` ${t('includeSuperseded')}`;
-  document.querySelector('.wiki-submit').textContent = t('submitSearch');
-  document.querySelector('.brand-lockup h1').textContent = t('dashboardTitle');
-  document.querySelector('.brand-lockup p').textContent = t('dashboardDescription');
-  document.querySelector('.brand-lockup p').hidden = !t('dashboardDescription');
-  document.querySelector('#sample-banner strong').textContent = t('sample');
-  document.querySelector('#sample-banner span').textContent = t('sampleDescription');
-  document.querySelector('#error-panel strong').textContent = t('loadFailed');
-  document.querySelector('#error-panel span').textContent = t('loadFailed');
-  document.querySelector('.people-section .caption').textContent = t('noInference');
-  document.querySelector('.panel-heading h2').textContent = t('requests');
-  document.querySelector('.records-heading h2').textContent = t('recordedWork');
-  document.querySelector('.records-heading p').textContent = t('recordsDescription');
-  document.querySelector('.records-heading label span').textContent = t('period');
-  byId('panel-records').querySelector('.records-summary .caption').textContent = '';
-  const wikiPanel = byId('panel-wiki');
-  wikiPanel.querySelector('.panel-heading h2').textContent = t('wikiTitle');
-  wikiPanel.querySelector('.panel-heading p').textContent = t('wikiDescription');
-  byId('wiki-all-tab').textContent = t('allRecords');
-  byId('wiki-search-tab').textContent = t('searchResults');
-  byId('wiki-refinement-tab').textContent = t('dailyRefinement');
-  byId('panel-records').querySelector('.work-column h3').textContent = t('recentWork');
-  byId('panel-records').querySelector('.blockers-column h3').textContent = t('blockers');
-  const recordHeadings = byId('panel-records').querySelectorAll('.records-summary h3');
-  recordHeadings[0].textContent = t('timeSummary');
-  recordHeadings[1].textContent = t('participantTime');
-  recordHeadings[2].textContent = t('scopeTime');
-  byId('tickets').setAttribute('aria-label', t('requests'));
-  byId('wiki-records').setAttribute('aria-label', t('wikiTitle'));
-  document.querySelector('#panel-requests .compact-tabs').setAttribute('aria-label', t('compactRequests'));
-  document.querySelector('#panel-records .compact-tabs').setAttribute('aria-label', t('compactRecords'));
-  document.querySelector('#panel-wiki .compact-tabs').setAttribute('aria-label', t('compactWiki'));
-  document.querySelector('#panel-requests .tabs').setAttribute('aria-label', t('requestView'));
-  document.querySelector('#panel-wiki .tabs').setAttribute('aria-label', t('wikiView'));
-  document.querySelector('.delivery-panel span').textContent = t('delivery');
-  document.querySelector('.delivery-panel div:nth-child(2) span').textContent = t('peer');
-  document.querySelector('.delivery-panel div:nth-child(2) strong').textContent = t('peerHint');
-  for (const option of byId('session-period').options) option.textContent = t(option.value === '7d' ? 'days7' : option.value === '30d' ? 'days30' : 'allRecords');
-  for (const select of [byId('kind-filter'), byId('wiki-status'), byId('wiki-record-type')]) {
-    for (const option of select.options) {
-      const key = option.value === 'source-note' ? 'sourceNote' : option.value || 'all';
-      option.textContent = labels[key] ?? t(key);
-    }
+  for (const node of document.querySelectorAll('[data-i18n]')) node.textContent = t(node.dataset.i18n);
+  for (const node of document.querySelectorAll('[data-i18n-placeholder]')) node.placeholder = t(node.dataset.i18nPlaceholder);
+  for (const node of document.querySelectorAll('[data-i18n-aria-label]')) node.setAttribute('aria-label', t(node.dataset.i18nAriaLabel));
+  for (const button of document.querySelectorAll('[data-locale]')) {
+    const selected = button.dataset.locale === locale;
+    button.classList.toggle('active', selected);
+    button.setAttribute('aria-pressed', String(selected));
   }
-  for (const button of document.querySelectorAll('[data-compact-group="requests"], [data-compact-group="wiki"]')) {
-    button.textContent = t(button.dataset.compactView === 'list' ? 'list' : button.dataset.compactView === 'detail' ? 'detail' : 'filters');
-  }
-  for (const button of document.querySelectorAll('[data-compact-group="records"]')) button.textContent = t(button.dataset.compactView);
+}
+
+function switchLocale(next) {
+  try { localStorage.setItem(localeStorageKey, next); } catch { /* the query parameter still applies */ }
+  const url = new URL(location.href);
+  url.searchParams.set('lang', next);
+  location.replace(url);
 }
 
 function appendEvidenceButtons(container, evidence) {
@@ -201,7 +149,7 @@ function renderGoals(goals = {}, snapshot = {}) {
   detail.append(explorer);
 }
 
-function formatDate(value, fallback = locale === 'ko' ? '시각 미확인' : 'Time unknown') {
+function formatDate(value, fallback = t('unknown')) {
   const timestamp = Date.parse(value);
   return Number.isFinite(timestamp)
     ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(timestamp)
@@ -210,8 +158,8 @@ function formatDate(value, fallback = locale === 'ko' ? '시각 미확인' : 'Ti
 
 function formatRecordedRange(session) {
   const start = formatDate(session.startedAt, t('startUnknown'));
-  if (!session.endedAt) return `${start} · ${t('unfinished')}`;
-  return `${start} — ${formatDate(session.endedAt, t('endUnknown'))} · ${t('recordedRange')}`;
+  if (!session.endedAt) return `${start} · ${t('active')}`;
+  return `${start} — ${formatDate(session.endedAt, t('endUnknown'))}`;
 }
 
 function renderParticipants(participants = [], sessions = []) {
@@ -351,6 +299,8 @@ function renderTimeline(ticket) {
   return section;
 }
 
+const apiErrorCopy = (result) => t(`apiError.${result?.error}`) === `apiError.${result?.error}` ? t('noIssueDetail') : t(`apiError.${result?.error}`);
+
 async function loadEvidence(path, button, content) {
   button.disabled = true;
   content.hidden = false;
@@ -361,11 +311,12 @@ async function loadEvidence(path, button, content) {
     if (!response.ok) {
       const missing = response.status === 404;
       const label = missing ? t('evidenceMissing') : response.status === 413 ? t('tooLarge') : t('requestFailed');
-      content.replaceChildren(element('strong', `validation ${missing ? 'missing' : 'failure'}`, label), element('p', 'caption', text(result.message, t('noEvidenceNote'))));
+      content.replaceChildren(element('strong', `validation ${missing ? 'missing' : 'failure'}`, label), element('p', 'caption', apiErrorCopy(result)));
       return;
     }
+    const validation = wikiValidationPresentation(result.validation);
     const heading = element('div', 'evidence-heading');
-    heading.append(element('strong', `validation ${result.validation?.valid === true ? 'valid' : 'failure'}`, result.validation?.valid === true ? (locale === 'ko' ? '검증 통과' : 'Validated') : (locale === 'ko' ? '검증 실패' : 'Validation failed')));
+    heading.append(element('strong', `validation ${validation.kind}`, t(validation.title)));
     if (state.sample) heading.append(element('span', 'sample-evidence', t('sampleEvidence')));
     content.replaceChildren(heading);
     for (const issue of [...(result.validation?.errors ?? []), ...(result.validation?.warnings ?? [])]) {
@@ -397,7 +348,7 @@ async function loadLineage(path, button, content) {
     const response = await fetch(`/api/wiki/lineage?root=${encodeURIComponent(path)}`, { headers: { Accept: 'application/json' } });
     const result = await response.json();
     if (!response.ok) {
-      content.replaceChildren(element('strong', 'validation failure', t('lineageFailed')), element('p', 'caption', text(result.message)));
+      content.replaceChildren(element('strong', 'validation failure', t('lineageFailed')), element('p', 'caption', apiErrorCopy(result)));
       return;
     }
     content.replaceChildren(element('p', 'caption', `${result.nodes.length} ${t('countNodes')} · ${result.edges.length} ${t('countLinks')}`));
@@ -419,7 +370,8 @@ function wikiRecordDetail(record) {
   const heading = element('div', 'wiki-card-heading');
   heading.append(element('h3', '', text(record.title, record.format === 'legacy' ? t('legacyRecord') : t('noTitle'))));
   if (record.validation) {
-    heading.append(element('span', `validation ${record.validation.valid === true ? 'valid' : 'failure'}`, record.validation.valid === true ? (locale === 'ko' ? '검증 통과' : 'Validated') : (locale === 'ko' ? '검증 실패' : 'Validation failed')));
+    const validation = wikiValidationPresentation(record.validation);
+    heading.append(element('span', `validation ${validation.kind}`, t(validation.title)));
   }
   card.append(heading, element('p', 'caption', wikiMetadata(record)), element('code', 'wiki-path', record.path));
   const actions = element('div', 'wiki-actions');
@@ -557,7 +509,7 @@ function renderTicketDetail(ticket) {
   meta.append(element('span', `status ${ticket.status ?? 'unknown'}`, labels[ticket.status] ?? t('unknown')));
   header.append(meta, element('h3', '', displayCopy(ticket.title, t('noTitle'))), element('p', 'ticket-body', displayCopy(ticket.body, t('unknown'))));
   const facts = element('div', 'ticket-detail-facts');
-  for (const [label, value] of [[t('requestFlow'), `${participantLabel(ticket.requester)} → ${participantLabel(ticket.assignee)}`], [t('peer'), labels[ticket.status] ?? t('unknown')], [t('linkedGoal'), displayCopy(ticket.goal)]]) {
+  for (const [label, value] of [[t('requestFlow'), `${participantLabel(ticket.requester)} → ${participantLabel(ticket.assignee)}`], [t('peer'), t(`peer.${peerConfirmation(ticket.status)}`)], [t('linkedGoal'), displayCopy(ticket.goal)]]) {
     const fact = element('div', '');
     fact.append(element('span', '', label), element('strong', '', value));
     facts.append(fact);
@@ -621,7 +573,7 @@ function renderSync(sync = {}) {
   const status = ['synced', 'pending', 'error', 'unknown'].includes(sync.status) ? sync.status : 'unknown';
   const badge = byId('sync-badge');
   badge.className = `status ${status}`;
-  badge.textContent = labels[status];
+  badge.textContent = labels[status === 'unknown' ? 'syncUnknown' : status];
   const copy = { synced: t('syncedCopy'), pending: t('pendingCopy'), error: t('errorCopy'), unknown: t('unknownCopy') };
   byId('delivery-copy').textContent = copy[status];
   byId('sync-message').textContent = text(sync.message, sync.lastSyncedAt ? formatDate(sync.lastSyncedAt) : t('unknown'));
@@ -650,12 +602,12 @@ function render(snapshot) {
 async function load() {
   byId('error-panel').hidden = true;
   try {
-    const response = await fetch('/api/snapshot', { headers: { Accept: 'application/json' } });
+    const response = await fetch(`/api/snapshot?lang=${locale}`, { headers: { Accept: 'application/json' } });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     render(await response.json());
   } catch {
     byId('error-panel').hidden = false;
-    render({ sample: false, participants: [], goals: {}, sessions: [], tickets: [], sync: { status: 'error', message: '스냅샷을 읽지 못했습니다.' } });
+    render({ sample: false, participants: [], goals: {}, sessions: [], tickets: [], sync: { status: 'error', message: t('loadFailed') } });
   }
 }
 
@@ -696,6 +648,7 @@ function selectCompactView(group, view) {
 }
 
 byId('retry').addEventListener('click', load);
+for (const button of document.querySelectorAll('[data-locale]')) button.addEventListener('click', () => switchLocale(button.dataset.locale));
 byId('brand-home').addEventListener('click', () => selectSection('current'));
 for (const section of ['current', 'requests', 'records', 'wiki']) byId(`nav-${section}`).addEventListener('click', () => selectSection(section));
 for (const button of document.querySelectorAll('[data-compact-group]')) button.addEventListener('click', () => selectCompactView(button.dataset.compactGroup, button.dataset.compactView));

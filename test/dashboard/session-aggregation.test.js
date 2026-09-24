@@ -131,10 +131,10 @@ test('leaves unclosed, invalidly ordered, conflicted, and incomplete histories u
   assert.equal(result.projectWallClockMs, hour);
   assert.deepEqual(result.sessions.map((session) => session.recordedActiveMs), [null, null, null, null]);
   assert.deepEqual(result.sessions.map((session) => session.timeReason), [
-    '활동 구간 이력 없음',
-    '기록 충돌',
-    '종료 미확인',
-    '시간 순서 오류',
+    'no_activity_history',
+    'conflict',
+    'not_ended',
+    'time_order',
   ]);
 });
 
