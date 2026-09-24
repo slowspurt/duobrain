@@ -3,6 +3,7 @@ import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { startDashboard } from '../../src/dashboard/index.js';
+import { resolveLocale, translator } from '../../src/dashboard/public/i18n.js';
 
 const fixtureUrl = new URL('../../examples/shared/snapshot.json', import.meta.url);
 
@@ -44,7 +45,7 @@ test('accepts an asynchronous getter and reports snapshot failures without detai
   t.after(() => close(failed.server));
   const response = await fetch(`${failed.origin}/api/snapshot`);
   assert.equal(response.status, 503);
-  assert.deepEqual(await response.json(), { error: 'snapshot_unavailable', message: '기록을 불러오지 못했습니다.' });
+  assert.deepEqual(await response.json(), { error: 'snapshot_unavailable', message: 'Could not load the record.' });
 });
 
 test('serves a static shell with a restrictive policy and no snapshot interpolation', async (t) => {
@@ -57,6 +58,15 @@ test('serves a static shell with a restrictive policy and no snapshot interpolat
   assert.equal(response.status, 200);
   assert.match(response.headers.get('content-security-policy'), /script-src 'self'/);
   assert.doesNotMatch(html, /onerror=alert/);
+  assert.match(html, /id="nav-current"/);
+  assert.match(html, /id="nav-requests"/);
+  assert.match(html, /id="nav-records"/);
+  assert.match(html, /id="nav-wiki"/);
+  assert.match(html, /role="tabpanel"/);
+  assert.match(html, /data-compact-group="records"/);
+  assert.match(html, /data-compact-view="work"/);
+  assert.match(html, /data-compact-pane="requests:filters"/);
+  assert.match(html, /data-compact-pane="wiki:filters"/);
 
   const script = await (await fetch(`${origin}/app.js`)).text();
   assert.match(script, /textContent/);
@@ -65,8 +75,74 @@ test('serves a static shell with a restrictive policy and no snapshot interpolat
   const model = await (await fetch(`${origin}/model.js`)).text();
   assert.match(model, /export function filterTickets/);
 
+  const i18n = await (await fetch(`${origin}/i18n.js`)).text();
+  assert.match(i18n, /resolveLocale/);
+
   const styles = await (await fetch(`${origin}/styles.css`)).text();
   assert.match(styles, /\[hidden\]\s*{\s*display:\s*none\s*!important;/);
+  assert.match(styles, /body\s*{[^}]*overflow:\s*hidden;/);
+  assert.match(styles, /height:\s*100dvh/);
+  assert.match(styles, /@media\s*\(max-width:900px\)/);
+  assert.doesNotMatch(styles, /blockers-column\s*{\s*display:\s*none/);
+  assert.doesNotMatch(styles, /overflow-x:\s*auto/);
+});
+
+test('chooses a browser locale with a reproducible query override', () => {
+  assert.equal(resolveLocale({ search: '?lang=en', languages: ['ko-KR'] }), 'en');
+  assert.equal(resolveLocale({ search: '?lang=ko', languages: ['en-US'] }), 'ko');
+  assert.equal(resolveLocale({ languages: ['ko-KR', 'en-US'] }), 'ko');
+  assert.equal(resolveLocale({ languages: ['fr-FR'] }), 'en');
+  assert.equal(resolveLocale({ languages: [] }), 'en');
+  assert.equal(resolveLocale({ languages: ['en-US', 'ko-KR'] }), 'en');
+  assert.equal(resolveLocale({ languages: ['ja-JP', 'ko-KR'] }), 'en');
+  assert.equal(resolveLocale({ stored: 'ko', languages: ['en-US'] }), 'ko');
+  assert.equal(resolveLocale({ search: '?lang=en', stored: 'ko', languages: ['ko-KR'] }), 'en');
+  assert.equal(resolveLocale({ stored: 'fr', languages: ['en-US'] }), 'en');
+  assert.equal(translator('en')('requests'), 'Requests');
+  assert.equal(translator('ko')('requests'), '요청');
+});
+
+test('keeps Korean copy inside the Korean dictionary only', async () => {
+  const hangul = /[\uAC00-\uD7A3]/;
+  for (const file of ['index.html', 'app.js', 'model.js']) {
+    const source = await readFile(new URL(`../../src/dashboard/public/${file}`, import.meta.url), 'utf8');
+    const lines = source.split('\n').filter((line) => hangul.test(line) && !line.includes('data-locale="ko"'));
+    assert.deepEqual(lines, [], `${file} has hard-coded Korean`);
+  }
+  assert.doesNotMatch(await readFile(new URL('../../src/dashboard/index.js', import.meta.url), 'utf8'), hangul);
+  const { dictionaries } = await import('../../src/dashboard/public/i18n.js');
+  assert.deepEqual(Object.keys(dictionaries.ko).sort(), Object.keys(dictionaries.en).sort());
+  const app = await readFile(new URL('../../src/dashboard/public/app.js', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../../src/dashboard/public/index.html', import.meta.url), 'utf8');
+  const used = [
+    ...[...app.matchAll(/\b(?:t|format)\('([\w.]+)'/g)].map((match) => match[1]),
+    ...[...html.matchAll(/data-i18n(?:-[a-z-]+)?="([\w.]+)"/g)].map((match) => match[1]),
+  ];
+  assert.deepEqual([...new Set(used)].filter((key) => !(key in dictionaries.en)), [], 'copy keys missing from the dictionary');
+});
+
+test('names whose turn an open request is waiting on', async () => {
+  const { ticketTurn } = await import('../../src/dashboard/public/model.js');
+  const ticket = { requester: 'alice', assignee: 'bob' };
+  assert.equal(ticketTurn({ ...ticket, status: 'open' }), 'bob');
+  assert.equal(ticketTurn({ ...ticket, status: 'acknowledged' }), 'bob');
+  assert.equal(ticketTurn({ ...ticket, status: 'needs_information' }), 'alice');
+  assert.equal(ticketTurn({ ...ticket, status: 'answered' }), 'alice');
+  assert.equal(ticketTurn({ ...ticket, status: 'resolved' }), null);
+  assert.equal(ticketTurn({ ...ticket, status: 'closed' }), null);
+  assert.equal(ticketTurn({ ...ticket, status: 'mystery' }), null);
+});
+
+test('serves the sample snapshot in the requested language', async (t) => {
+  const { createSnapshotGetter } = await import('../../src/dashboard/source.js');
+  const { server, origin } = await launch(createSnapshotGetter());
+  t.after(() => close(server));
+  const english = await (await fetch(`${origin}/api/snapshot`)).json();
+  const korean = await (await fetch(`${origin}/api/snapshot?lang=ko`)).json();
+  assert.equal(english.sample, true);
+  assert.doesNotMatch(JSON.stringify(english), /[\uAC00-\uD7A3]/);
+  assert.match(korean.goals.project, /[\uAC00-\uD7A3]/);
+  assert.deepEqual(korean.sessions.map((session) => session.id), english.sessions.map((session) => session.id));
 });
 
 test('supports empty snapshots and validates startup arguments', async (t) => {

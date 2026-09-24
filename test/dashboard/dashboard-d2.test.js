@@ -43,9 +43,9 @@ test('ticket model separates inbox, answered, resolved, and closed records', asy
   assert.deepEqual(filterTickets(snapshot.tickets, { tab: 'history', kind: 'feedback', peer: 'participant-b' }).map((ticket) => ticket.status), ['resolved']);
   assert.deepEqual(filterTickets(snapshot.tickets, { query: '30000000-0000' }).map((ticket) => ticket.status), ['answered']);
   assert.deepEqual(ticketEvidence(snapshot.tickets[1]), ['wiki/30000000-0000-4000-8000-000000000001.md']);
-  assert.equal(peerConfirmation('answered'), '응답 도착 · 해결 확인 전');
-  assert.equal(peerConfirmation('resolved'), '응답과 해결 확인 완료');
-  assert.equal(peerConfirmation('closed'), '해결되지 않고 종료');
+  assert.equal(peerConfirmation('answered'), 'answered_unresolved');
+  assert.equal(peerConfirmation('resolved'), 'resolved');
+  assert.equal(peerConfirmation('closed'), 'closed_unresolved');
   assert.equal(wikiValidationPresentation({ valid: true, errors: [], warnings: [] }).kind, 'valid');
   assert.equal(wikiValidationPresentation({ valid: true, errors: [], warnings: [{ code: 'LEGACY' }] }).kind, 'warning');
   assert.equal(wikiValidationPresentation({ valid: false, errors: [{ code: 'INVALID' }], warnings: [] }).kind, 'failure');
