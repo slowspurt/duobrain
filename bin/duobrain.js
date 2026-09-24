@@ -23,7 +23,7 @@ import {
   resumeSession,
   resolveTicket,
   respondToTicket,
-  runDailyWikiRefinement,
+  runWikiRefinement,
   saveOnboardingProgress,
   searchSharedWiki,
   setPlan,
@@ -67,7 +67,7 @@ Usage:
   duobrain wiki-search --query <text> [--filters <json-path>]
   duobrain wiki-trace --roots <wiki/path,...>
   duobrain method-compare --file <json-path> [--request-missing] [--actor <human|ai>]
-  duobrain wiki-refine --file <schedule-json> [--if-due] [--now <iso-timestamp>]
+  duobrain wiki-refine --file <refinement-json> [--now <iso-timestamp>]
   duobrain plan-set --file <json-path> [--actor <human|ai>]
   duobrain overlap --scope <path,path> [--base-commit <ref>]
   duobrain worktree-prepare --directory <path> [--branch <name>] [--base-commit <ref>]
@@ -103,7 +103,7 @@ const COMMAND_HELP = {
   'wiki-search': 'Usage: duobrain wiki-search --query <text> [--filters <json-path>] [--repository <path>]',
   'wiki-trace': 'Usage: duobrain wiki-trace --roots <wiki/path,...> [--repository <path>]',
   'method-compare': 'Usage: duobrain method-compare --file <json-path> [--request-missing] [--actor <human|ai>] [--repository <path>]',
-  'wiki-refine': 'Usage: duobrain wiki-refine --file <schedule-json> [--if-due] [--now <iso-timestamp>] [--repository <path>]',
+  'wiki-refine': 'Usage: duobrain wiki-refine --file <refinement-json> [--now <iso-timestamp>] [--repository <path>]',
   'plan-set': 'Usage: duobrain plan-set --file <json-path> [--actor <human|ai>] [--repository <path>]',
   overlap: 'Usage: duobrain overlap --scope <path,path> [--base-commit <ref>] [--repository <path>]',
   'worktree-prepare': 'Usage: duobrain worktree-prepare --directory <path> [--branch <name>] [--base-commit <ref>] [--repository <path>]',
@@ -113,7 +113,7 @@ const COMMAND_HELP = {
 
 function parseOptions(tokens) {
   const options = {};
-  const booleanOptions = new Set(['help', 'if-due', 'request-missing']);
+  const booleanOptions = new Set(['help', 'request-missing']);
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
     if (!token.startsWith('--')) throw new Error(`Unexpected argument: ${token}`);
@@ -322,10 +322,9 @@ async function main() {
       actorKind: options.actor ?? 'ai',
     });
   } else if (command === 'wiki-refine') {
-    result = await runDailyWikiRefinement({
+    result = await runWikiRefinement({
       repository,
-      schedule: JSON.parse(await readFile(requireOption(options, 'file'), 'utf8')),
-      ifDue: options['if-due'] === true,
+      config: JSON.parse(await readFile(requireOption(options, 'file'), 'utf8')),
       now: options.now,
     });
   } else if (command === 'plan-set') {

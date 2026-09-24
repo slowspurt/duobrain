@@ -49,9 +49,9 @@ AI는 `onboarding-inspect`로 이전 진행 단계를 확인하고, 허용된 �
 
 준비 후에는 “B는 이 작업을 어떻게 했어?”, “B 어디까지 했어? 나는 뭐 하면 돼?”처럼 질문한다. AI가 근거를 찾고 부족하면 요청 티켓을 남기는 절차와 실제 명령은 [상세 저장소 안내](docs/agent-guidance/repository-onboarding.md)에 있다. AI는 사용 중인 도구에서 실행하며 duobrain이 별도 AI 서버를 띄우지는 않는다.
 
-## 하루 정제 설정
+## 위키 정제 (수동)
 
-첫 번째 참여자가 [예약 실행 안내](docs/engine/README.md#daily-wiki-refinement-execution)에 따라 시간대·시간·중요도 정책을 담은 JSON을 준비하고 외부 스케줄러에서 `wiki-refine --file /path/to/schedule.json --if-due --repository /path/to/product`를 호출한다. 실제 실행에는 위와 동일한 Node와 CLI 절대 경로를 사용한다. 같은 날짜의 성공한 정제는 중복 실행하지 않으며, 원문을 보존한 요약 인덱스를 공유한다. 설치만으로 OS 예약 작업이 등록되지는 않는다.
+중요도·최신성 인덱스를 갱신하고 싶을 때 [정제 설정](docs/engine/README.md#wiki-refinement-execution)에 따라 시간대와 정책을 담은 JSON을 준비하고 `wiki-refine --file /path/to/refinement.json --repository /path/to/product`를 실행한다. 두 참여자 누구나 실행할 수 있다. 원문을 보존한 요약 인덱스를 공유하며, 같은 날짜에 새 기록·정책 변경이 없으면 건너뛴다. 예약 실행은 제공하지 않는다.
 
 ## 검증 실행
 
@@ -59,7 +59,7 @@ AI는 `onboarding-inspect`로 이전 진행 단계를 확인하고, 허용된 �
 node --test test/engine/*.test.js test/wiki/*.test.js test/dashboard/*.test.js
 node examples/scenarios/verify-concurrent-flow.mjs
 node examples/scenarios/verify-plan-refinement-flow.mjs
-node examples/scenarios/verify-method-refinement-schedule-flow.mjs
+node examples/scenarios/verify-method-refinement-flow.mjs
 ```
 
 자동 검증은 임시 로컬 원격과 클론을 사용한다. 실제 두 컴퓨터에서 각자의 AI와 Git 인증을 사용하는 인수 검증은 별도로 진행한다.

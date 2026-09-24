@@ -32,7 +32,7 @@ Your partner figured something out with their AI. Now you need the reasoning, th
 
 Your AI checks shared records first. If something is missing, it leaves a request. Your partner's AI can answer when they next use it; after syncing, yours can continue with the new evidence. **The handoff survives the conversation.**
 
-Keep the bigger picture in the **local dashboard**: goals, assignments, recent work, open requests and resolved history. The **shared wiki** keeps sources traceable, with optional **daily refinement** to revisit importance and recency while preserving original notes.
+Keep the bigger picture in the **local dashboard**: goals, assignments, recent work, open requests and resolved history. The **shared wiki** keeps sources traceable, with on-demand **refinement** to revisit importance and recency while preserving original notes.
 
 > Want to see the idea first? The [web demo](https://duobrain.pages.dev) is a guided experience with example data. Follow the steps below to connect the local engine to your own project.
 
@@ -191,16 +191,16 @@ Create `comparison.json` from the [comparison example](docs/engine/README.md#sha
 </details>
 
 <details>
-<summary><strong>Set up daily wiki refinement</strong></summary>
+<summary><strong>Refresh the wiki index on demand</strong></summary>
 
-The first participant in the ordered pair configures the [schedule and policy](docs/engine/README.md#daily-wiki-refinement-execution), then uses an external scheduler to call:
+When you want an updated importance and recency index, prepare the [refinement config](docs/engine/README.md#wiki-refinement-execution) and run:
 
 ```sh
 node bin/duobrain.js wiki-refine --repository /path/to/product \
-  --file /path/to/daily-refinement.json --if-due
+  --file /path/to/refinement.json
 ```
 
-Create the JSON file before running the command. duobrain checks the configured time and avoids a second successful scheduled run on the same local date. It does not install the scheduler. Follow the [cron recipe](docs/engine/README.md#external-cron-setup) to finish setup.
+Either participant can run it. Original notes are preserved; the summary is shared after push. Running again with no new notes, tickets or policy change on the same date is skipped.
 
 </details>
 

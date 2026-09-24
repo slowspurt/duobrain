@@ -1528,7 +1528,7 @@ function validatedDailyRefinement(note) {
   ) return null;
   let observedDate;
   try {
-    observedDate = zonedDateAndMinutes(new Date(parsed.metadata.observedAt), run.timezone).date;
+    observedDate = zonedDate(new Date(parsed.metadata.observedAt), run.timezone);
   } catch {
     return null;
   }
@@ -1572,112 +1572,70 @@ function sourceRevisionFor(notes, ticketEvents) {
   })).digest('hex');
 }
 
-function normalizeRefinementSchedule(schedule) {
-  if (schedule === null || typeof schedule !== 'object' || Array.isArray(schedule)) {
-    throw new EngineError('Daily refinement schedule must be a JSON object.', {
-      code: 'INVALID_REFINEMENT_SCHEDULE',
+function normalizeRefinementConfig(config) {
+  if (config === null || typeof config !== 'object' || Array.isArray(config)) {
+    throw new EngineError('Wiki refinement config must be a JSON object.', {
+      code: 'INVALID_REFINEMENT_CONFIG',
     });
   }
-  const timezone = schedule.timezone;
-  const time = schedule.time ?? '09:00';
+  const timezone = config.timezone;
   if (typeof timezone !== 'string' || timezone.trim() === '') {
-    throw new EngineError('Daily refinement timezone must be an IANA timezone.', {
-      code: 'INVALID_REFINEMENT_SCHEDULE',
+    throw new EngineError('Wiki refinement timezone must be an IANA timezone.', {
+      code: 'INVALID_REFINEMENT_CONFIG',
     });
   }
   try {
     new Intl.DateTimeFormat('en-US', { timeZone: timezone }).format(0);
   } catch {
-    throw new EngineError('Daily refinement timezone must be an IANA timezone.', {
-      code: 'INVALID_REFINEMENT_SCHEDULE',
+    throw new EngineError('Wiki refinement timezone must be an IANA timezone.', {
+      code: 'INVALID_REFINEMENT_CONFIG',
     });
   }
-  if (typeof time !== 'string' || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)) {
-    throw new EngineError('Daily refinement time must use 24-hour HH:MM.', {
-      code: 'INVALID_REFINEMENT_SCHEDULE',
+  if (config.policy === null || typeof config.policy !== 'object' || Array.isArray(config.policy)) {
+    throw new EngineError('Wiki refinement config requires a policy object.', {
+      code: 'INVALID_REFINEMENT_CONFIG',
     });
   }
-  if (schedule.policy === null || typeof schedule.policy !== 'object' || Array.isArray(schedule.policy)) {
-    throw new EngineError('Daily refinement schedule requires a policy object.', {
-      code: 'INVALID_REFINEMENT_SCHEDULE',
-    });
-  }
-  return { cadence: 'daily', timezone, time, policy: schedule.policy };
+  return { timezone, policy: config.policy };
 }
 
 function normalizeRefinementNow(now) {
   const value = now === undefined ? new Date() : new Date(now);
   if (!Number.isFinite(value.getTime())) {
-    throw new EngineError('Daily refinement now must be a valid date or timestamp.', {
-      code: 'INVALID_REFINEMENT_SCHEDULE',
+    throw new EngineError('Wiki refinement now must be a valid date or timestamp.', {
+      code: 'INVALID_REFINEMENT_CONFIG',
     });
   }
   return value;
 }
 
-function zonedDateAndMinutes(date, timezone) {
+function zonedDate(date, timezone) {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: timezone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
   }).formatToParts(date);
   const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
-  return {
-    date: `${values.year}-${values.month}-${values.day}`,
-    minutes: Number(values.hour) * 60 + Number(values.minute),
-  };
-}
-
-function scheduledMinutes(time) {
-  const [hour, minute] = time.split(':').map(Number);
-  return hour * 60 + minute;
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 /**
- * Run the pure daily refinement planner against synchronized shared state.
- * --if-due style calls are owned by participants[0] and execute at most once
- * per local calendar date; manual calls require a changed source revision.
+ * Run the pure refinement planner against synchronized shared state on explicit
+ * request. The summary is keyed by local date, timezone, source revision and
+ * policy; repeating the same key is skipped as no-new-input.
  */
-export async function runDailyWikiRefinement({
+export async function runWikiRefinement({
   repository = '.',
-  schedule,
-  ifDue = false,
+  config,
   now,
 } = {}) {
   const layout = await loadLayout(repository);
   const identity = await loadIdentity(layout);
-  const participantConfig = await loadConfig(layout);
-  const normalized = normalizeRefinementSchedule(schedule);
+  const normalized = normalizeRefinementConfig(config);
   const instant = normalizeRefinementNow(now);
   const nowIso = instant.toISOString();
-  const clock = zonedDateAndMinutes(instant, normalized.timezone);
-  const owner = participantConfig.participants[0];
-  const scheduleState = {
-    cadence: normalized.cadence,
-    timezone: normalized.timezone,
-    time: normalized.time,
-    date: clock.date,
-    owner,
-  };
-
-  if (ifDue && identity.participant !== owner) {
-    return {
-      outcome: 'skipped',
-      reason: 'not-scheduler-owner',
-      schedule: scheduleState,
-    };
-  }
-  if (ifDue && clock.minutes < scheduledMinutes(normalized.time)) {
-    return {
-      outcome: 'skipped',
-      reason: 'not-due',
-      schedule: scheduleState,
-    };
-  }
+  const date = zonedDate(instant, normalized.timezone);
 
   return withRefinementLock(layout, () => withStateLock(layout, async () => {
     const initialSync = await syncStoreUnlocked(layout);
@@ -1685,7 +1643,7 @@ export async function runDailyWikiRefinement({
       return {
         outcome: 'pending',
         reason: 'sync-failed',
-        schedule: scheduleState,
+        date,
         sync: initialSync,
       };
     }
@@ -1695,18 +1653,13 @@ export async function runDailyWikiRefinement({
     const ticketEvents = await readEvents(layout);
     const sourceRevision = sourceRevisionFor(notes, ticketEvents);
     const priorRun = latestPriorRefinement(notes, instant.getTime());
-    const successfulToday = notes
-      .map(validatedDailyRefinement)
-      .find((run) => run !== null
-        && run.date === clock.date
-        && run.timezone === normalized.timezone);
 
     const candidateId = randomUUID();
     const plan = planDailyWikiRefinement({
       notes,
       tickets: snapshot.tickets,
       now: nowIso,
-      date: clock.date,
+      date,
       timezone: normalized.timezone,
       sourceRevision,
       policy: normalized.policy,
@@ -1716,8 +1669,8 @@ export async function runDailyWikiRefinement({
         author: { participant: identity.participant, kind: 'ai' },
         observedAt: nowIso,
         workContext: {
-          promptRef: `daily-refinement:${normalized.policy.id ?? 'unknown'}@${normalized.policy.version ?? 'unknown'}`,
-          harnessRef: ifDue ? 'duobrain:scheduled-if-due' : 'duobrain:manual-refresh',
+          promptRef: `wiki-refinement:${normalized.policy.id ?? 'unknown'}@${normalized.policy.version ?? 'unknown'}`,
+          harnessRef: 'duobrain:manual-refresh',
         },
       },
     });
@@ -1727,32 +1680,17 @@ export async function runDailyWikiRefinement({
         reason: 'planner-insufficient',
         plan,
         sourceRevision,
-        schedule: scheduleState,
+        date,
         sync: initialSync,
       };
     }
-    if (ifDue && successfulToday) {
-      return {
-        outcome: 'skipped',
-        reason: 'already-successful',
-        summaryPath: successfulToday.summaryPath,
-        sourceRevision,
-        schedule: scheduleState,
-        plan,
-        sync: initialSync,
-      };
-    }
-    const sameManualInput = priorRun !== null
-      && priorRun.sourceRevision === sourceRevision
-      && priorRun.policyFingerprint === plan.run.policyFingerprint
-      && priorRun.timezone === plan.run.timezone;
-    if (!ifDue && sameManualInput) {
+    if (priorRun !== null && priorRun.runKey === plan.run.runKey) {
       return {
         outcome: 'skipped',
         reason: 'no-new-input',
         summaryPath: priorRun.summaryPath,
         sourceRevision,
-        schedule: scheduleState,
+        date,
         plan,
         sync: initialSync,
       };
@@ -1763,7 +1701,7 @@ export async function runDailyWikiRefinement({
         reason: 'already-planned',
         plan,
         sourceRevision,
-        schedule: scheduleState,
+        date,
         sync: initialSync,
       };
     }
@@ -1778,7 +1716,7 @@ export async function runDailyWikiRefinement({
       reason: sync.status === 'synced' ? null : 'push-failed',
       summaryPath: local.path,
       sourceRevision,
-      schedule: scheduleState,
+      date,
       plan,
       commit: local.commit,
       sync,

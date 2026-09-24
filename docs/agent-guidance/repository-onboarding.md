@@ -245,16 +245,14 @@ node /Users/alice/tools/duobrain/bin/duobrain.js method-compare \
 
 The dry result's `ticketCandidate` and `missingRequest.action: "proposed"` do not yet create a ticket. With `--request-missing`, an identical nonterminal information request is reused instead of duplicated. Bob explicitly syncs, adds permitted evidence notes, and responds. Alice then explicitly syncs and reruns the same dry comparison to continue the original question. Missing or opaque refs/text remain unknown; different refs do not prove behavior or a causal result. This sequence does not make an AI wait in the background or wake automatically.
 
-## 10. Run daily refinement from an external scheduler
+## 10. Refresh the wiki index on request
 
-Create a schedule JSON with IANA `timezone`, local 24-hour `time` (default `09:00`), and the documented refinement policy, then let an external scheduler invoke one command at its chosen cadence:
+When a participant asks for an updated importance and recency index, prepare a config JSON with an IANA `timezone` and the documented refinement policy, then run:
 
 ```sh
 node /Users/alice/tools/duobrain/bin/duobrain.js wiki-refine \
   --repository /Users/alice/work/reading-app \
-  --file /Users/alice/work/plans/daily-refinement.json --if-due
+  --file /Users/alice/work/plans/refinement.json
 ```
 
-This command does not install or persist a scheduler, keep a server alive, or automatically resume an AI. Only `config.participants[0]` is the scheduler owner; the other participant returns `not-scheduler-owner`. Before the configured local time it returns `not-due`; after one validated shared run for that local date it returns `already-successful`; a delayed eligible call still runs.
-
-Refinement preserves immutable source notes and ticket events, creating a new summary candidate instead of rewriting evidence. It is `completed` only after push succeeds. A `pending` push is not shared completion: a later explicit sync or scheduler invocation retries delivery of the same local summary. Omit `--if-due` for a manual refresh: unchanged source revision, normalized policy, and timezone skip a duplicate; policy-only or timezone-only changes can create a new summary. Policy validation still runs before this decision. Use the [external cron recipe](../engine/README.md#external-cron-setup) for recurring execution.
+Either participant may run it; duobrain never runs it on a schedule. Refinement preserves immutable source notes and ticket events, creating a new summary candidate instead of rewriting evidence. It is `completed` only after push succeeds. A `pending` push is not shared completion: a later explicit sync or rerun retries delivery of the same local summary. The same local date, timezone, source revision and normalized policy is skipped as `no-new-input`; a new date or a policy or timezone change can create a new summary. Policy validation still runs before this decision.
