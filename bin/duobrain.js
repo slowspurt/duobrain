@@ -6,6 +6,8 @@ import {
   acknowledgeTicket,
   addWikiNote,
   assessOverlap,
+  briefOverlap,
+  briefStatus,
   clarifyTicket,
   closeTicket,
   compareSharedMethods,
@@ -69,14 +71,15 @@ Usage:
   duobrain method-compare --file <json-path> [--request-missing] [--actor <human|ai>]
   duobrain wiki-refine --file <refinement-json> [--now <iso-timestamp>]
   duobrain plan-set --file <json-path> [--actor <human|ai>]
-  duobrain overlap --scope <path,path> [--base-commit <ref>]
+  duobrain overlap --scope <path,path> [--base-commit <ref>] [--brief]
   duobrain worktree-prepare --directory <path> [--branch <name>] [--base-commit <ref>]
   duobrain sync [--repository <path>]
-  duobrain status [--repository <path>]
+  duobrain status [--brief] [--repository <path>]
   duobrain <command> --help
 
 start and end commit locally before attempting to sync. A failed push remains pending
-and can be retried with duobrain sync. Output is JSON.`;
+and can be retried with duobrain sync. Output is JSON; --brief prints a compact
+summary without event histories.`;
 
 const COMMAND_HELP = {
   'onboarding-inspect': 'Usage: duobrain onboarding-inspect [--repository <path>]',
@@ -105,15 +108,15 @@ const COMMAND_HELP = {
   'method-compare': 'Usage: duobrain method-compare --file <json-path> [--request-missing] [--actor <human|ai>] [--repository <path>]',
   'wiki-refine': 'Usage: duobrain wiki-refine --file <refinement-json> [--now <iso-timestamp>] [--repository <path>]',
   'plan-set': 'Usage: duobrain plan-set --file <json-path> [--actor <human|ai>] [--repository <path>]',
-  overlap: 'Usage: duobrain overlap --scope <path,path> [--base-commit <ref>] [--repository <path>]',
+  overlap: 'Usage: duobrain overlap --scope <path,path> [--base-commit <ref>] [--brief] [--repository <path>]',
   'worktree-prepare': 'Usage: duobrain worktree-prepare --directory <path> [--branch <name>] [--base-commit <ref>] [--repository <path>]',
   sync: 'Usage: duobrain sync [--repository <path>]',
-  status: 'Usage: duobrain status [--repository <path>]',
+  status: 'Usage: duobrain status [--brief] [--repository <path>]',
 };
 
 function parseOptions(tokens) {
   const options = {};
-  const booleanOptions = new Set(['help', 'request-missing']);
+  const booleanOptions = new Set(['help', 'request-missing', 'brief']);
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
     if (!token.startsWith('--')) throw new Error(`Unexpected argument: ${token}`);
@@ -141,8 +144,8 @@ function list(value) {
   return value === undefined || value === '' ? [] : value.split(',').map((item) => item.trim());
 }
 
-function output(value) {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+function output(value, brief = false) {
+  process.stdout.write(`${brief ? JSON.stringify(value) : JSON.stringify(value, null, 2)}\n`);
 }
 
 async function main() {
@@ -339,6 +342,7 @@ async function main() {
       scope: list(requireOption(options, 'scope')),
       baseCommit: options['base-commit'] ?? 'HEAD',
     });
+    if (options.brief) result = briefOverlap(result);
   } else if (command === 'worktree-prepare') {
     result = await prepareProductWorktree({
       repository,
@@ -350,8 +354,9 @@ async function main() {
     result = await syncStore({ repository });
   } else {
     result = await getEngineStatus({ repository });
+    if (options.brief) result = briefStatus(result);
   }
-  output(result);
+  output(result, options.brief === true);
   const sync = result.sync ?? result;
   if (sync.status === 'pending') process.exitCode = 2;
 }

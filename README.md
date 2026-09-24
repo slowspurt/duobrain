@@ -90,22 +90,18 @@ Product checkout: /path/to/product
 My participant ID: member-a
 Partner: member-b
 
-Read guides/duobrain-ai.md and docs/agent-guidance/repository-onboarding.md
-from the tool checkout. Preserve the existing project instructions.
-Run the CLI from the tool checkout and always pass the product path
-with --repository.
+Read guides/duobrain-ai.md from the tool checkout and follow it.
+Preserve the existing project instructions. Run the CLI from the tool
+checkout and always pass the product path with --repository.
 
-Within our existing authorization and sharing permissions, sync the
-collaboration records and check our plan, work scopes and open requests.
-Review existing goals and each person's scope. If context is missing,
-ask for it or for meeting notes. Propose plan changes for our review
-before starting agreed work. Keep proposals distinct from agreements
-and share only permitted material.
+Sync the work record and check our plan, work scopes and open requests.
+If context is missing, ask me for it or for meeting notes. Propose plan
+changes for our review before starting agreed work, and keep proposals
+distinct from agreements.
 
 Record work starts and handoffs, answer information requests with evidence,
-and commit and push collaboration records. Keep human feedback attributable
-to the person who provided it. Tell me what my partner has shared,
-what is blocked, and what I can pick up next.
+and keep human feedback attributable to the person who gave it. Tell me
+where my partner left off, what is blocked, and what I can pick up next.
 ```
 
 Try asking: **“Where did my partner leave off, and what can I pick up?”** On a fresh setup, share a permitted kickoff note first so your AI has something to work from. The [starting-plan recipe](docs/agent-guidance/repository-onboarding.md#2-share-and-record-the-starting-plan) walks through it.
@@ -204,7 +200,7 @@ Either participant can run it. Original notes are preserved; the summary is shar
 
 </details>
 
-For all commands, run `node bin/duobrain.js --help` or read the [CLI reference](docs/engine/README.md). The [AI collaboration guide](guides/duobrain-ai.md) and [dashboard guide](docs/dashboard/README.md) are currently in Korean.
+For all commands, run `node bin/duobrain.js --help` or read the [CLI reference](docs/engine/README.md). The [AI collaboration guide](guides/duobrain-ai.md) is in English; the [dashboard guide](docs/dashboard/README.md) is currently in Korean.
 
 ## AI-led first run
 
