@@ -7,7 +7,8 @@ Initial Git-distributed release of duobrain for exactly two people and their exi
 - Git-backed shared plans, scoped sessions, handoffs, and resumable delivery on an isolated `duobrain/state` branch.
 - Evidence-backed information requests and attributable human feedback, including clarification, reopening, and resolution.
 - Shared source notes, wiki search, method comparison, and on-demand wiki refinement that preserves original notes.
-- Read-only local dashboard and resumable AI-led onboarding with participant profiles and local locale preferences.
+- Read-only local dashboard in task tabs, English or Korean by browser language, with relative times, request turn owners and refresh while visible.
+- Resumable AI-led onboarding with participant profiles.
 - Compact `status --brief` and `overlap --brief` output, and a short English AI guide with on-demand references.
 - Commit work records: `capture-extract`, `commit-note` and the `duobrain-commit` skill for Claude Code.
 - `init` writes a managed duobrain block into `AGENTS.md` (imported by `CLAUDE.md`); `guide`, `agents-sync` and `update` commands.
