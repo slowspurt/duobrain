@@ -111,9 +111,9 @@ function renderGoals(goals = {}, snapshot = {}) {
   const detail = byId('plan-detail');
   detail.replaceChildren();
   if (!presentation.plan) {
-    detail.append(empty(presentation.state === 'conflict'
-      ? t('planConflictNotice') : t('planMissingNotice')));
+    // The status badge already says there is no shared plan; only a conflict needs explaining.
     if (presentation.state === 'conflict') {
+      detail.append(empty(t('planConflictNotice')));
       presentation.conflicts.forEach((conflict) => detail.append(element('p', 'conflict-copy', text(conflict?.message, t('noConflictDetail')))));
     }
     return;
@@ -467,11 +467,12 @@ function selectWikiTab(tab) {
 }
 
 async function loadWikiList() {
+  byId('panel-wiki').classList.toggle('sample-mode', state.sample);
   if (state.sample) {
     state.wikiRecords = [];
     state.wikiIssues = [];
     renderWiki();
-    byId('wiki-state').replaceChildren(element('p', 'sample-wiki', t('noWiki')));
+    byId('wiki-state').replaceChildren(element('p', 'sample-wiki', t('wikiSampleNotice')));
     return;
   }
   byId('wiki-state').replaceChildren(element('p', 'caption', t('wikiLoading')));
