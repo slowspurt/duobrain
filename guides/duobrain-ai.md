@@ -58,6 +58,7 @@ No preamble, filler or unrequested alternatives.
 | Requester | `ticket-clarify` · `ticket-resolve` · `ticket-reopen` · `ticket-close --reason cancelled\|duplicate` |
 | Wiki | `wiki-search --query <t>` · `wiki-trace --roots <paths>` · `method-compare --file <json>` · `wiki-refine --file <json>` |
 | Plan | `plan-set --file <json>` |
+| Commit | follow the [duobrain-commit skill](../skills/duobrain-commit/SKILL.md) |
 
 Read a reference only when the task needs it:
 

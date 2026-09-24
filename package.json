@@ -10,7 +10,7 @@
   "type": "module",
   "bin": { "duobrain": "bin/duobrain.js" },
   "scripts": {
-    "test": "node --test test/engine/*.test.js test/wiki/*.test.js test/dashboard/*.test.js",
+    "test": "node --test test/engine/*.test.js test/wiki/*.test.js test/dashboard/*.test.js test/capture/*.test.js",
     "test:scenarios": "node examples/scenarios/verify-concurrent-flow.mjs && node examples/scenarios/verify-plan-refinement-flow.mjs && node examples/scenarios/verify-method-refinement-flow.mjs",
     "release:check": "node scripts/check-release.mjs",
     "start": "node bin/duobrain.js"

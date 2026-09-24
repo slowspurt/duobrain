@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 
 import {
   acknowledgeTicket,
@@ -8,6 +8,7 @@ import {
   assessOverlap,
   briefOverlap,
   briefStatus,
+  captureWorkContext,
   clarifyTicket,
   closeTicket,
   compareSharedMethods,
@@ -20,6 +21,7 @@ import {
   listWikiNotes,
   pauseSession,
   prepareProductWorktree,
+  recordCommitNote,
   reopenTicket,
   requestTicketInformation,
   resumeSession,
@@ -71,6 +73,9 @@ Usage:
   duobrain method-compare --file <json-path> [--request-missing] [--actor <human|ai>]
   duobrain wiki-refine --file <refinement-json> [--now <iso-timestamp>]
   duobrain plan-set --file <json-path> [--actor <human|ai>]
+  duobrain capture-extract [--transcript <jsonl>] [--since <iso>] [--until <iso>]
+                           [--bundle] [--out <path>]
+  duobrain commit-note --file <summary-json> [--message-out <path>] [--dry-run]
   duobrain overlap --scope <path,path> [--base-commit <ref>] [--brief]
   duobrain worktree-prepare --directory <path> [--branch <name>] [--base-commit <ref>]
   duobrain sync [--repository <path>]
@@ -108,6 +113,8 @@ const COMMAND_HELP = {
   'method-compare': 'Usage: duobrain method-compare --file <json-path> [--request-missing] [--actor <human|ai>] [--repository <path>]',
   'wiki-refine': 'Usage: duobrain wiki-refine --file <refinement-json> [--now <iso-timestamp>] [--repository <path>]',
   'plan-set': 'Usage: duobrain plan-set --file <json-path> [--actor <human|ai>] [--repository <path>]',
+  'capture-extract': 'Usage: duobrain capture-extract [--transcript <jsonl>] [--since <iso>] [--until <iso>] [--bundle] [--out <path>] [--repository <path>]',
+  'commit-note': 'Usage: duobrain commit-note --file <summary-json> [--message-out <path>] [--dry-run] [--repository <path>]',
   overlap: 'Usage: duobrain overlap --scope <path,path> [--base-commit <ref>] [--brief] [--repository <path>]',
   'worktree-prepare': 'Usage: duobrain worktree-prepare --directory <path> [--branch <name>] [--base-commit <ref>] [--repository <path>]',
   sync: 'Usage: duobrain sync [--repository <path>]',
@@ -116,7 +123,7 @@ const COMMAND_HELP = {
 
 function parseOptions(tokens) {
   const options = {};
-  const booleanOptions = new Set(['help', 'request-missing', 'brief']);
+  const booleanOptions = new Set(['help', 'request-missing', 'brief', 'dry-run', 'bundle']);
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
     if (!token.startsWith('--')) throw new Error(`Unexpected argument: ${token}`);
@@ -336,6 +343,28 @@ async function main() {
       plan: JSON.parse(await readFile(requireOption(options, 'file'), 'utf8')),
       actorKind: options.actor ?? 'human',
     });
+  } else if (command === 'capture-extract') {
+    result = await captureWorkContext({
+      repository,
+      transcript: options.transcript,
+      since: options.since,
+      until: options.until,
+      bundle: options.bundle === true,
+    });
+    if (options.out) {
+      await writeFile(options.out, `${result.text}\n`, 'utf8');
+      result = { ...result, text: undefined, out: options.out };
+    }
+  } else if (command === 'commit-note') {
+    result = await recordCommitNote({
+      repository,
+      summary: JSON.parse(await readFile(requireOption(options, 'file'), 'utf8')),
+      dryRun: options['dry-run'] === true,
+    });
+    if (options['message-out']) {
+      await writeFile(options['message-out'], result.message, 'utf8');
+      result = { ...result, messageOut: options['message-out'] };
+    }
   } else if (command === 'overlap') {
     result = await assessOverlap({
       repository,

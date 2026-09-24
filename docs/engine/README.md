@@ -344,6 +344,31 @@ invocation or an explicit `sync` retries the same local summary, after which an
 unchanged input is reported as `no-new-input`. For deterministic testing or a one-off
 replay, `--now <ISO timestamp>` overrides the clock.
 
+## Commit work records
+
+`capture-extract` and `commit-note` let each commit leave a record of how and why the work was done. The
+[duobrain-commit skill](../../skills/duobrain-commit/SKILL.md) runs them for Claude Code:
+
+```text
+duobrain capture-extract --bundle --out bundle.txt > capture.json
+# a subagent reads bundle.txt and writes summary.json
+duobrain commit-note --file summary.json --message-out message.txt
+git commit -F message.txt
+```
+
+`capture-extract` reads the newest Claude Code transcript for the repository (or `--transcript`), keeps
+user requests, assistant replies and tool calls, and drops tool output, thinking, injected system context
+and subagent sidechains. Credentials, email addresses and the home directory are masked. The window starts
+at this transcript's capture marker in `<git-common-dir>/duobrain/capture.json`, or at the transcript's
+beginning, so work done before an unrelated commit is not lost. `--bundle` prepends the summarizer
+instructions and appends the staged diff, redacted and then capped at 40KB.
+
+`commit-note` validates the summary (`subject`, `why`, `method`, `requests`, `decisions` with reasons,
+`failedAttempts`, `verification`, `openQuestions`, optional `capture`), stores it as a `personal`
+source note citing the transcript window and staged files, advances the capture marker, and returns a
+commit message with a `Why:` line and a `Duobrain-Record: wiki/<id>.md` trailer. `--dry-run` renders
+and validates without writing. A `pending` sync never blocks the commit; run `sync` later.
+
 ## Synchronization guarantees
 
 Sync fetches and merges append-only histories, so concurrent events with different

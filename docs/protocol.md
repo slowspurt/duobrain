@@ -14,7 +14,7 @@ Code stays in its existing branch. Shared data lives on remote branch `duobrain/
 
 - `config.json`: `{ "schemaVersion": 1, "participants": ["alice", "bob"] }`.
 - `events/<uuid>.json`: immutable event files; conflicting same-path content is an error.
-- `wiki/<uuid>.md`: immutable, intentionally shared source notes. No automatic transcript scraping.
+- `wiki/<uuid>.md`: immutable, intentionally shared source notes. Transcripts are never uploaded. `capture-extract` reads the local Claude Code transcript only when run, drops tool output and redacts credentials and emails; `commit-note` stores the AI-written commit summary, not the transcript.
 - participant identity is local, not shared configuration.
 
 Every event has `schemaVersion: 1`, UUID `id`, ISO `at`, `actor: {participant, kind: "human" | "ai"}`, `entityId` (UUID), `type`, `previous` (preceding entity event UUID or null), and `data` (object). Ticket and session root types are `ticket.created` and `session.started`; plan history follows the extension contract. Other types append to an entity's history. Two events with the same `previous` create a conflict, not a last-writer-wins resolution; dashboard and CLI expose conflicts and block further mutation of that entity. Time is display data, never the authority for overwriting a decision.
