@@ -162,6 +162,7 @@ function relativeTime(value) {
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp)) return null;
   const difference = timestamp - Date.now();
+  if (Math.abs(difference) < 60_000) return t('justNow');
   for (const [unit, size] of [['day', 86_400_000], ['hour', 3_600_000], ['minute', 60_000]]) {
     if (Math.abs(difference) >= size || unit === 'minute') return relativeFormat.format(Math.round(difference / size), unit);
   }
@@ -623,16 +624,33 @@ function render(snapshot) {
   loadWikiList();
 }
 
+const refreshIntervalMs = 30_000;
+let lastSnapshotBody = null;
+let lastLoadedAt = null;
+
+function renderUpdated() {
+  const button = byId('refresh');
+  button.textContent = lastLoadedAt ? format('updatedRelative', { time: relativeTime(new Date(lastLoadedAt).toISOString()) }) : t('refresh');
+  button.title = t('refresh');
+}
+
+// Re-renders only when the snapshot changed, so open details survive quiet refreshes.
 async function load() {
-  byId('error-panel').hidden = true;
   try {
     const response = await fetch(`/api/snapshot?lang=${locale}`, { headers: { Accept: 'application/json' } });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    render(await response.json());
+    const body = await response.text();
+    byId('error-panel').hidden = true;
+    if (body !== lastSnapshotBody) {
+      lastSnapshotBody = body;
+      render(JSON.parse(body));
+    }
+    lastLoadedAt = Date.now();
   } catch {
     byId('error-panel').hidden = false;
-    render({ sample: false, participants: [], goals: {}, sessions: [], tickets: [], sync: { status: 'error', message: t('loadFailed') } });
+    if (lastSnapshotBody === null) render({ sample: false, participants: [], goals: {}, sessions: [], tickets: [], sync: { status: 'error', message: t('loadFailed') } });
   }
+  renderUpdated();
 }
 
 function selectTab(tab) {
@@ -672,6 +690,17 @@ function selectCompactView(group, view) {
 }
 
 byId('retry').addEventListener('click', load);
+byId('refresh').addEventListener('click', load);
+setInterval(() => {
+  if (document.visibilityState === 'visible') load();
+}, refreshIntervalMs);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && (!lastLoadedAt || Date.now() - lastLoadedAt > refreshIntervalMs)) load();
+});
+window.addEventListener('hashchange', () => {
+  const section = location.hash.slice(1);
+  if (['current', 'requests', 'records', 'wiki'].includes(section) && section !== state.section) selectSection(section);
+});
 for (const button of document.querySelectorAll('[data-locale]')) button.addEventListener('click', () => switchLocale(button.dataset.locale));
 byId('brand-home').addEventListener('click', () => selectSection('current'));
 for (const section of ['current', 'requests', 'records', 'wiki']) byId(`nav-${section}`).addEventListener('click', () => selectSection(section));
