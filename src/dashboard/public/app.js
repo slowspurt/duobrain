@@ -34,6 +34,7 @@ const state = {
   section: 'current', selectedTicketId: null, selectedWikiPath: null, assignments: [],
   compactViews: { requests: 'list', records: 'work', wiki: 'list' }, locale,
 };
+const format = (key, values) => t(key).replace(/\{(\w+)\}/g, (_, name) => values[name] ?? '');
 const text = (value, fallback = t('unknown')) => typeof value === 'string' && value.trim() ? value : fallback;
 const participantLabel = (value) => {
   if (!state.sample) return text(value);
@@ -133,8 +134,8 @@ function renderGoals(goals = {}, snapshot = {}) {
   const history = element('div', 'plan-history-list');
   for (const event of Array.isArray(presentation.plan.history) ? presentation.plan.history : []) {
     const item = element('article', 'timeline-item');
-    item.append(element('p', 'timeline-type', text(event?.type, t('eventUnknown'))));
-    item.append(element('p', 'caption', `${formatDate(event?.at)} · ${participantLabel(event?.actor?.participant)} (${text(event?.actor?.kind, t('noActor'))})`));
+    item.append(element('p', 'timeline-type', eventLabel(event?.type)));
+    item.append(element('p', 'caption', `${actorLabel(event?.actor)} · ${formatDate(event?.at)}`));
     if (event?.data?.body) item.append(element('p', 'timeline-body', displayCopy(event.data.body)));
     history.append(item);
   }
@@ -156,11 +157,34 @@ function formatDate(value, fallback = t('unknown')) {
     : fallback;
 }
 
-function formatRecordedRange(session) {
-  const start = formatDate(session.startedAt, t('startUnknown'));
-  if (!session.endedAt) return `${start} · ${t('active')}`;
-  return `${start} — ${formatDate(session.endedAt, t('endUnknown'))}`;
+const relativeFormat = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+function relativeTime(value) {
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return null;
+  const difference = timestamp - Date.now();
+  for (const [unit, size] of [['day', 86_400_000], ['hour', 3_600_000], ['minute', 60_000]]) {
+    if (Math.abs(difference) >= size || unit === 'minute') return relativeFormat.format(Math.round(difference / size), unit);
+  }
+  return null;
 }
+
+function formatRecordedRange(session) {
+  const started = relativeTime(session.startedAt);
+  if (!started) return t('startUnknown');
+  if (!session.endedAt) return format('startedRelative', { time: started });
+  return format('finishedRange', { range: `${formatDate(session.startedAt)} — ${formatDate(session.endedAt, t('endUnknown'))}`, time: relativeTime(session.endedAt) ?? '' });
+}
+
+const ticketOpenedAt = (ticket) => (Array.isArray(ticket?.history) ? ticket.history : []).find((event) => event?.type === 'ticket.created')?.at ?? null;
+const ticketAge = (ticket) => {
+  const opened = relativeTime(ticketOpenedAt(ticket));
+  return opened ? format('askedRelative', { time: opened }) : null;
+};
+const eventLabel = (type) => typeof type === 'string' && t(`event.${type}`) !== `event.${type}` ? t(`event.${type}`) : text(type, t('eventUnknown'));
+const actorLabel = (actor) => {
+  const person = participantLabel(actor?.participant);
+  return actor?.kind === 'ai' ? format('viaAi', { person }) : person;
+};
 
 function renderParticipants(participants = [], sessions = []) {
   const container = byId('participants');
@@ -174,25 +198,23 @@ function renderParticipants(participants = [], sessions = []) {
     heading.append(element('h3', '', participantLabel(participant)), element('span', `status ${recent ? recent.status : 'unknown'}`, recent ? text(labels[recent.status]) : t('noRecord')));
     card.append(heading);
     const role = element('dl', 'person-role');
-    const scopes = Array.isArray(assignment?.scope) ? assignment.scope : [];
-    role.append(element('dt', '', t('roleScope')), element('dd', '', scopes.join(', ') || (recent?.scope ?? []).join(', ') || t('unknown')));
-    role.append(element('dt', '', t('nextAction')), element('dd', '', displayCopy(assignment?.next ?? recent?.next)));
-    card.append(role);
+    const scopes = Array.isArray(assignment?.scope) && assignment.scope.length ? assignment.scope : (Array.isArray(recent?.scope) ? recent.scope : []);
+    const next = assignment?.next ?? recent?.next;
+    if (scopes.length) role.append(element('dt', '', t('roleScope')), element('dd', '', scopes.join(', ')));
+    if (typeof next === 'string' && next.trim()) role.append(element('dt', '', t('nextAction')), element('dd', 'next-copy', displayCopy(next)));
+    if (role.children.length) card.append(role);
     if (!recent) {
       card.append(empty(t('noRecentWork')));
       container.append(card);
       return;
     }
     card.append(element('p', 'session-title', displayCopy(recent.title, t('noTitle'))), element('p', 'recorded-time', formatRecordedRange(recent)));
-    const scope = element('div', 'chips');
-    const scopeItems = Array.isArray(recent.scope) ? recent.scope : [];
-    (scopeItems.length ? scopeItems : [t('noScope')]).forEach((item) => scope.append(element('span', `chip${scopeItems.length ? '' : ' muted'}`, text(item))));
-    card.append(scope);
-    const blockers = element('div', 'blockers');
-    blockers.append(element('p', 'label', t('blockers')));
     const blockerItems = Array.isArray(recent.blockers) ? recent.blockers : [];
-    blockers.append(blockerItems.length ? element('p', '', blockerItems.map((item) => displayCopy(item)).join(' · ')) : empty(t('noBlockers')));
-    card.append(blockers);
+    if (blockerItems.length) {
+      const blockers = element('div', 'blockers');
+      blockers.append(element('p', 'label', t('blockers')), element('p', '', blockerItems.map((item) => displayCopy(item)).join(' · ')));
+      card.append(blockers);
+    }
     container.append(card);
   });
 }
@@ -240,8 +262,9 @@ function renderSessionAnalysis() {
       participant.append(metricRow(participantLabel(participantId), t('noRecord')));
       continue;
     }
-    const note = item.unknownSessionCount ? `${t('unknownTime')} ${item.unknownSessionCount}` : '';
-    participant.append(metricRow(participantLabel(item.participant), formatDuration(item.recordedActiveMs), note));
+    const note = item.unknownSessionCount ? format('notCountedCount', { count: item.unknownSessionCount }) : '';
+    const nothingCounted = item.recordedActiveMs === 0 && item.unknownSessionCount > 0;
+    participant.append(metricRow(participantLabel(item.participant), nothingCounted ? '—' : formatDuration(item.recordedActiveMs), note));
   }
 
   const scopes = byId('scope-time');
@@ -256,7 +279,8 @@ function renderSessionAnalysis() {
     const card = element('article', 'session-record-card');
     const heading = element('div', 'person-heading');
     heading.append(element('strong', '', displayCopy(item.title, t('noTitle'))), element('span', `time-state ${item.timeStatus}`, item.timeStatus === 'known' ? t('timeKnown') : t('timeUnknown')));
-    card.append(heading, element('p', 'caption', `${participantLabel(item.participant)} · ${formatDate(item.startedAt, t('startUnknown'))}`));
+    card.append(heading, element('p', 'caption', `${participantLabel(item.participant)} · ${formatRecordedRange(item)}`));
+    if (item.timeStatus !== 'known' && item.timeReason) card.append(element('p', 'caption time-reason', format('notCountedBecause', { reason: t(`reason.${item.timeReason}`) })));
     if (item.summary) card.append(element('p', 'session-summary', displayCopy(item.summary)));
     const technical = element('details', 'session-technical');
     technical.append(element('summary', '', t('timeDetails')));
@@ -287,8 +311,8 @@ function renderTimeline(ticket) {
   if (!history.length) section.append(empty(t('noDetails')));
   for (const event of history) {
     const item = element('article', 'timeline-item');
-    item.append(element('p', 'timeline-type', text(event?.type, t('eventUnknown'))));
-    item.append(element('p', 'caption', `${formatDate(event?.at)} · ${participantLabel(event?.actor?.participant)} (${text(event?.actor?.kind, t('noActor'))})`));
+    item.append(element('p', 'timeline-type', eventLabel(event?.type)));
+    item.append(element('p', 'caption', `${actorLabel(event?.actor)} · ${formatDate(event?.at)}`));
     if (event?.data?.body) item.append(element('p', 'timeline-body', displayCopy(event.data.body)));
     section.append(item);
   }
@@ -494,7 +518,7 @@ function ticketListItem(ticket) {
   const meta = element('div', 'ticket-meta');
   meta.append(element('span', `kind ${ticket.kind ?? 'unknown'}`, labels[ticket.kind] ?? t('unknown')));
   meta.append(element('span', `status ${ticket.status ?? 'unknown'}`, labels[ticket.status] ?? t('unknown')));
-  card.append(meta, element('h3', '', displayCopy(ticket.title, t('noTitle'))), element('p', 'caption', `${participantLabel(ticket.requester)} → ${participantLabel(ticket.assignee)} · ${labels[ticket.status] ?? t('unknown')}`));
+  card.append(meta, element('h3', '', displayCopy(ticket.title, t('noTitle'))), element('p', 'caption', [`${participantLabel(ticket.requester)} → ${participantLabel(ticket.assignee)}`, ticketAge(ticket)].filter(Boolean).join(' · ')));
   card.addEventListener('click', () => { state.selectedTicketId = ticket.id; renderTickets(); selectCompactView('requests', 'detail'); });
   return card;
 }
@@ -542,7 +566,7 @@ function renderAttention() {
   for (const ticket of openTickets) {
     const button = element('button', 'attention-item');
     button.type = 'button';
-    button.append(element('span', '', labels[ticket.kind] ?? t('unknown')), element('strong', '', displayCopy(ticket.title)), element('small', '', labels[ticket.status] ?? t('unknown')));
+    button.append(element('span', '', labels[ticket.kind] ?? t('unknown')), element('strong', '', displayCopy(ticket.title)), element('small', '', [labels[ticket.status] ?? t('unknown'), relativeTime(ticketOpenedAt(ticket))].filter(Boolean).join(' · ')));
     button.addEventListener('click', () => { state.selectedTicketId = ticket.id; selectCompactView('requests', 'detail'); selectSection('requests'); });
     container.append(button);
   }

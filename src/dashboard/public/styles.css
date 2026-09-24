@@ -63,7 +63,7 @@ main { position:relative; min-height:0; overflow:hidden; background:#f0f2ed; }
 .plan-status, .status, .kind, .validation, .sample-evidence, .time-state { display:inline-flex; width:fit-content; padding:4px 7px; border-radius:4px; font-size:.67rem; font-weight:800; }
 .plan-status.agreed, .status.active, .status.acknowledged, .status.synced, .status.resolved, .validation.valid, .time-state.known { color:#174b36; background:#d8eee2; }
 .plan-status.proposed, .status.open, .status.unknown, .validation.warning, .time-state.unknown, .time-state.partial { color:#665114; background:var(--warning); }
-.plan-status.none, .status.closed { color:#535b57; background:#e1e4df; }
+.plan-status.none, .status.closed, .status.ended { color:#535b57; background:#e1e4df; }
 .plan-status.conflict, .status.error, .validation.failure, .validation.missing { color:#76222d; background:var(--danger); }
 .status.pending, .status.paused, .status.needs_information { color:#764611; background:#f5dcc0; }
 .status.answered { color:#194d68; background:#d8eaf3; }
