@@ -49,6 +49,24 @@ incoming commits. `update` fast-forwards the checkout only when it is clean and 
 (`UPDATE_DIRTY`, `UPDATE_DIVERGED`), then, inside a product that already has the block, runs the new
 code's `agents-sync`.
 
+### Vendored install
+
+`install` copies the runtime files (`package.json`, `LICENSE`, `bin`, `src`, `guides`, `skills`) of the
+running duobrain into `<product>/.duobrain/`, writes `VENDOR.json` (`version`, `source`, `ref`, `commit`)
+and a short `README.md`, then runs the copied code's `agents-sync`, which writes the vendored `AGENTS.md`
+block, the `CLAUDE.md` import and the `.gitattributes` line
+`/.duobrain/** linguist-vendored linguist-generated`. Reinstalling the same commit is `unchanged`.
+Nothing is committed. See [docs/vendoring.md](../vendoring.md).
+
+Run from a vendored copy, `update [--check] [--ref vX.Y.Z]` lists the release tags at `VENDOR.json`'s
+source, shallow-clones the newest (or `--ref`) into a temporary directory, replaces `.duobrain/` and runs
+the new code's `agents-sync`. Without `--ref` it only moves to a newer version. It refuses when committed
+files under `.duobrain/` have local edits (`VENDOR_DIRTY`).
+
+`init --participant <id>` without `--participants` joins existing shared state and reads the participant
+pair from it. When the remote has no shared state yet it fails with `PARTICIPANTS_REQUIRED` before
+creating anything locally.
+
 ### AI-led onboarding and local preferences
 
 `onboarding-inspect` works before initialization and returns repository clues, remote shared-state

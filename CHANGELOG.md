@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.1
+
+One person adds duobrain to the project; the other only pulls and joins.
+
+- `install` vendors duobrain's runtime files into `<product>/.duobrain/`, pins the release in `VENDOR.json`, and writes the `AGENTS.md` block, the `CLAUDE.md` import and a `linguist-vendored` `.gitattributes` line.
+- Run from a vendored copy, `update [--check] [--ref vX.Y.Z]` installs a published release and refreshes `AGENTS.md` with the new code. It only moves forward unless `--ref` is given, and never overwrites local edits in `.duobrain/`.
+- `init --participant <id>` joins existing shared state without repeating both IDs; without shared state it fails before creating anything.
+- [Why duobrain is vendored](docs/vendoring.md).
+
 ## 0.1.0
 
 Initial Git-distributed release of duobrain for exactly two people and their existing AI tools.

@@ -14,40 +14,48 @@ node src/dashboard/run.js
 
 ## 실제 프로젝트 연결
 
-각자 같은 제품 저장소를 클론하고 duobrain은 도구용 별도 폴더에 둔다. 아래 절대 경로는 자신의 경로로 바꾼다. 두 사람 모두 같은 순서의 참여자 쌍을 사용하고 자신의 ID만 다르게 설정한다.
+**한 사람이 duobrain을 제품 저장소에 넣으면, 다른 사람은 pull만 하고 합류한다.** duobrain 실행 파일을 제품 저장소의 `.duobrain/`에 복사해 커밋하는 방식(vendoring)이다. 이유와 장단점은 [vendoring 설명](docs/vendoring.md)에 있다.
 
 ```sh
-# Alice의 컴퓨터
-node /path/to/duobrain/bin/duobrain.js init \
-  --repository /path/to/product --participants alice,bob --participant alice
-
-# Bob의 컴퓨터
-node /path/to/duobrain/bin/duobrain.js init \
-  --repository /path/to/product --participants alice,bob --participant bob
+# 먼저 도입하는 사람 (예: Alice)
+git clone --depth 1 --branch v0.1.1 https://github.com/slowspurt/duobrain.git /tmp/duobrain
+cd /path/to/product
+node /tmp/duobrain/bin/duobrain.js install
+node .duobrain/bin/duobrain.js init --participants alice,bob --participant alice
+git add .duobrain AGENTS.md CLAUDE.md .gitattributes
+git commit -m "chore: add duobrain"
+git push
 ```
+
+```sh
+# 합류하는 사람 (예: Bob): 따로 받을 것이 없다
+git pull
+node .duobrain/bin/duobrain.js init --participant bob
+```
+
+`install`은 실행에 필요한 파일(약 400KB, 의존성 없음)을 `.duobrain/`에 복사하고 버전을 `.duobrain/VENDOR.json`에 고정한다. 함께 `AGENTS.md`에 duobrain 블록을, `CLAUDE.md`에 `@AGENTS.md` 줄을, `.gitattributes`에 vendored 표시를 추가한다. Codex·Cursor는 `AGENTS.md`를, Claude Code는 `CLAUDE.md`를 통해 같은 지침을 읽는다. 합류하는 사람은 공유 기록에서 참여자 쌍을 읽으므로 자기 ID만 넘긴다.
 
 제품 저장소의 `origin`에 두 사람 모두 읽기·쓰기 권한이 있어야 한다. 공유 기록은 그 원격의 `duobrain/state` 브랜치와 로컬 Git 내부의 격리 저장소에 저장된다. 코드 변경과 공유 기록은 별도 커밋이다. 명령 결과가 `pending`이거나 종료 코드가 2이면 전달 완료가 아니므로 같은 제품 저장소에서 `sync`로 재시도한다.
 
 ```sh
-node /path/to/duobrain/bin/duobrain.js sync --repository /path/to/product
-node /path/to/duobrain/bin/duobrain.js status --repository /path/to/product
-node /path/to/duobrain/src/dashboard/run.js --repository /path/to/product
+node .duobrain/bin/duobrain.js sync
+node .duobrain/bin/duobrain.js status --brief
+node .duobrain/src/dashboard/run.js --repository .
 ```
 
 실제 대시보드는 로컬에 동기화된 기록을 읽는다. 상대의 새 기록을 가져오려면 `sync`를 실행한다.
 
-`init`은 제품 저장소의 `AGENTS.md`에 duobrain 블록을, `CLAUDE.md`에 `@AGENTS.md` 가져오기 줄을 추가한다. 기존 내용은 그대로 두고 커밋하지 않는다. 한 번 커밋해 두면 Codex·Cursor는 `AGENTS.md`를, Claude Code는 `CLAUDE.md`를 통해 같은 지침을 읽는다. 블록에는 개인 경로가 없고, AI가 `duobrain guide`로 각자 컴퓨터의 가이드 경로를 찾는다. 건너뛰려면 `init`에 `--no-agents`를 붙인다.
-
-`duobrain` 명령은 duobrain 폴더에서 `npm link`를 한 번 실행하면 어디서나 쓸 수 있다(설치되는 의존성은 없다).
+여러 프로젝트에서 duobrain 하나를 쓰고 싶으면 제품 밖에 clone하고 `npm link`한 뒤, 각자 `duobrain init --participants … --participant …`를 실행하는 전역 설치 방식도 쓸 수 있다.
 
 ## duobrain 업데이트
 
 ```sh
-node /path/to/duobrain/bin/duobrain.js update --check
-node /path/to/duobrain/bin/duobrain.js update --repository /path/to/product
+node .duobrain/bin/duobrain.js update --check
+node .duobrain/bin/duobrain.js update
+git add .duobrain AGENTS.md && git commit -m "chore: update duobrain"
 ```
 
-`--check`는 아무것도 바꾸지 않고 새 버전과 커밋 목록만 보여 준다. `update`는 duobrain 폴더를 upstream으로 fast-forward하며, 커밋하지 않은 변경이나 자체 커밋이 있으면 멈춘다. duobrain 블록이 있는 제품 저장소를 함께 지정하면 `AGENTS.md` 블록도 새 버전으로 갱신한다. 결과가 `commitNeeded: true`면 그 변경을 커밋한다.
+`--check`는 아무것도 바꾸지 않고 최신 릴리스만 보여 준다. `update`는 최신 `vX.Y.Z` 릴리스를 받아 `.duobrain/`을 교체하고, 새 코드로 `AGENTS.md` 블록을 갱신한다. 한 사람이 업데이트해 커밋하면 다른 사람은 pull만 하면 되므로 두 사람이 항상 같은 버전을 쓴다. `--ref v0.1.1`로 특정 버전을 고를 수 있다. `.duobrain/` 안의 커밋된 파일을 직접 고친 상태면 덮어쓰지 않고 멈춘다.
 
 ## 기존 AI에게 첫 작업 맡기기
 

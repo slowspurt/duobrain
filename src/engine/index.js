@@ -244,22 +244,33 @@ async function configureStateRepository(statePath, remoteUrl) {
   await git(statePath, ['remote', 'add', 'origin', remoteUrl]);
 }
 
-export async function initSharedStore({
-  repository = '.',
-  participants,
-  participant,
-} = {}) {
+function assertLocalParticipant(participants, participant) {
   assertParticipantList(participants);
   if (!participants.includes(participant)) {
     throw new EngineError('Local participant must be one of the two configured participants.', {
       code: 'INVALID_IDENTITY',
     });
   }
+}
+
+/**
+ * Connect this clone. The first person passes both participant IDs; a person
+ * joining an existing shared state may omit `participants`, which are then read
+ * from the shared configuration.
+ */
+export async function initSharedStore({
+  repository = '.',
+  participants,
+  participant,
+} = {}) {
+  if (participants !== undefined) assertLocalParticipant(participants, participant);
 
   const layout = await resolveLayout(repository);
   const remote = await git(layout.repositoryPath, ['remote', 'get-url', 'origin']);
   if (await exists(path.join(layout.statePath, '.git'))) {
     const config = await loadConfig(layout);
+    participants ??= config.participants;
+    assertLocalParticipant(participants, participant);
     if (!sameParticipants(config.participants, participants)) {
       throw new EngineError('Existing shared participant configuration does not match.', {
         code: 'INCOMPATIBLE_CONFIG',
@@ -288,11 +299,24 @@ export async function initSharedStore({
     return { initialized: false, participant, storePath: layout.statePath };
   }
 
+  if (participants === undefined) {
+    // Check before creating anything locally, so a failed join leaves no partial store.
+    const shared = await git(layout.repositoryPath, ['ls-remote', '--heads', 'origin', STATE_BRANCH], {
+      allowFailure: true,
+    });
+    if (!shared.ok || shared.stdout === '') {
+      throw new EngineError('No shared state exists yet; the first person must pass both participant IDs.', {
+        code: 'PARTICIPANTS_REQUIRED',
+      });
+    }
+  }
   await configureStateRepository(layout.statePath, remote.stdout);
   if (await remoteHasState(layout.statePath)) {
     await git(layout.statePath, ['fetch', 'origin', `refs/heads/${STATE_BRANCH}`]);
     await git(layout.statePath, ['checkout', '-B', STATE_BRANCH, 'FETCH_HEAD']);
     const config = await loadConfig(layout);
+    participants ??= config.participants;
+    assertLocalParticipant(participants, participant);
     if (!sameParticipants(config.participants, participants)) {
       throw new EngineError('Remote shared participant configuration does not match.', {
         code: 'INCOMPATIBLE_CONFIG',
