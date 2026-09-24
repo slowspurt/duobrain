@@ -98,6 +98,10 @@ node /path/to/duobrain/bin/duobrain.js init \
   --participants member-a,member-b --participant member-a
 ```
 
+`init`은 제품 저장소의 `AGENTS.md`에 duobrain 블록을, `CLAUDE.md`에 `@AGENTS.md` 줄을 추가하고
+결과의 `agents.commitNeeded`로 알려 준다. 커밋하지 않으므로, 사용자에게 두 파일을 한 번 커밋하자고
+제안한다. 상대가 이미 같은 블록을 커밋했다면 변경이 없다.
+
 nickname은 participant ID와 분리된 공유 프로필이다. 생략하고 싶으면 participant ID 또는
 확인된 GitHub login을 기본 nickname으로 사용한다. 변경 시 같은 프로필 이력에 새 revision이
 추가된다.

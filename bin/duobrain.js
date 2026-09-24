@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 
+import { execFile } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { promisify } from 'node:util';
 
 import {
   acknowledgeTicket,
@@ -38,15 +41,27 @@ import {
   traceSharedWiki,
   updateSessionScope,
 } from '../src/engine/index.js';
+import {
+  TOOL_ROOT,
+  guidePaths,
+  hasAgentsBlock,
+  syncAgentFiles,
+  updateTool,
+} from '../src/tool/index.js';
+
+const execFileAsync = promisify(execFile);
 
 const HELP = `duobrain — Git-backed collaboration records for exactly two people
 
 Usage:
   duobrain --version
+  duobrain guide
+  duobrain update [--check] [--repository <path>]
+  duobrain agents-sync [--dry-run] [--repository <path>]
   duobrain onboarding-inspect [--repository <path>]
   duobrain onboarding-save --file <json-path> [--repository <path>]
   duobrain account-detect
-  duobrain init --participants <id,id> --participant <id> [--repository <path>]
+  duobrain init --participants <id,id> --participant <id> [--no-agents] [--repository <path>]
   duobrain profile-set [--nickname <text>] [--github-login <login>] [--actor <human|ai>]
   duobrain dashboard-locale-set --locale <system|language-tag>
   duobrain start --title <text> [--scope <path,path>] [--goal <text>]
@@ -90,7 +105,10 @@ const COMMAND_HELP = {
   'onboarding-inspect': 'Usage: duobrain onboarding-inspect [--repository <path>]',
   'onboarding-save': 'Usage: duobrain onboarding-save --file <json-path> [--repository <path>]',
   'account-detect': 'Usage: duobrain account-detect',
-  init: 'Usage: duobrain init --participants <id,id> --participant <id> [--repository <path>]',
+  guide: 'Usage: duobrain guide',
+  update: 'Usage: duobrain update [--check] [--repository <path>]',
+  'agents-sync': 'Usage: duobrain agents-sync [--dry-run] [--repository <path>]',
+  init: 'Usage: duobrain init --participants <id,id> --participant <id> [--no-agents] [--repository <path>]',
   'profile-set': 'Usage: duobrain profile-set [--nickname <text>] [--github-login <login>] [--actor <human|ai>] [--repository <path>]',
   'dashboard-locale-set': 'Usage: duobrain dashboard-locale-set --locale <system|language-tag> [--repository <path>]',
   start: 'Usage: duobrain start --title <text> [--scope <path,path>] [--goal <text>] [--branch <name>] [--base-commit <sha>] [--actor <human|ai>] [--repository <path>]',
@@ -123,7 +141,7 @@ const COMMAND_HELP = {
 
 function parseOptions(tokens) {
   const options = {};
-  const booleanOptions = new Set(['help', 'request-missing', 'brief', 'dry-run', 'bundle']);
+  const booleanOptions = new Set(['help', 'request-missing', 'brief', 'dry-run', 'bundle', 'check', 'no-agents']);
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
     if (!token.startsWith('--')) throw new Error(`Unexpected argument: ${token}`);
@@ -145,6 +163,11 @@ function parseOptions(tokens) {
 function requireOption(options, name) {
   if (!options[name]) throw new Error(`Missing required option: --${name}`);
   return options[name];
+}
+
+async function productRoot(repository) {
+  const { stdout } = await execFileAsync('git', ['-C', repository, 'rev-parse', '--show-toplevel'], { encoding: 'utf8' });
+  return stdout.trim();
 }
 
 function list(value) {
@@ -174,7 +197,23 @@ async function main() {
   }
   const repository = options.repository ?? '.';
   let result;
-  if (command === 'onboarding-inspect') {
+  if (command === 'guide') {
+    result = await guidePaths();
+  } else if (command === 'agents-sync') {
+    result = await syncAgentFiles({ productRoot: await productRoot(repository), dryRun: options['dry-run'] === true });
+  } else if (command === 'update') {
+    result = await updateTool({ check: options.check === true });
+    const root = await productRoot(repository).catch(() => null);
+    if (result.updated && root !== null && root !== TOOL_ROOT && await hasAgentsBlock(root)) {
+      // Run the freshly pulled code, not the modules already loaded by this process.
+      const { stdout } = await execFileAsync(
+        process.execPath,
+        [path.join(TOOL_ROOT, 'bin', 'duobrain.js'), 'agents-sync', '--repository', root],
+        { encoding: 'utf8' },
+      );
+      result = { ...result, agents: JSON.parse(stdout) };
+    }
+  } else if (command === 'onboarding-inspect') {
     result = await inspectOnboarding({ repository });
   } else if (command === 'onboarding-save') {
     result = await saveOnboardingProgress({
@@ -189,6 +228,9 @@ async function main() {
       participants: list(requireOption(options, 'participants')),
       participant: requireOption(options, 'participant'),
     });
+    if (!options['no-agents']) {
+      result = { ...result, agents: await syncAgentFiles({ productRoot: await productRoot(repository) }) };
+    }
   } else if (command === 'profile-set') {
     result = await setParticipantProfile({
       repository,

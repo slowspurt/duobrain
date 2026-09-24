@@ -42,71 +42,55 @@ You'll need **Node.js 22+**, **Git**, and one clone per person of the same produ
 
 ### 1. Get the tool
 
-Each person clones duobrain into a folder **separate from the product project**:
+Each person clones duobrain into a folder **separate from the product project**, then puts the `duobrain` command on the PATH:
 
 ```sh
 git clone https://github.com/slowspurt/duobrain.git
 cd duobrain
+npm link
 ```
 
-Run the commands below from this duobrain checkout. Every `/path/to/...` is a placeholder: replace it with a real local path. `--repository` always points to **the product you're building**, not the duobrain tool folder.
+`npm link` only links `bin/duobrain.js` as `duobrain`; there are no dependencies to install. Without it, run `node /path/to/duobrain/bin/duobrain.js` wherever this guide says `duobrain`.
 
 ### 2. Connect your project
 
-Choose exactly two participant IDs. Use the **same IDs in the same order** on both machines, with a different local `--participant`.
+Choose exactly two participant IDs. Use the **same IDs in the same order** on both machines, with a different local `--participant`. Run it inside each person's clone of the product:
 
 ```sh
-# Participant A's machine — use A's product path
-node bin/duobrain.js init \
-  --repository /path/to/product \
-  --participants member-a,member-b --participant member-a
+# Participant A's machine
+cd /path/to/product
+duobrain init --participants member-a,member-b --participant member-a
 ```
 
 ```sh
-# Participant B's machine — use B's product path
-node bin/duobrain.js init \
-  --repository /path/to/product \
-  --participants member-a,member-b --participant member-b
+# Participant B's machine
+cd /path/to/product
+duobrain init --participants member-a,member-b --participant member-b
 ```
 
 After both have initialized, each person checks the connection:
 
 ```sh
-node bin/duobrain.js sync --repository /path/to/product
-node bin/duobrain.js status --repository /path/to/product
+duobrain sync
+duobrain status --brief
 ```
 
-Check the JSON results before continuing. If delivery is `pending` (exit code `2`), fix the Git connection or push permissions and retry `sync` from the same product clone. Collaboration records use a separate `duobrain/state` branch; syncing them does not commit or merge your product code.
+If delivery is `pending` (exit code `2`), fix the Git connection or push permissions and retry `sync`. Collaboration records use a separate `duobrain/state` branch; syncing them does not commit or merge your product code.
 
-### 3. Give your AI the guide
+### 3. Commit the agent instructions
 
-Paste this into your existing AI's project instructions or first task. Fill in the paths and your identity; participant B should swap the two IDs. The IDs below are anonymous examples.
+`init` adds a short duobrain block to the product's `AGENTS.md` and an `@AGENTS.md` import to `CLAUDE.md`. Existing content is kept, and nothing is committed for you. Commit both files once so your partner gets the same block:
 
-```text
-Use duobrain for this two-person project.
-
-Tool checkout: /path/to/duobrain
-Product checkout: /path/to/product
-My participant ID: member-a
-Partner: member-b
-
-Read guides/duobrain-ai.md from the tool checkout and follow it.
-Preserve the existing project instructions. Run the CLI from the tool
-checkout and always pass the product path with --repository.
-
-Sync the work record and check our plan, work scopes and open requests.
-If context is missing, ask me for it or for meeting notes. Propose plan
-changes for our review before starting agreed work, and keep proposals
-distinct from agreements.
-
-Record work starts and handoffs, answer information requests with evidence,
-and keep human feedback attributable to the person who gave it. Tell me
-where my partner left off, what is blocked, and what I can pick up next.
+```sh
+git add AGENTS.md CLAUDE.md
+git commit -m "chore: add duobrain agent instructions"
 ```
 
-Try asking: **“Where did my partner leave off, and what can I pick up?”** On a fresh setup, share a permitted kickoff note first so your AI has something to work from. The [starting-plan recipe](docs/agent-guidance/repository-onboarding.md#2-share-and-record-the-starting-plan) walks through it.
+That is all the AI setup. Codex, Cursor and other tools read `AGENTS.md`; Claude Code reads it through `CLAUDE.md`. The block tells the AI to run `duobrain guide`, which returns this machine's paths to the guide and the commit skill, so the committed file holds no personal paths. If your AI ignores `AGENTS.md`, tell it once: "Read AGENTS.md and follow the duobrain block."
 
-Your existing AI follows this guide when you use it. Setup does not install an AI integration or start a background AI service.
+Try asking: **“Where did my partner leave off, and what can I pick up?”** On a fresh setup, share a kickoff note first so your AI has something to work from. The [starting-plan recipe](docs/agent-guidance/repository-onboarding.md#2-share-and-record-the-starting-plan) walks through it. Pass `--no-agents` to `init` to skip the agent files.
+
+Your existing AI follows the block when you use it. Setup does not start a background AI service.
 
 ### 4. See your shared context
 
@@ -128,6 +112,15 @@ node src/dashboard/run.js
 Open [localhost:4173](http://127.0.0.1:4173) to explore sample records. Stop it with Ctrl+C before starting the dashboard for your real project on the same port.
 
 </details>
+
+## Update duobrain
+
+```sh
+duobrain update --check          # compare with upstream without changing anything
+cd /path/to/product && duobrain update
+```
+
+`update` fast-forwards your duobrain checkout. It stops if the checkout has uncommitted changes or its own commits. When run inside a product that has the duobrain block, it also refreshes `AGENTS.md`; commit that change if it shows `commitNeeded: true`. Run `duobrain agents-sync` any time to refresh the block by hand.
 
 ## Everyday commands
 
