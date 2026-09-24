@@ -14,6 +14,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 .wordmark span { display:inline-block; margin-right:2px; padding:5px 7px; color:var(--ink); background:var(--lime); border-radius:3px; }
 .brand-lockup h1 { font-size:1rem; font-weight:750; letter-spacing:-.02em; }
 .brand-lockup p { margin-top:3px; color:#aeb9b3; font-size:.72rem; }
+.refresh-button { padding:4px 8px; color:#aeb9b3; background:transparent; border:1px solid #3a4540; border-radius:5px; font:inherit; font-size:.72rem; cursor:pointer; }
+.refresh-button:hover { color:white; border-color:#6b7872; }
 .language-switch { display:flex; margin-left:6px; padding:2px; border:1px solid #3a4540; border-radius:5px; }
 .language-switch button { padding:4px 8px; color:#aeb9b3; background:transparent; border:0; border-radius:3px; font:inherit; font-size:.72rem; cursor:pointer; }
 .language-switch button:hover { color:white; }
