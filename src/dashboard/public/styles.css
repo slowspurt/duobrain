@@ -41,6 +41,7 @@ main { position:relative; min-height:0; overflow:hidden; background:#f0f2ed; }
 .section-heading, .person-heading, .ticket-meta, .panel-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; }
 .section-heading { margin-bottom:10px; }
 .section-heading h2 { font-size:.94rem; }
+.attention-section .section-heading { justify-content:flex-start; gap:8px; }
 .panel-heading { height:52px; margin-bottom:12px; }
 .panel-heading h2 { font-size:1.45rem; letter-spacing:-.04em; }
 .panel-heading p { margin-top:4px; color:var(--muted); font-size:.76rem; }
@@ -100,12 +101,16 @@ main { position:relative; min-height:0; overflow:hidden; background:#f0f2ed; }
 .chip { padding:3px 6px; border-radius:3px; color:#435149; background:#e8ece7; font-size:.65rem; font-weight:700; }
 .chip.muted { color:var(--muted); }
 .attention-list { display:grid; gap:7px; max-height:calc(100% - 28px); overflow:auto; }
-.attention-item { display:grid; width:100%; grid-template-columns:76px minmax(0,1fr) auto; align-items:center; gap:10px; padding:9px 0; border:0; border-top:1px solid #ddd5f2; background:transparent; text-align:left; cursor:pointer; }
+.attention-item { display:grid; width:100%; grid-template-columns:76px minmax(0,1fr); grid-template-areas:"kind title" "kind meta"; align-items:center; column-gap:10px; row-gap:2px; padding:9px 0; border:0; border-top:1px solid #ddd5f2; background:transparent; text-align:left; cursor:pointer; }
 .attention-item:first-child { border-top-color:#c9bbea; }
 .attention-item:hover strong { text-decoration:underline; text-underline-offset:3px; }
-.attention-item span { color:#654ec2; font-size:.66rem; font-weight:800; }
-.attention-item strong { min-width:0; overflow:hidden; font-size:.77rem; text-overflow:ellipsis; white-space:nowrap; }
-.attention-item small { color:var(--muted); font-size:.67rem; }
+.attention-item span { grid-area:kind; align-self:start; padding-top:2px; color:#654ec2; font-size:.7rem; font-weight:800; }
+.attention-item.blocker span { color:#8a4a1c; }
+.attention-item strong { grid-area:title; min-width:0; overflow:hidden; font-size:.8rem; text-overflow:ellipsis; white-space:nowrap; }
+.attention-item small { grid-area:meta; min-width:0; overflow:hidden; color:var(--muted); font-size:.7rem; text-overflow:ellipsis; white-space:nowrap; }
+.attention-item.mine small { color:#4b36a8; font-weight:750; }
+.viewer-control { display:flex; align-items:center; gap:6px; margin-left:auto; color:var(--muted); font-size:.7rem; font-weight:700; }
+.viewer-control select { min-height:28px; padding:3px 6px; border:1px solid #cfc5ef; border-radius:4px; background:white; color:var(--ink); font:inherit; }
 .ticket-toolbar, .wiki-toolbar { display:flex; align-items:end; gap:9px; margin-bottom:12px; }
 .ticket-toolbar label, .wiki-search-form label, .period-control { display:grid; gap:4px; color:var(--muted); font-size:.65rem; font-weight:700; }
 .ticket-toolbar input, .ticket-toolbar select, .wiki-search-form input, .wiki-search-form select, .period-control select { min-height:34px; padding:6px 9px; border:1px solid #bec7c0; border-radius:4px; background:white; color:var(--ink); }

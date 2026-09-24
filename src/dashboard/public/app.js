@@ -4,6 +4,7 @@ import {
   peerConfirmation,
   planPresentation,
   ticketEvidence,
+  ticketTurn,
   wikiListRecords,
   wikiValidationPresentation,
 } from '/model.js';
@@ -13,6 +14,10 @@ const byId = (id) => document.getElementById(id);
 const localeStorageKey = 'duobrain.dashboard.locale';
 function storedLocale() {
   try { return localStorage.getItem(localeStorageKey); } catch { return null; }
+}
+const viewerStorageKey = 'duobrain.dashboard.viewer';
+function storedViewer() {
+  try { return localStorage.getItem(viewerStorageKey) ?? ''; } catch { return ''; }
 }
 const locale = resolveLocale({ search: location.search, stored: storedLocale(), languages: navigator.languages });
 const t = translator(locale);
@@ -32,7 +37,7 @@ const state = {
   tab: 'inbox', query: '', status: '', kind: '', peer: '', period: '30d',
   wikiTab: 'all', wikiRecords: [], wikiSearchResults: [], wikiIssues: [],
   section: 'current', selectedTicketId: null, selectedWikiPath: null, assignments: [],
-  compactViews: { requests: 'list', records: 'work', wiki: 'list' }, locale,
+  compactViews: { requests: 'list', records: 'work', wiki: 'list' }, locale, viewer: storedViewer(),
 };
 const format = (key, values) => t(key).replace(/\{(\w+)\}/g, (_, name) => values[name] ?? '');
 const text = (value, fallback = t('unknown')) => typeof value === 'string' && value.trim() ? value : fallback;
@@ -519,7 +524,7 @@ function ticketListItem(ticket) {
   const meta = element('div', 'ticket-meta');
   meta.append(element('span', `kind ${ticket.kind ?? 'unknown'}`, labels[ticket.kind] ?? t('unknown')));
   meta.append(element('span', `status ${ticket.status ?? 'unknown'}`, labels[ticket.status] ?? t('unknown')));
-  card.append(meta, element('h3', '', displayCopy(ticket.title, t('noTitle'))), element('p', 'caption', [`${participantLabel(ticket.requester)} → ${participantLabel(ticket.assignee)}`, ticketAge(ticket)].filter(Boolean).join(' · ')));
+  card.append(meta, element('h3', '', displayCopy(ticket.title, t('noTitle'))), element('p', 'caption', [`${participantLabel(ticket.requester)} → ${participantLabel(ticket.assignee)}`, ticketAge(ticket), turnCopy(ticket)].filter(Boolean).join(' · ')));
   card.addEventListener('click', () => { state.selectedTicketId = ticket.id; renderTickets(); selectCompactView('requests', 'detail'); });
   return card;
 }
@@ -534,7 +539,7 @@ function renderTicketDetail(ticket) {
   meta.append(element('span', `status ${ticket.status ?? 'unknown'}`, labels[ticket.status] ?? t('unknown')));
   header.append(meta, element('h3', '', displayCopy(ticket.title, t('noTitle'))), element('p', 'ticket-body', displayCopy(ticket.body, t('unknown'))));
   const facts = element('div', 'ticket-detail-facts');
-  for (const [label, value] of [[t('requestFlow'), `${participantLabel(ticket.requester)} → ${participantLabel(ticket.assignee)}`], [t('peer'), t(`peer.${peerConfirmation(ticket.status)}`)], [t('linkedGoal'), displayCopy(ticket.goal)]]) {
+  for (const [label, value] of [[t('requestFlow'), `${participantLabel(ticket.requester)} → ${participantLabel(ticket.assignee)}`], [t('peer'), [t(`peer.${peerConfirmation(ticket.status)}`), turnCopy(ticket)].filter(Boolean).join(' · ')], [t('linkedGoal'), displayCopy(ticket.goal)]]) {
     const fact = element('div', '');
     fact.append(element('span', '', label), element('strong', '', value));
     facts.append(fact);
@@ -556,25 +561,43 @@ function renderTickets() {
   renderTicketDetail(matches.find((ticket) => ticket.id === state.selectedTicketId));
 }
 
+function turnCopy(ticket) {
+  const turn = ticketTurn(ticket);
+  if (!turn) return null;
+  return state.viewer && turn === state.viewer ? t('yourTurn') : format('waitingOn', { person: participantLabel(turn) });
+}
+
+function renderViewer() {
+  const select = byId('viewer');
+  if (state.viewer && !state.participants.includes(state.viewer)) state.viewer = '';
+  select.replaceChildren(new Option(t('everyone'), ''));
+  state.participants.forEach((value) => select.add(new Option(participantLabel(value), value)));
+  select.value = state.viewer;
+}
+
 function renderAttention() {
   const container = byId('attention-list');
   container.replaceChildren();
-  const openTickets = filterTickets(state.tickets, { tab: 'inbox' });
+  const openedAt = (ticket) => Date.parse(ticketOpenedAt(ticket)) || Number.POSITIVE_INFINITY;
+  const mine = (ticket) => Boolean(state.viewer) && ticketTurn(ticket) === state.viewer;
+  const openTickets = filterTickets(state.tickets, { tab: 'inbox' })
+    .sort((left, right) => Number(mine(right)) - Number(mine(left)) || openedAt(left) - openedAt(right));
   const blockers = state.sessions.flatMap((session) => (session?.blockers ?? []).map((blocker) => ({ session, blocker })));
   const total = openTickets.length + blockers.length;
-  byId('attention-count').textContent = total ? String(total) : t('nothingToCheck');
+  byId('attention-count').textContent = total ? String(total) : '';
   byId('nav-requests-count').textContent = openTickets.length ? String(openTickets.length) : '';
   for (const ticket of openTickets) {
-    const button = element('button', 'attention-item');
+    const button = element('button', `attention-item${mine(ticket) ? ' mine' : ''}`);
     button.type = 'button';
-    button.append(element('span', '', labels[ticket.kind] ?? t('unknown')), element('strong', '', displayCopy(ticket.title)), element('small', '', [labels[ticket.status] ?? t('unknown'), relativeTime(ticketOpenedAt(ticket))].filter(Boolean).join(' · ')));
-    button.addEventListener('click', () => { state.selectedTicketId = ticket.id; selectCompactView('requests', 'detail'); selectSection('requests'); });
+    const meta = [turnCopy(ticket), labels[ticket.status] ?? t('unknown'), relativeTime(ticketOpenedAt(ticket))].filter(Boolean).join(' · ');
+    button.append(element('span', '', labels[ticket.kind] ?? t('unknown')), element('strong', '', displayCopy(ticket.title)), element('small', '', meta));
+    button.addEventListener('click', () => { state.selectedTicketId = ticket.id; renderTickets(); selectCompactView('requests', 'detail'); selectSection('requests'); });
     container.append(button);
   }
   for (const { session, blocker } of blockers) {
-    const button = element('button', 'attention-item');
+    const button = element('button', 'attention-item blocker');
     button.type = 'button';
-    button.append(element('span', '', t('blockers')), element('strong', '', displayCopy(blocker)), element('small', '', participantLabel(session?.participant)));
+    button.append(element('span', '', t('blockers')), element('strong', '', displayCopy(blocker)), element('small', '', [participantLabel(session?.participant), displayCopy(session?.title, '')].filter(Boolean).join(' · ')));
     button.addEventListener('click', () => selectSection('records'));
     container.append(button);
   }
@@ -619,6 +642,7 @@ function render(snapshot) {
   renderSessionAnalysis();
   fillFilters();
   renderTickets();
+  renderViewer();
   renderAttention();
   renderSync(snapshot.sync);
   loadWikiList();
@@ -691,6 +715,12 @@ function selectCompactView(group, view) {
 
 byId('retry').addEventListener('click', load);
 byId('refresh').addEventListener('click', load);
+byId('viewer').addEventListener('change', (event) => {
+  state.viewer = event.target.value;
+  try { localStorage.setItem(viewerStorageKey, state.viewer); } catch { /* the choice lasts for this page */ }
+  renderAttention();
+  renderTickets();
+});
 setInterval(() => {
   if (document.visibilityState === 'visible') load();
 }, refreshIntervalMs);
