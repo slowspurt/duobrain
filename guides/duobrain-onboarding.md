@@ -134,7 +134,7 @@ node /path/to/duobrain/bin/duobrain.js profile-set \
 상대가 읽었거나 두 사람이 합의했다는 뜻은 아니다.
 
 준비가 끝나면 현재 plan에서 바로 실행 가능한 첫 작업, 상대 자료가 필요한 일, 열린 티켓을
-짧게 보여준다. 사용자가 시작을 요청하면 `guides/duobrain-ai.md`의 범위·겹침 확인 절차를
+짧게 보여준다. 사용자가 시작을 요청하면 `guides/duobrain-ai.md`와 [세션 참고](reference/sessions.md)의 범위·겹침 확인 절차를
 따라 실제 도입 이후의 세션만 기록한다.
 
 ## 대시보드 언어

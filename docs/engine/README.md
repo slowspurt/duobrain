@@ -27,6 +27,15 @@ locally in the isolated checkout, then attempt sync. A transport or push failure
 reported as `pending` with exit code 2; rerun `sync`. Validation or history conflicts
 are errors with exit code 1. No force push is used.
 
+`status --brief` and `overlap --brief` print one compact JSON line for AI briefings.
+`status --brief` keeps the participant and partner, sync state, the plan's goals and
+assignments, open sessions plus each participant's latest ended session (with its
+summary, blockers and next step), tickets assigned to you that still need an answer
+(`forMe`), your own unresolved requests (`fromMe`), and conflicts. Empty fields and
+event histories are omitted. `overlap --brief` returns `verdict`
+(`overlap` / `no_overlap` / `unknown`), the overlapping paths, the semantic status
+and the `unknowns` list.
+
 ### AI-led onboarding and local preferences
 
 `onboarding-inspect` works before initialization and returns repository clues, remote shared-state

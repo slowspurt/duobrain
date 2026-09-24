@@ -2583,6 +2583,90 @@ export async function getEngineStatus({ repository = '.' } = {}) {
   return { participant: identity.participant, head, storePath: layout.statePath, snapshot };
 }
 
+function compact(value) {
+  return Object.fromEntries(Object.entries(value).filter(([, item]) => (
+    item !== null && item !== undefined && !(Array.isArray(item) && item.length === 0)
+  )));
+}
+
+/**
+ * Reduce a full engine status to what an AI needs for a briefing: open work,
+ * each participant's latest handoff, actionable tickets, sync state and
+ * conflicts. Event histories are omitted; run status without --brief for them.
+ */
+export function briefStatus({ participant, snapshot }) {
+  const partner = snapshot.participants.find((id) => id !== participant) ?? null;
+  const lastEventAt = (session) => session.history.at(-1)?.at ?? session.startedAt;
+  const latestEnded = snapshot.participants.map((id) => snapshot.sessions
+    .filter((session) => session.participant === id && session.status === 'ended')
+    .sort((left, right) => right.endedAt.localeCompare(left.endedAt))[0])
+    .filter(Boolean);
+  const sessions = [
+    ...snapshot.sessions.filter((session) => session.status !== 'ended'),
+    ...latestEnded,
+  ].map((session) => compact({
+    id: session.id,
+    participant: session.participant,
+    status: session.status,
+    title: session.title,
+    scope: session.scope,
+    goal: session.goal,
+    branch: session.branch,
+    baseCommit: session.baseCommit,
+    startedAt: session.startedAt,
+    lastEventAt: lastEventAt(session),
+    endedAt: session.endedAt,
+    summary: session.summary,
+    blockers: session.blockers,
+    next: session.next,
+  }));
+  const terminal = new Set(['resolved', 'closed']);
+  const ticket = (item, extra) => compact({
+    id: item.id,
+    kind: item.kind,
+    status: item.status,
+    title: item.title,
+    ...extra,
+  });
+  const plan = snapshot.plan === null ? null : compact({
+    status: snapshot.plan.status,
+    goals: compact(snapshot.plan.goals),
+    assignments: snapshot.plan.assignments.map(compact),
+  });
+  return {
+    participant,
+    partner,
+    sync: compact(snapshot.sync),
+    plan,
+    sessions,
+    tickets: {
+      forMe: snapshot.tickets
+        .filter((item) => item.assignee === participant
+          && !terminal.has(item.status) && item.status !== 'answered')
+        .map((item) => ticket(item, { requester: item.requester, body: item.body })),
+      fromMe: snapshot.tickets
+        .filter((item) => item.requester === participant && !terminal.has(item.status))
+        .map((item) => ticket(item, { evidence: item.evidence })),
+    },
+    conflicts: snapshot.conflicts.map(({ entityId, message }) => ({ entityId, message })),
+  };
+}
+
+/** Reduce an overlap assessment to a verdict, the overlapping paths and the unknowns. */
+export function briefOverlap(result) {
+  return {
+    verdict: result.pathAssessment.status,
+    overlaps: result.pathAssessment.overlaps.map(({ participant, proposed, recorded, relation }) => ({
+      participant,
+      proposed,
+      recorded,
+      relation,
+    })),
+    semantic: result.semanticAssessment.status,
+    unknowns: result.unknowns,
+  };
+}
+
 function normalizeScopeValue(value, label) {
   assertString(value, label);
   const slashPath = value.replaceAll('\\', '/');

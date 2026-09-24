@@ -1,6 +1,6 @@
 # AI 협업 지침 사용법
 
-[`guides/duobrain-ai.md`](../../guides/duobrain-ai.md)는 사용자가 각자의 AI에 제공하는 실행 절차다. 두 참여자의 AI가 같은 문서를 읽을 수 있지만, 별도 상주 AI 서비스나 자동 후크를 설치하지 않는다.
+[`guides/duobrain-ai.md`](../../guides/duobrain-ai.md)는 사용자가 각자의 AI에 제공하는 핵심 지침(영문, 약 4.5KB)이다. 세부 절차는 필요할 때만 [`guides/reference/`](../../guides/reference/)에서 읽는다. 두 참여자의 AI가 같은 문서를 읽을 수 있지만, 별도 상주 AI 서비스나 자동 후크를 설치하지 않는다.
 
 ## 적용 방법
 
