@@ -36,6 +36,19 @@ event histories are omitted. `overlap --brief` returns `verdict`
 (`overlap` / `no_overlap` / `unknown`), the overlapping paths, the semantic status
 and the `unknowns` list.
 
+### Agent files and updates
+
+`init` also writes a managed block into the product's `AGENTS.md` and adds `@AGENTS.md` to `CLAUDE.md`
+(`--no-agents` skips this). Only the text between `<!-- duobrain:start -->` and `<!-- duobrain:end -->`
+is ever rewritten; nothing is committed. The block names no local paths: the AI runs `duobrain guide`,
+which returns this checkout's version and the absolute paths of the guide, references, onboarding guide
+and commit skill. `agents-sync [--dry-run]` rewrites the block and reports `commitNeeded`.
+
+`update --check` fetches and reports the current and upstream version, the ahead/behind counts and the
+incoming commits. `update` fast-forwards the checkout only when it is clean and has no local commits
+(`UPDATE_DIRTY`, `UPDATE_DIVERGED`), then, inside a product that already has the block, runs the new
+code's `agents-sync`.
+
 ### AI-led onboarding and local preferences
 
 `onboarding-inspect` works before initialization and returns repository clues, remote shared-state

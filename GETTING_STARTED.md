@@ -36,6 +36,19 @@ node /path/to/duobrain/src/dashboard/run.js --repository /path/to/product
 
 실제 대시보드는 로컬에 동기화된 기록을 읽는다. 상대의 새 기록을 가져오려면 `sync`를 실행한다.
 
+`init`은 제품 저장소의 `AGENTS.md`에 duobrain 블록을, `CLAUDE.md`에 `@AGENTS.md` 가져오기 줄을 추가한다. 기존 내용은 그대로 두고 커밋하지 않는다. 한 번 커밋해 두면 Codex·Cursor는 `AGENTS.md`를, Claude Code는 `CLAUDE.md`를 통해 같은 지침을 읽는다. 블록에는 개인 경로가 없고, AI가 `duobrain guide`로 각자 컴퓨터의 가이드 경로를 찾는다. 건너뛰려면 `init`에 `--no-agents`를 붙인다.
+
+`duobrain` 명령은 duobrain 폴더에서 `npm link`를 한 번 실행하면 어디서나 쓸 수 있다(설치되는 의존성은 없다).
+
+## duobrain 업데이트
+
+```sh
+node /path/to/duobrain/bin/duobrain.js update --check
+node /path/to/duobrain/bin/duobrain.js update --repository /path/to/product
+```
+
+`--check`는 아무것도 바꾸지 않고 새 버전과 커밋 목록만 보여 준다. `update`는 duobrain 폴더를 upstream으로 fast-forward하며, 커밋하지 않은 변경이나 자체 커밋이 있으면 멈춘다. duobrain 블록이 있는 제품 저장소를 함께 지정하면 `AGENTS.md` 블록도 새 버전으로 갱신한다. 결과가 `commitNeeded: true`면 그 변경을 커밋한다.
+
 ## 기존 AI에게 첫 작업 맡기기
 
 제품 저장소에서 기존 AI에 다음 요청을 전달한다. duobrain 경로를 실제 값으로 바꾼다.

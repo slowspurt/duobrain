@@ -74,9 +74,9 @@ node /Users/bob/tools/duobrain/bin/duobrain.js status \
 
 Bob's briefing reads `status` output's `snapshot.plan`, `snapshot.goals`, and `snapshot.plan.assignments` rather than rebuilding the plan. A null plan can also mean conflict: inspect `snapshot.conflicts` before proposing a first plan. After both people have checked the scope and goals, write a complete replacement JSON with `status: "agreed"` and the valid structured decision-evidence notes for **both** people, then run `plan-set` again. The engine validates the human-attributed evidence shape, not whether its prose actually means both people consented to this exact revision. Verify that semantic coverage before recording it; a passing command is not an authentication or consent proof.
 
-## 3. Add the guidance to each existing AI manually
+## 3. Add the guidance to each existing AI
 
-Append this short instruction to each person's existing AI guidance file or first task prompt. It is an addition, not a replacement for repository-specific rules:
+`init` already wrote a duobrain block into the product's `AGENTS.md` and an `@AGENTS.md` import into `CLAUDE.md`; commit both once. Tools that read `AGENTS.md` need nothing else. Only for a tool that reads neither file, append this instruction to its guidance file or first task prompt:
 
 > For two-person collaboration, read `guides/duobrain-ai.md` from the duobrain checkout and follow its core rules, lookup limit and answer formats. Open `guides/reference/` only when a task needs it. Preserve the existing project instructions. Follow the user's existing authorization for routine session briefings, synchronization, and information tickets; ask only for missing task facts, new human decisions, or expanded sharing scope. When using the CLI, pass the product repository with `--repository` and report local commit, sync, peer acknowledgment, and resolution as separate facts.
 
