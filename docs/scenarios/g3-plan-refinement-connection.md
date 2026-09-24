@@ -19,4 +19,4 @@ The example creates and removes its own temporary bare Git remote and two indepe
 
 The same run calls D4 aggregation and requires `timeStatus: "known"` plus nonzero attribution to both the original and updated scopes. W4 remains a pure planner in this example. Its importance signal cites the actual shared ticket, so the evidence is locally `verified` rather than an unsupported external `caller-claim`. The call leaves the shared-store HEAD and every source Markdown byte unchanged, and its candidate is not present in Git afterward.
 
-Scheduled execution and persistence are exercised separately by the G4 final connection example. Neither example installs an operating-system job or claims automatic conversation continuation, a two-machine acceptance test, or automatic AI execution.
+Persisted refinement execution is exercised separately by the G4 final connection example. Neither example claims automatic conversation continuation, a two-machine acceptance test, or automatic AI execution.

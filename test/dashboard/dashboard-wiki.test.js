@@ -11,7 +11,7 @@ import { promisify } from 'node:util';
 import {
   addWikiNote,
   initSharedStore,
-  runDailyWikiRefinement,
+  runWikiRefinement,
 } from '../../src/engine/index.js';
 import { startDashboard } from '../../src/dashboard/index.js';
 import { recordedContextDifferences, wikiListRecords } from '../../src/dashboard/public/model.js';
@@ -62,10 +62,9 @@ function sourceNote({ id, title, promptRef, harnessRef, supersedes = [] }) {
   }, `# ${title}\n\nShared multiline export evidence.`);
 }
 
-function schedule() {
+function refinementConfig() {
   return {
     timezone: 'Asia/Seoul',
-    time: '09:00',
     policy: {
       id: 'dashboard-daily-index',
       version: '1',
@@ -134,10 +133,9 @@ test('dashboard explores actual E5 list, search, lineage, source, and daily refi
       supersedes: [oldPath],
     }),
   });
-  const refined = await runDailyWikiRefinement({
+  const refined = await runWikiRefinement({
     repository: setup.repository,
-    schedule: schedule(),
-    ifDue: true,
+    config: refinementConfig(),
     now: '2026-09-20T09:30:00+09:00',
   });
   assert.equal(refined.outcome, 'completed');

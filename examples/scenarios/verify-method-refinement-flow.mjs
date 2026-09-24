@@ -14,7 +14,7 @@ import {
   initSharedStore,
   listWikiNotes,
   respondToTicket,
-  runDailyWikiRefinement,
+  runWikiRefinement,
   syncStore,
 } from '../../src/engine/index.js';
 import { renderWikiNote } from '../../src/wiki/index.js';
@@ -96,10 +96,9 @@ function comparisonManifest({ includeRightArtifacts = false } = {}) {
   };
 }
 
-function refinementSchedule() {
+function refinementConfig() {
   return {
     timezone: 'Asia/Seoul',
-    time: '09:00',
     policy: {
       id: 'g4-daily-index',
       version: '1',
@@ -213,35 +212,15 @@ async function run() {
     assert.equal(aAnsweredTicket.status, 'answered');
     assert.deepEqual(aAnsweredTicket.evidence, [rightPath]);
 
-    const schedule = refinementSchedule();
-    const nonOwner = await runDailyWikiRefinement({
-      repository: fixture.b,
-      schedule,
-      ifDue: true,
-      now: '2026-09-20T09:30:00+09:00',
-    });
-    assert.equal(nonOwner.outcome, 'skipped');
-    assert.equal(nonOwner.reason, 'not-scheduler-owner');
-    assert.equal(nonOwner.schedule.owner, 'participant-a');
-
-    const beforeTime = await runDailyWikiRefinement({
+    const config = refinementConfig();
+    const first = await runWikiRefinement({
       repository: fixture.a,
-      schedule,
-      ifDue: true,
-      now: '2026-09-20T08:59:00+09:00',
-    });
-    assert.equal(beforeTime.outcome, 'skipped');
-    assert.equal(beforeTime.reason, 'not-due');
-
-    const due = await runDailyWikiRefinement({
-      repository: fixture.a,
-      schedule,
-      ifDue: true,
+      config,
       now: '2026-09-20T09:05:00+09:00',
     });
-    assert.equal(due.outcome, 'completed');
-    assert.equal(due.sync.status, 'synced');
-    const leftEntry = due.plan.entries.find(({ path: entryPath }) => entryPath === leftPath);
+    assert.equal(first.outcome, 'completed');
+    assert.equal(first.sync.status, 'synced');
+    const leftEntry = first.plan.entries.find(({ path: entryPath }) => entryPath === leftPath);
     assert.equal(leftEntry.importance.state, 'known');
     assert.equal(leftEntry.importance.evidence.kind, 'wiki');
     assert.equal(leftEntry.importance.evidence.verification, 'verified');
@@ -250,29 +229,27 @@ async function run() {
     assert.equal((await syncStore({ repository: fixture.b })).status, 'synced');
     const bFirstDayRefinements = refinementNotes(await listWikiNotes({ repository: fixture.b }));
     assert.equal(bFirstDayRefinements.length, 1);
-    assert.equal(bFirstDayRefinements[0].path, due.summaryPath);
+    assert.equal(bFirstDayRefinements[0].path, first.summaryPath);
 
-    const repeated = await runDailyWikiRefinement({
+    const repeated = await runWikiRefinement({
       repository: fixture.a,
-      schedule,
-      ifDue: true,
+      config,
       now: '2026-09-20T22:00:00+09:00',
     });
     assert.equal(repeated.outcome, 'skipped');
-    assert.equal(repeated.reason, 'already-successful');
-    assert.equal(repeated.summaryPath, due.summaryPath);
+    assert.equal(repeated.reason, 'no-new-input');
+    assert.equal(repeated.summaryPath, first.summaryPath);
 
-    const nextDay = await runDailyWikiRefinement({
+    const nextDay = await runWikiRefinement({
       repository: fixture.a,
-      schedule,
-      ifDue: true,
+      config,
       now: '2026-09-21T09:05:00+09:00',
     });
     assert.equal(nextDay.outcome, 'completed');
     assert.equal(nextDay.sync.status, 'synced');
-    assert.notEqual(nextDay.summaryPath, due.summaryPath);
-    assert.equal(nextDay.plan.candidate.metadata.previousSummary, due.summaryPath);
-    assert.deepEqual(nextDay.plan.candidate.metadata.supersedes, [due.summaryPath]);
+    assert.notEqual(nextDay.summaryPath, first.summaryPath);
+    assert.equal(nextDay.plan.candidate.metadata.previousSummary, first.summaryPath);
+    assert.deepEqual(nextDay.plan.candidate.metadata.supersedes, [first.summaryPath]);
     assert.equal((await syncStore({ repository: fixture.b })).status, 'synced');
     const bSecondDayRefinements = refinementNotes(await listWikiNotes({ repository: fixture.b }));
     assert.equal(bSecondDayRefinements.length, 2);
@@ -282,7 +259,6 @@ async function run() {
         independentLocalClones: 2,
         temporaryBareRemote: fixture.remote,
         actualSeparateMachines: false,
-        operatingSystemJobInstalled: false,
         automaticAiExecution: false,
       },
       methodComparison: {
@@ -296,11 +272,9 @@ async function run() {
           .textComparison.available,
         causalConclusionSupported: completedComparison.comparison.causalConclusion.supported,
       },
-      scheduledRefinement: {
-        invocationMode: 'runDailyWikiRefinement({ ifDue: true, now })',
-        secondParticipant: { outcome: nonOwner.outcome, reason: nonOwner.reason },
-        beforeTime: { outcome: beforeTime.outcome, reason: beforeTime.reason },
-        due: { outcome: due.outcome, sync: due.sync.status, summaryPath: due.summaryPath },
+      manualRefinement: {
+        invocationMode: 'runWikiRefinement({ config, now })',
+        first: { outcome: first.outcome, sync: first.sync.status, summaryPath: first.summaryPath },
         peerSummaryCountBeforeSync: 0,
         peerSummaryCountAfterSync: bFirstDayRefinements.length,
         repeatedSameDay: { outcome: repeated.outcome, reason: repeated.reason },
@@ -315,7 +289,6 @@ async function run() {
           kind: leftEntry.importance.evidence.kind,
           verification: leftEntry.importance.evidence.verification,
         },
-        manualPolicyOnlyRefreshCovered: false,
       },
     }, null, 2)}\n`);
   } finally {

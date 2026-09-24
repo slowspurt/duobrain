@@ -148,11 +148,11 @@ node bin/duobrain.js method-compare --file ./method-comparison.json --actor ai
 
 필요한 필드·공유 범위가 이미 사전 허용된 경우에는 같은 manifest에 `--request-missing --actor ai`를 붙여 좁은 information ticket을 만들거나 기존 비종결 요청을 재사용한다. 상대는 명시적으로 sync하고 허용된 note·근거를 보충한 뒤 응답한다. 요청자는 다음 명시적 sync 또는 사용자 호출에서 같은 `method-compare`를 다시 실행해 원 질문을 이어간다. 이 명령은 AI가 백그라운드에서 기다리거나 자동 재개한다는 뜻이 아니다.
 
-## 하루 위키 정제
+## 위키 정제 (수동)
 
-`wiki-refine --file <schedule-json> --if-due`는 외부 scheduler가 호출할 수 있는 한 번의 실행이다. duobrain 자체가 상주 프로세스·예약 작업·AI 자동 재개를 설치하지 않는다. schedule에는 IANA `timezone`, 24시간 `time`(기본 `09:00`), policy를 둔다. `config.participants[0]`만 예약 실행 담당이고, 다른 participant는 `not-scheduler-owner`로 건너뛴다.
+`wiki-refine --file <refinement-json>`은 사용자가 요청할 때만 실행한다. 예약 실행이나 담당자 제한은 없으며 두 참여자 누구나 실행할 수 있다. 설정 JSON에는 IANA `timezone`과 policy를 둔다.
 
-구성 시각 전에는 `not-due`, 같은 local date의 검증·공유 완료 정제가 있으면 `already-successful`로 건너뛴다. 늦은 호출은 해당 날짜에 실행할 수 있다. 실행은 원문 source note와 immutable ticket event를 보존한 새 summary candidate를 만들며, summary 자신이 다음 실행을 유발하지 않도록 source revision에서 제외된다. push 성공 전에는 완료가 아니며 `pending`이면 다음 scheduler 호출 또는 명시적 sync가 같은 로컬 summary의 전달을 재시도한다.
+실행은 원문 source note와 immutable ticket event를 보존한 새 summary candidate를 만들며, summary 자신은 source revision에서 제외된다. 같은 local date·timezone·source revision·policy면 `no-new-input`으로 건너뛴다. push 성공 전에는 완료가 아니며 `pending`이면 다시 실행하거나 명시적 sync로 같은 로컬 summary의 전달을 재시도한다.
 
 ## 인계와 하루 마무리
 

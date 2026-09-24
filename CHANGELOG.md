@@ -6,7 +6,7 @@ Initial Git-distributed release of duobrain for exactly two people and their exi
 
 - Git-backed shared plans, scoped sessions, handoffs, and resumable delivery on an isolated `duobrain/state` branch.
 - Evidence-backed information requests and attributable human feedback, including clarification, reopening, and resolution.
-- Shared source notes, wiki search, method comparison, and optional scheduled refinement through an external scheduler.
+- Shared source notes, wiki search, method comparison, and on-demand wiki refinement that preserves original notes.
 - Read-only local dashboard and resumable AI-led onboarding with participant profiles and local locale preferences.
 - MIT license, CLI version output, CI checks, and a workflow that prepares draft GitHub releases from version tags.
 

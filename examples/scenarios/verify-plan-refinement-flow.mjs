@@ -404,8 +404,7 @@ async function run() {
           oldRoutine.path,
         ).importance.evidence.verification,
         candidatePersisted: false,
-        scheduledExecution: false,
-        schedulingCoveredBy: 'G4',
+        executionCoveredBy: 'G4',
       },
     }, null, 2)}\n`);
   } finally {

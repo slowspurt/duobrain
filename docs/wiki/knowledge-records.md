@@ -83,7 +83,7 @@ When participant B's note, current reference choice, version, or captured text i
 
 ## Daily refinement planning
 
-W4 is a pure once-per-day planning API, not a scheduler. The caller supplies `now`, local `date`, IANA `timezone`, shared `sourceRevision`, all notes and projected tickets, a complete policy, optional `priorRun`, and candidate UUID/author/work-context fields. The engine may later persist and schedule an accepted plan; this module never reads the actual clock or mutates Git.
+W4 is a pure once-per-day planning API, not a scheduler. The caller supplies `now`, local `date`, IANA `timezone`, shared `sourceRevision`, all notes and projected tickets, a complete policy, optional `priorRun`, and candidate UUID/author/work-context fields. The engine persists an accepted plan when a participant runs `wiki-refine`; this module never reads the actual clock or mutates Git.
 
 The policy contract is `{id, version, staleAfterDays, recencyWindowDays, lowImportanceThreshold, highImportanceThreshold, unknownImportanceExposure, importanceSignals}`. Thresholds and importance scores are numbers from 0 through 1. Each importance signal is `{path, score, reason, evidenceRef}`. The reason and evidence ref are mandatory: absent business-importance evidence stays `state: "unknown"`, `score: null`, and uses the explicitly named `unknownImportanceExposure` default. W4 does not infer importance from prose, author identity, or recency. No W1 note-metadata change is required; evidence-backed importance is a caller policy input and older notes remain compatible.
 
