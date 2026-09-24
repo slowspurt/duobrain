@@ -75,6 +75,14 @@ export function recordedContextDifferences(records) {
   };
 }
 
+// Who the still-open ticket is waiting on: the assignee must answer, the requester must add
+// information or confirm an answer. Finished or unknown tickets wait on nobody.
+export function ticketTurn(ticket) {
+  if (ticket?.status === 'open' || ticket?.status === 'acknowledged') return ticket.assignee ?? null;
+  if (ticket?.status === 'needs_information' || ticket?.status === 'answered') return ticket.requester ?? null;
+  return null;
+}
+
 export function filterTickets(tickets, { tab = 'inbox', query = '', status = '', kind = '', peer = '' } = {}) {
   const needle = query.trim().toLocaleLowerCase();
   return (Array.isArray(tickets) ? tickets : []).filter((ticket) => {

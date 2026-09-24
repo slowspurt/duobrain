@@ -112,6 +112,25 @@ test('keeps Korean copy inside the Korean dictionary only', async () => {
   assert.doesNotMatch(await readFile(new URL('../../src/dashboard/index.js', import.meta.url), 'utf8'), hangul);
   const { dictionaries } = await import('../../src/dashboard/public/i18n.js');
   assert.deepEqual(Object.keys(dictionaries.ko).sort(), Object.keys(dictionaries.en).sort());
+  const app = await readFile(new URL('../../src/dashboard/public/app.js', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../../src/dashboard/public/index.html', import.meta.url), 'utf8');
+  const used = [
+    ...[...app.matchAll(/\b(?:t|format)\('([\w.]+)'/g)].map((match) => match[1]),
+    ...[...html.matchAll(/data-i18n(?:-[a-z-]+)?="([\w.]+)"/g)].map((match) => match[1]),
+  ];
+  assert.deepEqual([...new Set(used)].filter((key) => !(key in dictionaries.en)), [], 'copy keys missing from the dictionary');
+});
+
+test('names whose turn an open request is waiting on', async () => {
+  const { ticketTurn } = await import('../../src/dashboard/public/model.js');
+  const ticket = { requester: 'alice', assignee: 'bob' };
+  assert.equal(ticketTurn({ ...ticket, status: 'open' }), 'bob');
+  assert.equal(ticketTurn({ ...ticket, status: 'acknowledged' }), 'bob');
+  assert.equal(ticketTurn({ ...ticket, status: 'needs_information' }), 'alice');
+  assert.equal(ticketTurn({ ...ticket, status: 'answered' }), 'alice');
+  assert.equal(ticketTurn({ ...ticket, status: 'resolved' }), null);
+  assert.equal(ticketTurn({ ...ticket, status: 'closed' }), null);
+  assert.equal(ticketTurn({ ...ticket, status: 'mystery' }), null);
 });
 
 test('serves the sample snapshot in the requested language', async (t) => {
