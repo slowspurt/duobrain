@@ -59,7 +59,7 @@ const HELP = `duobrain — Git-backed collaboration records for exactly two peop
 Usage:
   duobrain --version
   duobrain guide
-  duobrain install [--repository <path>]
+  duobrain install [--no-agents] [--repository <path>]
   duobrain update [--check] [--ref <vX.Y.Z>] [--repository <path>]
   duobrain agents-sync [--dry-run] [--repository <path>]
   duobrain onboarding-inspect [--repository <path>]
@@ -110,7 +110,7 @@ const COMMAND_HELP = {
   'onboarding-save': 'Usage: duobrain onboarding-save --file <json-path> [--repository <path>]',
   'account-detect': 'Usage: duobrain account-detect',
   guide: 'Usage: duobrain guide',
-  install: 'Usage: duobrain install [--repository <path>] (copies duobrain into <product>/.duobrain and writes the agent files)',
+  install: 'Usage: duobrain install [--no-agents] [--repository <path>] (copies duobrain into <product>/.duobrain and writes the agent files unless --no-agents)',
   update: 'Usage: duobrain update [--check] [--ref <vX.Y.Z>] [--repository <path>]',
   'agents-sync': 'Usage: duobrain agents-sync [--dry-run] [--repository <path>]',
   init: 'Usage: duobrain init --participant <id> [--participants <id,id>] [--no-agents] [--repository <path>] (the first person passes --participants; a joining person may omit it)',
@@ -209,13 +209,16 @@ async function main() {
   } else if (command === 'install') {
     const root = await productRoot(repository);
     const installed = await installVendored({ productRoot: root });
-    // Write the agent files with the code that was just copied into the product.
-    const { stdout } = await execFileAsync(
-      process.execPath,
-      [path.join(installed.path, 'bin', 'duobrain.js'), 'agents-sync', '--repository', root],
-      { encoding: 'utf8' },
-    );
-    result = { ...installed, agents: JSON.parse(stdout) };
+    result = installed;
+    if (!options['no-agents']) {
+      // Write the agent files with the code that was just copied into the product.
+      const { stdout } = await execFileAsync(
+        process.execPath,
+        [path.join(installed.path, 'bin', 'duobrain.js'), 'agents-sync', '--repository', root],
+        { encoding: 'utf8' },
+      );
+      result = { ...installed, agents: JSON.parse(stdout) };
+    }
   } else if (command === 'update' && await isVendored(TOOL_ROOT)) {
     result = await updateVendored({ vendorRoot: TOOL_ROOT, check: options.check === true, ref: options.ref });
     if (result.updated) {
