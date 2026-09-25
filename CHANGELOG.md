@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.2
+
+Safety fix for duobrain copies placed inside a project.
+
+- `update` run from a copy inside another repository (for example `tools/duobrain`) acted on that repository in 0.1.0 and 0.1.1: it fetched the project and could fast-forward the project's branch, reading the project's `package.json` as duobrain's version. It now refuses with `UPDATE_INSIDE_PROJECT` and explains how to move to `.duobrain`.
+- `install` from such a copy records the release as `v<version>` instead of the project's commit.
+- `install --no-agents` vendors without touching `AGENTS.md`, `CLAUDE.md` or `.gitattributes`.
+- The vendoring guide explains how to move from a copied folder to `.duobrain`.
+
 ## 0.1.1
 
 One person adds duobrain to the project; the other only pulls and joins.

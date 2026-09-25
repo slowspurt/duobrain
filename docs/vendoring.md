@@ -58,6 +58,26 @@ git add .duobrain AGENTS.md && git commit -m "chore: update duobrain"
 
 `update` lists the `vX.Y.Z` tags at the source in `VENDOR.json`, shallow-clones the newest one into a temporary folder, copies its runtime files over `.duobrain/`, rewrites `VENDOR.json`, and deletes the temporary folder. The `AGENTS.md` block is then rewritten by the **new** code, so block changes ship with the release. Without `--ref`, it only moves to a newer version.
 
+## Moving from a copied folder
+
+v0.1.0 had no `install`, so some projects copied duobrain into a folder such as `tools/duobrain`. Such a
+copy sits inside the project's own Git repository. **Before v0.1.2, running `update` from it acted on the
+project's repository**: it fetched the project and could fast-forward the project's branch. From v0.1.2,
+`update` refuses with `UPDATE_INSIDE_PROJECT`.
+
+To switch to the vendored layout, which `update` can replace safely:
+
+```sh
+node tools/duobrain/bin/duobrain.js install      # creates .duobrain from that copy; add --no-agents to keep your own AGENTS.md
+git rm -r tools/duobrain
+git add .duobrain AGENTS.md CLAUDE.md .gitattributes
+git commit -m "chore: vendor duobrain in .duobrain"
+node .duobrain/bin/duobrain.js update            # then move to the newest release
+```
+
+If you write `AGENTS.md` yourself, pass `--no-agents` and point it at `node .duobrain/bin/duobrain.js`.
+The managed block is optional; it only saves you from editing the instructions after each update.
+
 ## When not to vendor
 
 Use the global install described in the README if you want one duobrain for many repositories, if the repository must not contain third-party files, or if you are developing duobrain itself.

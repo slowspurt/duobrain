@@ -146,3 +146,43 @@ test('joining without shared state fails before creating anything', async (t) =>
   await assert.rejects(run(product, path.join(toolRoot, 'bin', 'duobrain.js'), 'init', '--participant', 'bob'), /PARTICIPANTS_REQUIRED/);
   await assert.rejects(stat(path.join(product, '.git', 'duobrain')), { code: 'ENOENT' });
 });
+
+test('a copy inside another repository never updates that repository and can migrate to .duobrain', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'duobrain-inside-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const remote = path.join(root, 'product.git');
+  await execFileAsync('git', ['init', '-q', '--bare', '-b', 'main', remote]);
+  const product = path.join(root, 'product');
+  await execFileAsync('git', ['clone', '-q', remote, product]);
+  await identify(product);
+  await writeFile(path.join(product, 'package.json'), '{"name":"product","version":"2.0.0"}\n');
+  const files = (await git(toolRoot, 'ls-files', '--', ...RUNTIME_ENTRIES)).split('\n');
+  for (const file of files) {
+    await mkdir(path.dirname(path.join(product, 'tools', 'duobrain', file)), { recursive: true });
+    await cp(path.join(toolRoot, file), path.join(product, 'tools', 'duobrain', file));
+  }
+  await git(product, 'add', '-A');
+  await git(product, 'commit', '-q', '-m', 'product with a copied tools/duobrain');
+  await git(product, 'push', '-q', '-u', 'origin', 'main');
+
+  const partner = path.join(root, 'partner');
+  await execFileAsync('git', ['clone', '-q', remote, partner]);
+  await identify(partner);
+  await git(partner, 'commit', '-q', '--allow-empty', '-m', 'partner change');
+  await git(partner, 'push', '-q');
+
+  const copied = path.join(product, 'tools', 'duobrain', 'bin', 'duobrain.js');
+  const before = await git(product, 'rev-parse', 'HEAD');
+  await assert.rejects(run(product, copied, 'update'), /UPDATE_INSIDE_PROJECT/);
+  await assert.rejects(run(product, copied, 'update', '--check'), /UPDATE_INSIDE_PROJECT/);
+  assert.equal(await git(product, 'rev-parse', 'HEAD'), before, 'the product branch did not move');
+
+  const installed = await run(product, copied, 'install');
+  const { version } = JSON.parse(await readFile(path.join(toolRoot, 'package.json'), 'utf8'));
+  assert.deepEqual([installed.action, installed.manifest.ref, installed.manifest.commit], ['created', `v${version}`, null]);
+  assert.equal(
+    (await execFileAsync(process.execPath, [path.join(product, '.duobrain', 'bin', 'duobrain.js'), '--version'], { encoding: 'utf8' })).stdout.trim(),
+    version,
+  );
+  assert.equal((await run(product, copied, 'install')).action, 'unchanged');
+});

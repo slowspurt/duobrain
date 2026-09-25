@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -194,7 +194,9 @@ async function walkFiles(root, relative = '') {
 
 /** Runtime files of a source copy: Git-tracked files for a checkout, everything for a vendored copy. */
 async function runtimeFiles(sourceRoot) {
-  const tracked = await gitOptional(sourceRoot, ['ls-files', '--', ...RUNTIME_ENTRIES]);
+  const tracked = (await isOwnCheckout(sourceRoot))
+    ? await gitOptional(sourceRoot, ['ls-files', '--', ...RUNTIME_ENTRIES])
+    : null;
   if (tracked !== null && tracked !== '' && !(await isVendored(sourceRoot))) return tracked.split('\n');
   const files = [];
   for (const entry of RUNTIME_ENTRIES) {
@@ -210,6 +212,11 @@ async function sourceIdentity(sourceRoot) {
   if (await isVendored(sourceRoot)) {
     const { ref, commit } = await readVendorManifest(sourceRoot);
     return { ref, commit };
+  }
+  if (!(await isOwnCheckout(sourceRoot))) {
+    // A plain copy (a download, or a folder copied into a project) carries no Git history of its own.
+    const { version } = JSON.parse(await readFile(path.join(sourceRoot, 'package.json'), 'utf8'));
+    return { ref: `v${version}`, commit: null };
   }
   const commit = await gitOptional(sourceRoot, ['rev-parse', 'HEAD']);
   const tag = await gitOptional(sourceRoot, ['describe', '--tags', '--exact-match', 'HEAD']);
@@ -347,13 +354,33 @@ async function git(cwd, args) {
 }
 
 /**
+ * Whether toolRoot is the top of its own Git checkout. A copy placed inside another
+ * project (for example tools/duobrain) is inside that project's repository, and Git
+ * commands run there would act on the project, not on duobrain.
+ */
+export async function isOwnCheckout(toolRoot) {
+  try {
+    const top = await git(toolRoot, ['rev-parse', '--show-toplevel']);
+    return (await realpath(top)) === (await realpath(toolRoot));
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Fast-forward this duobrain checkout to its upstream. Refuses local changes and
  * diverged history so an update never overwrites the user's work.
  */
 export async function updateTool({ toolRoot = TOOL_ROOT, check = false } = {}) {
-  try {
-    await git(toolRoot, ['rev-parse', '--is-inside-work-tree']);
-  } catch {
+  if (!(await isOwnCheckout(toolRoot))) {
+    const inside = await gitOptional(toolRoot, ['rev-parse', '--show-toplevel']);
+    if (inside !== null) {
+      throw new ToolError(
+        `This duobrain copy is inside another repository (${inside}); updating it with Git would change that repository. `
+        + 'Run `install` from this copy to switch to the vendored .duobrain folder, which `update` can replace safely.',
+        { code: 'UPDATE_INSIDE_PROJECT' },
+      );
+    }
     throw new ToolError('This duobrain copy is not a Git checkout; download the new release instead.', {
       code: 'UPDATE_NOT_GIT',
     });
