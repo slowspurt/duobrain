@@ -54,6 +54,12 @@ const server = startDashboard({
 
 실제 저장소 실행에서는 E5 읽기 API도 주입한다. `GET /api/wiki/notes`는 `listWikiNotes`, `GET /api/wiki/search`는 `searchSharedWiki`, `GET /api/wiki/lineage?root=wiki/<uuid>.md`는 `traceSharedWiki` 결과를 전달한다. 검색은 최대 500자의 단일 검색어와 participant/status/recordType/includeSuperseded 필터만 허용하고, 계보 루트는 최대 20개의 위키 UUID 경로로 제한한다. 이 경계는 제품 파일이나 임의 경로를 읽지 않으며 모든 내부 실패 세부를 숨긴다. 예시 모드에서는 실제 위키가 연결되지 않았음을 별도로 표시한다.
 
+## duobrain 업데이트
+
+대시보드는 프로젝트 기록에 대해서는 읽기 전용이며, 예외는 duobrain 도구 자체의 업데이트 하나다. 사이드바 아래 `Check for updates`를 누르면 `GET /api/update`가 이 체크아웃의 `duobrain update --check`를 실행해 현재·최신 버전과 바뀐 커밋을 보여 주고, 새 버전이 있으면 업데이트할지 묻는 모달을 띄운다. 사용자가 `Update`를 누를 때만 `POST /api/update`가 `duobrain update`를 실행하므로 CLI와 같은 안전 검사(커밋하지 않은 변경·갈라진 이력·다른 저장소 안의 복사본 거부, vendored 복사본은 공개 릴리스만 사용)를 그대로 따른다. 프로젝트 파일과 공유 기록은 바꾸지 않으며, 업데이트 후에는 대시보드를 다시 실행해야 새 코드가 적용된다. vendored 복사본이면 `.duobrain/`과 `AGENTS.md`를 커밋하라고 안내한다.
+
+`POST /api/update`는 `X-Duobrain-Action: update` 헤더가 있고 `Host`가 `127.0.0.1` 또는 `localhost`이며 `Origin`이 같은 주소일 때만 받는다. 다른 웹사이트는 사용자 정의 헤더를 preflight 없이 보낼 수 없고 서버는 preflight에 응답하지 않으므로 교차 사이트 요청과 DNS rebinding을 막는다. 동시에 두 번 실행되지 않으며, 실패하면 경로가 담길 수 있는 메시지 대신 CLI 오류 코드(`UPDATE_DIRTY` 등)만 화면에 전달해 현재 언어로 안내한다.
+
 공유 위키 영역은 전체 목록, 서버 검색 결과, 검증된 `dailyRefinement` 메타데이터가 있는 일일 정제 인덱스를 독립적으로 탐색한다. 각 기록에서 원문과 계보를 펼칠 수 있고 검증 실패와 lineage의 누락 참조를 서로 구분한다. source-note에 기록된 `promptRef`와 `harnessRef` 차이는 식별자 그대로만 나열하며 인과나 성과 차이를 추론하지 않는다. artifact manifest는 브라우저에 주입하지 않고 실제 비교는 `duobrain method-compare --file comparison.json` CLI 안내만 제공한다.
 
 스냅샷 문자열은 정적 HTML에 삽입하지 않고 API에서 읽은 뒤 DOM `textContent`로만 표시한다. 미종료 세션은 종료와 최종 경과 시간이 미확정이라고 표시하며, 기록이 없는 참여자의 활동을 추정하지 않는다. `sync.status`의 `unknown`, `pending`, `error`, `synced`도 서로 구분한다.

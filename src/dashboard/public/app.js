@@ -137,6 +137,7 @@ function applyStaticUi() {
   for (const node of document.querySelectorAll('[data-i18n-placeholder]')) node.placeholder = t(node.dataset.i18nPlaceholder);
   for (const node of document.querySelectorAll('[data-i18n-aria-label]')) node.setAttribute('aria-label', t(node.dataset.i18nAriaLabel));
   for (const section of sections) byId(`nav-${section}`).title = t(section);
+  byId('update-button').title = t('checkUpdates');
   for (const button of document.querySelectorAll('[data-locale]')) {
     const selected = button.dataset.locale === locale;
     button.classList.toggle('active', selected);
@@ -749,6 +750,93 @@ async function searchWiki(event) {
   }
 }
 
+// ---------- duobrain update ----------
+const updateDialog = byId('update-dialog');
+let updateBusy = false;
+const versionLabel = (value) => (value ? `v${value}` : t('unknown'));
+const updateErrorCopy = (result) => {
+  const key = result?.error === 'update_unavailable' || result?.error === 'update_in_progress' ? `updateError.${result.error}` : `updateError.${result?.code}`;
+  return t(key) === key ? t('updateError.default') : t(key);
+};
+function updateButton(label, onClick, primary = false) {
+  const button = element('button', primary ? 'primary-button' : 'secondary-button', label);
+  button.type = 'button';
+  button.addEventListener('click', onClick);
+  return button;
+}
+function showUpdate(view, result) {
+  const body = byId('update-body');
+  const actions = byId('update-actions');
+  body.replaceChildren();
+  actions.replaceChildren();
+  const close = () => updateDialog.close();
+  if (view === 'checking' || view === 'updating') {
+    const progress = element('div', 'update-progress');
+    progress.append(element('span', 'update-spinner'), t(view === 'checking' ? 'updateChecking' : 'updating'));
+    body.append(progress);
+    if (view === 'updating') body.append(element('p', '', t('updatingNote')));
+    return;
+  }
+  if (view === 'current') {
+    body.append(element('h3', '', t('upToDate')), element('p', '', format('upToDateDetail', { version: versionLabel(result.current) })));
+    actions.append(updateButton(t('close'), close, true));
+    return;
+  }
+  if (view === 'available') {
+    const versions = element('p', 'update-versions');
+    versions.append(element('span', '', versionLabel(result.current)), '→', element('span', 'to', versionLabel(result.latest)));
+    body.append(element('h3', '', t('updateAvailable')), versions);
+    if (result.changes?.length) {
+      body.append(element('p', '', t('updateChanges')));
+      const list = element('ul', 'update-changes');
+      result.changes.forEach((change) => list.append(element('li', '', change)));
+      body.append(list);
+    }
+    body.append(element('p', '', t('updateAsk')));
+    actions.append(updateButton(t('notNow'), close), updateButton(t('updateNow'), runUpdate, true));
+    return;
+  }
+  if (view === 'done') {
+    body.append(element('h3', '', format('updatedTo', { version: versionLabel(result.latest) })), element('p', '', t('restartNeeded')));
+    if (result.commitNeeded) body.append(element('p', 'update-note', t('commitAfterUpdate')));
+    actions.append(updateButton(t('close'), close, true));
+    return;
+  }
+  body.append(element('h3', '', t(view === 'check-error' ? 'updateCheckFailed' : 'updateFailed')), element('p', 'update-error', updateErrorCopy(result)));
+  actions.append(updateButton(t('close'), close), updateButton(t('retry'), view === 'check-error' ? checkForUpdates : runUpdate, true));
+}
+async function checkForUpdates() {
+  if (!updateDialog.open) updateDialog.showModal();
+  showUpdate('checking');
+  try {
+    const response = await fetch('/api/update', { headers: { Accept: 'application/json' } });
+    const result = await response.json();
+    if (!response.ok) return showUpdate('check-error', result);
+    byId('update-dot').hidden = !result.available;
+    showUpdate(result.available ? 'available' : 'current', result);
+  } catch {
+    showUpdate('check-error', {});
+  }
+}
+async function runUpdate() {
+  updateBusy = true;
+  showUpdate('updating');
+  try {
+    const response = await fetch('/api/update', { method: 'POST', headers: { Accept: 'application/json', 'X-Duobrain-Action': 'update' } });
+    const result = await response.json();
+    if (!response.ok) return showUpdate('update-error', result);
+    byId('update-dot').hidden = true;
+    showUpdate('done', result);
+  } catch {
+    showUpdate('update-error', {});
+  } finally {
+    updateBusy = false;
+  }
+}
+// An update in progress cannot be cancelled halfway, so Escape does not close the modal then.
+updateDialog.addEventListener('cancel', (event) => { if (updateBusy) event.preventDefault(); });
+updateDialog.addEventListener('click', (event) => { if (event.target === updateDialog && !updateBusy) updateDialog.close(); });
+
 // ---------- render and load ----------
 function renderPeople() {
   renderSidebarPeople();
@@ -816,6 +904,7 @@ function selectSection(section) {
 // ---------- events ----------
 byId('retry').addEventListener('click', load);
 byId('refresh').addEventListener('click', load);
+byId('update-button').addEventListener('click', checkForUpdates);
 byId('sidebar-toggle').addEventListener('click', () => setSidebar(byId('app-shell').dataset.sidebar !== 'collapsed'));
 byId('brand-home').addEventListener('click', () => selectSection('current'));
 for (const section of sections) byId(`nav-${section}`).addEventListener('click', () => selectSection(section));

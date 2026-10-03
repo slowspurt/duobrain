@@ -44,6 +44,10 @@
 
       <div class="sidebar-foot">
         <label class="viewer-control"><span class="sidebar-label" data-i18n="viewingAs">Viewing as</span><select id="viewer"><option value="" data-i18n="everyone">Everyone</option></select></label>
+        <button id="update-button" class="update-button" type="button" aria-haspopup="dialog" aria-controls="update-dialog">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 3v9M6.5 8.5 10 12l3.5-3.5M4 14.5v1A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5v-1"/></svg>
+          <span class="tab-label" data-i18n="checkUpdates">Check for updates</span><i id="update-dot" class="update-dot" hidden></i>
+        </button>
         <button id="refresh" class="sync-line" type="button"><i id="sync-dot" class="sync-dot unknown"></i><span class="sync-copy"><b id="sync-badge" data-i18n="syncUnknown">Sync unknown</b><small id="refresh-label" data-i18n="refresh">Refresh</small></span></button>
         <div class="language-switch" role="group" aria-label="Language" data-i18n-aria-label="language">
           <button type="button" data-locale="en" lang="en">EN</button><button type="button" data-locale="ko" lang="ko">한국어</button>
@@ -120,5 +124,16 @@
       </main>
     </div>
   </div>
+
+  <dialog id="update-dialog" class="update-dialog" aria-labelledby="update-title">
+    <div class="update-card">
+      <header class="update-head">
+        <span class="update-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 3v9M6.5 8.5 10 12l3.5-3.5M4 14.5v1A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5v-1"/></svg></span>
+        <h2 id="update-title" data-i18n="updateTitle">duobrain update</h2>
+      </header>
+      <div id="update-body" class="update-body" aria-live="polite"></div>
+      <div id="update-actions" class="update-actions"></div>
+    </div>
+  </dialog>
 </body>
 </html>

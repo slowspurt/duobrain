@@ -198,3 +198,66 @@ test('wiki API restricts paths, maps reader errors, and hides internal details',
   response = await fetch(`${noReader.origin}/api/wiki?path=${encodeURIComponent(paths.valid)}`);
   assert.equal(response.status, 503);
 });
+
+test('checks and applies updates only from the dashboard page itself', async (t) => {
+  let applied = 0;
+  const server = startDashboard({
+    getSnapshot: () => ({}),
+    checkUpdate: async () => ({ mode: 'checkout', current: '0.1.0', latest: '0.1.2', available: true, updated: false, changes: ['abc fix'] }),
+    applyUpdate: async () => { applied += 1; return { mode: 'checkout', current: '0.1.0', latest: '0.1.2', available: true, updated: true, changes: [] }; },
+    port: 0,
+  });
+  await once(server, 'listening');
+  t.after(() => close(server));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+
+  const check = await fetch(`${origin}/api/update`);
+  assert.equal(check.status, 200);
+  assert.equal((await check.json()).available, true);
+
+  const headers = { 'X-Duobrain-Action': 'update', Origin: origin };
+  assert.equal((await fetch(`${origin}/api/update`, { method: 'POST' })).status, 403);
+  assert.equal((await fetch(`${origin}/api/update`, { method: 'POST', headers: { Origin: origin } })).status, 403);
+  assert.equal((await fetch(`${origin}/api/update`, { method: 'POST', headers: { ...headers, Origin: 'http://evil.example' } })).status, 403);
+  assert.equal(applied, 0);
+
+  const update = await fetch(`${origin}/api/update`, { method: 'POST', headers });
+  assert.equal(update.status, 200);
+  assert.equal((await update.json()).updated, true);
+  assert.equal(applied, 1);
+  assert.equal((await fetch(`${origin}/api/snapshot`, { method: 'POST', headers })).status, 405);
+});
+
+test('reports update failures by CLI code only and hides other details', async (t) => {
+  const server = startDashboard({
+    getSnapshot: () => ({}),
+    checkUpdate: async () => { throw Object.assign(new Error('/secret/path is dirty'), { code: 'UPDATE_DIRTY' }); },
+    applyUpdate: async () => { throw Object.assign(new Error('/secret/path'), { code: 'not a code; rm -rf' }); },
+    port: 0,
+  });
+  await once(server, 'listening');
+  t.after(() => close(server));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const check = await fetch(`${origin}/api/update`);
+  assert.equal(check.status, 409);
+  assert.deepEqual(await check.json(), { error: 'update_check_failed', code: 'UPDATE_DIRTY' });
+  const update = await fetch(`${origin}/api/update`, { method: 'POST', headers: { 'X-Duobrain-Action': 'update', Origin: origin } });
+  assert.deepEqual(await update.json(), { error: 'update_failed', code: 'UPDATE_FAILED' });
+
+  const bare = startDashboard({ getSnapshot: () => ({}), port: 0 });
+  await once(bare, 'listening');
+  t.after(() => close(bare));
+  assert.equal((await fetch(`http://127.0.0.1:${bare.address().port}/api/update`)).status, 503);
+});
+
+test('summarizes CLI update reports without paths or remote URLs', async () => {
+  const { summarizeUpdate } = await import('../../src/dashboard/source.js');
+  assert.deepEqual(summarizeUpdate({ upstream: 'origin/main', current: '0.1.0', latest: '0.1.2', ahead: 0, behind: 2, commits: ['a1 fix', 'b2 feat'], updated: false }), {
+    mode: 'checkout', current: '0.1.0', latest: '0.1.2', available: true, updated: false, changes: ['a1 fix', 'b2 feat'], commitNeeded: false,
+  });
+  const vendored = summarizeUpdate({ mode: 'vendored', source: 'https://example.com/secret.git', current: '0.1.2', latest: '0.1.10', updated: true });
+  assert.equal(vendored.available, true);
+  assert.equal(vendored.commitNeeded, true);
+  assert.doesNotMatch(JSON.stringify(vendored), /example\.com/);
+  assert.equal(summarizeUpdate({ mode: 'vendored', current: '0.2.0', latest: '0.1.9' }).available, false);
+});

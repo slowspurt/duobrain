@@ -65,12 +65,30 @@ function badWikiRequest(response, method, message) {
   }), method);
 }
 
+const json = 'application/json; charset=utf-8';
+// Only the CLI's error code reaches the page; messages can contain local paths.
+const safeUpdateCode = (error) => (/^[A-Z_]{3,40}$/.test(error?.code ?? '') ? error.code : 'UPDATE_FAILED');
+
+/**
+ * Updating rewrites duobrain's own files, so a POST is accepted only from this dashboard's
+ * page: browsers cannot send the custom header cross-site without a preflight we never
+ * answer, and the Host/Origin checks reject DNS-rebinding and other local pages.
+ */
+function isSameDashboardRequest(request) {
+  const host = request.headers.host ?? '';
+  if (!/^(127\.0\.0\.1|localhost):\d+$/.test(host)) return false;
+  if (request.headers['x-duobrain-action'] !== 'update') return false;
+  return request.headers.origin === `http://${host}`;
+}
+
 export function startDashboard({
   getSnapshot,
   getWikiNote,
   listWikiNotes,
   searchSharedWiki,
   traceSharedWiki,
+  checkUpdate,
+  applyUpdate,
   port = 0,
 } = {}) {
   if (typeof getSnapshot !== 'function') {
@@ -80,8 +98,32 @@ export function startDashboard({
     throw new RangeError('port must be an integer between 0 and 65535');
   }
 
+  let updating = false;
   const server = createServer(async (request, response) => {
     const method = request.method ?? 'GET';
+    if (method === 'POST' && (request.url ?? '').split('?')[0] === '/api/update') {
+      if (!isSameDashboardRequest(request)) {
+        send(response, 403, json, JSON.stringify({ error: 'forbidden' }), method);
+        return;
+      }
+      if (typeof applyUpdate !== 'function') {
+        send(response, 503, json, JSON.stringify({ error: 'update_unavailable' }), method);
+        return;
+      }
+      if (updating) {
+        send(response, 409, json, JSON.stringify({ error: 'update_in_progress' }), method);
+        return;
+      }
+      updating = true;
+      try {
+        send(response, 200, json, JSON.stringify(await applyUpdate()), method);
+      } catch (error) {
+        send(response, 409, json, JSON.stringify({ error: 'update_failed', code: safeUpdateCode(error) }), method);
+      } finally {
+        updating = false;
+      }
+      return;
+    }
     if (method !== 'GET' && method !== 'HEAD') {
       response.setHeader('Allow', 'GET, HEAD');
       send(response, 405, 'application/json; charset=utf-8', JSON.stringify({ error: 'method_not_allowed' }), method);
@@ -95,6 +137,19 @@ export function startDashboard({
       pathname = requestUrl.pathname;
     } catch {
       send(response, 400, 'application/json; charset=utf-8', JSON.stringify({ error: 'bad_request' }), method);
+      return;
+    }
+
+    if (pathname === '/api/update') {
+      if (typeof checkUpdate !== 'function') {
+        send(response, 503, json, JSON.stringify({ error: 'update_unavailable' }), method);
+        return;
+      }
+      try {
+        send(response, 200, json, JSON.stringify(await checkUpdate()), method);
+      } catch (error) {
+        send(response, 409, json, JSON.stringify({ error: 'update_check_failed', code: safeUpdateCode(error) }), method);
+      }
       return;
     }
 
