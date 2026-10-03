@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.4
+
+Updating duobrain takes one step for the updater and a pull for the partner.
+
+- `update` commits only `.duobrain/` (and any agent file it rewrote) as `chore: update duobrain to vX.Y.Z`; other staged files stay out. `--no-commit` skips it.
+- The product's `AGENTS.md` block is a fixed pointer to `.duobrain/AGENTS.md`, so it no longer changes between releases.
+- The newly installed code finishes each update (`update-finish`).
+- Each update is recorded as `tool.updated`; the partner's dashboard and `status --brief` (`duobrainUpdate`) say to pull until versions match. Older engines ignore the record.
+- Upgrading from v0.1.3 or earlier: commit `.duobrain` and `AGENTS.md` by hand once.
+
 ## 0.1.3
 
 The dashboard becomes a two-person board, and duobrain can be updated from it.

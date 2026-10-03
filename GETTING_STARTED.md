@@ -18,7 +18,7 @@ node src/dashboard/run.js
 
 ```sh
 # 먼저 도입하는 사람 (예: Alice)
-git clone --depth 1 --branch v0.1.3 https://github.com/slowspurt/duobrain.git /tmp/duobrain
+git clone --depth 1 --branch v0.1.4 https://github.com/slowspurt/duobrain.git /tmp/duobrain
 cd /path/to/product
 node /tmp/duobrain/bin/duobrain.js install
 node .duobrain/bin/duobrain.js init --participants alice,bob --participant alice
