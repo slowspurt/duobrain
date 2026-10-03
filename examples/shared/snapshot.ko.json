@@ -5,6 +5,7 @@
     "alice",
     "bob"
   ],
+  "viewer": "alice",
   "goals": {
     "project": "두 사람이 사용할 독서 기록 앱 만들기",
     "mediumTerm": "책 등록과 독서 기록을 연결한 첫 사용 흐름 완성",

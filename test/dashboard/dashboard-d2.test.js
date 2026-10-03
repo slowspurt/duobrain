@@ -116,6 +116,8 @@ test('live API exposes a real E4 plan and scope-updated session to the dashboard
 
   assert.equal(snapshot.sample, false);
   assert.deepEqual(snapshot.participants, ['alice', 'bob']);
+  assert.equal(snapshot.viewer, 'alice', 'the local identity identifies who is viewing');
+  assert.equal(snapshot.storePath, undefined);
   assert.equal(planPresentation(snapshot).state, 'proposed');
   assert.equal(snapshot.plan.assignments[0].next, 'Verify scope timing');
   assert.equal(snapshot.plan.history[0].data.body, 'Explicit E4 dashboard integration plan.');

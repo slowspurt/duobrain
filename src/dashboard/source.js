@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import {
+  getEngineStatus,
   getSnapshot as getEngineSnapshot,
   getWikiNote as getEngineWikiNote,
   listWikiNotes as listEngineWikiNotes,
@@ -15,7 +16,16 @@ const localizedSampleUrls = { ko: new URL('../../examples/shared/snapshot.ko.jso
 
 export function createSnapshotGetter({ repository } = {}) {
   if (repository !== undefined) {
-    return () => getEngineSnapshot({ repository });
+    // The local identity tells the dashboard who "you" are; nothing else from the status is passed on.
+    return async () => {
+      try {
+        const { participant, snapshot } = await getEngineStatus({ repository });
+        return { ...snapshot, viewer: participant };
+      } catch (error) {
+        if (error?.code !== 'MISSING_IDENTITY') throw error;
+        return { ...(await getEngineSnapshot({ repository })), viewer: null };
+      }
+    };
   }
   return async ({ locale } = {}) => JSON.parse(await readFile(localizedSampleUrls[locale] ?? sampleSnapshotUrl, 'utf8'));
 }

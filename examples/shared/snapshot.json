@@ -5,6 +5,7 @@
     "alice",
     "bob"
   ],
+  "viewer": "alice",
   "goals": {
     "project": "Build a reading log app for two people",
     "mediumTerm": "Complete the first flow that links adding a book to a reading log",

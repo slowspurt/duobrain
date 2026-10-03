@@ -23,7 +23,7 @@ document.title = `duobrain ${t('dashboardTitle')}`;
 const sections = ['current', 'requests', 'records', 'wiki'];
 
 const state = {
-  tickets: [], sessions: [], conflicts: [], participants: [], goals: {}, sample: false,
+  tickets: [], sessions: [], conflicts: [], participants: [], profiles: [], goals: {}, sample: false, identity: null,
   tab: 'inbox', query: '', status: '', kind: '', peer: '', period: '30d',
   wikiTab: 'all', wikiRecords: [], wikiSearchResults: [], wikiIssues: [],
   section: 'current', selectedTicketId: null, selectedWikiPath: null, assignments: [],
@@ -33,8 +33,9 @@ const state = {
 // ---------- copy helpers ----------
 const format = (key, values) => t(key).replace(/\{(\w+)\}/g, (_, name) => values[name] ?? '');
 const text = (value, fallback = t('unknown')) => typeof value === 'string' && value.trim() ? value : fallback;
+const profileFor = (participant) => state.profiles.find((profile) => profile?.participant === participant) ?? null;
 const participantLabel = (value) => {
-  if (!state.sample) return text(value);
+  if (!state.sample) return text(profileFor(value)?.nickname, text(value));
   const index = state.participants.indexOf(value);
   return index >= 0 && index < 26 ? String.fromCharCode(65 + index) : text(value);
 };
@@ -172,21 +173,38 @@ function renderSidebarPeople() {
   }
 }
 
-function renderViewer() {
-  const select = byId('viewer');
-  if (state.viewer && !state.participants.includes(state.viewer)) state.viewer = '';
-  select.replaceChildren(new Option(t('everyone'), ''));
-  state.participants.forEach((value) => select.add(new Option(participantLabel(value), value)));
-  select.value = state.viewer;
+// The dashboard knows "you" from the checkout's local identity; only without one does the
+// viewer pick themselves, and that choice stays in this browser.
+function renderProfile() {
+  const known = Boolean(state.identity);
+  if (known) state.viewer = state.identity;
+  else if (state.viewer && !state.participants.includes(state.viewer)) state.viewer = '';
+  const control = byId('viewer-control');
+  control.hidden = known;
+  if (!known) {
+    const select = byId('viewer');
+    select.replaceChildren(new Option(t('chooseMe'), ''));
+    state.participants.forEach((value) => select.add(new Option(participantLabel(value), value)));
+    select.value = state.viewer;
+  }
+  const me = state.viewer;
+  const profileFace = byId('profile-face');
+  profileFace.className = `face ${me ? personClass(me) : 'px'}`;
+  profileFace.textContent = me ? participantLabel(me).slice(0, 1).toUpperCase() : '?';
+  byId('profile-name').textContent = me ? participantLabel(me) : t('whoAreYou');
+  const login = profileFor(me)?.githubLogin;
+  byId('profile-detail').textContent = me ? (login && !state.sample ? format('profileDetail', { login }) : t('thisIsYou')) : t('whoAreYouDetail');
+  byId('profile').title = me ? participantLabel(me) : t('whoAreYou');
 }
 
 function renderSync(sync = {}) {
   const status = ['synced', 'pending', 'error', 'unknown'].includes(sync.status) ? sync.status : 'unknown';
   byId('sync-dot').className = `sync-dot ${status}`;
-  byId('sync-badge').textContent = labels[status];
+  const shared = status === 'synced' ? relativeTime(sync.lastSyncedAt) : null;
+  byId('sync-badge').textContent = shared ? format('sharedRelative', { time: shared }) : labels[status];
   const copy = { synced: t('syncedCopy'), pending: t('pendingCopy'), error: t('errorCopy'), unknown: t('unknownCopy') }[status];
   const detail = text(sync.message, sync.lastSyncedAt ? formatDate(sync.lastSyncedAt) : '');
-  byId('refresh').title = [copy, detail, t('refresh')].filter(Boolean).join(' · ');
+  byId('refresh').title = [t('syncHelp'), copy, detail].filter(Boolean).join('\n');
 }
 
 // ---------- evidence ----------
@@ -853,9 +871,11 @@ function render(snapshot) {
   state.sessions = Array.isArray(snapshot.sessions) ? snapshot.sessions : [];
   state.conflicts = Array.isArray(snapshot.conflicts) ? snapshot.conflicts : [];
   state.participants = Array.isArray(snapshot.participants) ? snapshot.participants : [];
+  state.profiles = Array.isArray(snapshot.profiles) ? snapshot.profiles : [];
+  state.identity = typeof snapshot.viewer === 'string' && state.participants.includes(snapshot.viewer) ? snapshot.viewer : null;
   state.goals = snapshot.goals ?? {};
   state.plan = snapshot.plan;
-  renderViewer();
+  renderProfile();
   renderGoals();
   fillFilters();
   renderPeople();
@@ -913,6 +933,7 @@ for (const button of document.querySelectorAll('[data-locale]')) button.addEvent
 byId('viewer').addEventListener('change', (event) => {
   state.viewer = event.target.value;
   storage.set(keys.viewer, state.viewer);
+  renderProfile();
   renderGoals();
   renderPeople();
 });
