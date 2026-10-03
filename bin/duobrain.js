@@ -25,6 +25,7 @@ import {
   pauseSession,
   prepareProductWorktree,
   recordCommitNote,
+  recordToolUpdate,
   reopenTicket,
   requestTicketInformation,
   resumeSession,
@@ -43,6 +44,7 @@ import {
 } from '../src/engine/index.js';
 import {
   TOOL_ROOT,
+  commitDuobrainUpdate,
   guidePaths,
   hasAgentsBlock,
   installVendored,
@@ -60,7 +62,8 @@ Usage:
   duobrain --version
   duobrain guide
   duobrain install [--no-agents] [--repository <path>]
-  duobrain update [--check] [--ref <vX.Y.Z>] [--repository <path>]
+  duobrain update [--check] [--ref <vX.Y.Z>] [--no-commit] [--repository <path>]
+  duobrain update-finish [--mode <vendored|checkout>] [--no-commit] [--repository <path>]
   duobrain agents-sync [--dry-run] [--repository <path>]
   duobrain onboarding-inspect [--repository <path>]
   duobrain onboarding-save --file <json-path> [--repository <path>]
@@ -111,7 +114,8 @@ const COMMAND_HELP = {
   'account-detect': 'Usage: duobrain account-detect',
   guide: 'Usage: duobrain guide',
   install: 'Usage: duobrain install [--no-agents] [--repository <path>] (copies duobrain into <product>/.duobrain and writes the agent files unless --no-agents)',
-  update: 'Usage: duobrain update [--check] [--ref <vX.Y.Z>] [--repository <path>]',
+  update: 'Usage: duobrain update [--check] [--ref <vX.Y.Z>] [--no-commit] [--repository <path>] (a vendored copy is committed and the update is recorded for the partner)',
+  'update-finish': 'Usage: duobrain update-finish [--mode <vendored|checkout>] [--no-commit] [--repository <path>] (run by update with the newly installed code)',
   'agents-sync': 'Usage: duobrain agents-sync [--dry-run] [--repository <path>]',
   init: 'Usage: duobrain init --participant <id> [--participants <id,id>] [--no-agents] [--repository <path>] (the first person passes --participants; a joining person may omit it)',
   'profile-set': 'Usage: duobrain profile-set [--nickname <text>] [--github-login <login>] [--actor <human|ai>] [--repository <path>]',
@@ -146,7 +150,7 @@ const COMMAND_HELP = {
 
 function parseOptions(tokens) {
   const options = {};
-  const booleanOptions = new Set(['help', 'request-missing', 'brief', 'dry-run', 'bundle', 'check', 'no-agents']);
+  const booleanOptions = new Set(['help', 'request-missing', 'brief', 'dry-run', 'bundle', 'check', 'no-agents', 'no-commit']);
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
     if (!token.startsWith('--')) throw new Error(`Unexpected argument: ${token}`);
@@ -168,6 +172,57 @@ function parseOptions(tokens) {
 function requireOption(options, name) {
   if (!options[name]) throw new Error(`Missing required option: --${name}`);
   return options[name];
+}
+
+function atLeastVersion(version, minimum) {
+  const left = String(version).split('.').map(Number);
+  const right = minimum.split('.').map(Number);
+  for (let index = 0; index < 3; index += 1) if ((left[index] ?? 0) !== right[index]) return (left[index] ?? 0) > right[index];
+  return true;
+}
+
+/**
+ * After new code is in place, let that code finish the update so the newest rules for agent
+ * files, commits and records always apply. Releases before 0.1.4 only know agents-sync.
+ */
+async function finishWithNewCode(root, mode, options) {
+  const { version } = JSON.parse(await readFile(path.join(TOOL_ROOT, 'package.json'), 'utf8'));
+  const cli = path.join(TOOL_ROOT, 'bin', 'duobrain.js');
+  if (!atLeastVersion(version, '0.1.4')) {
+    if (mode === 'checkout' && !(await hasAgentsBlock(root))) return {};
+    const { stdout } = await execFileAsync(process.execPath, [cli, 'agents-sync', '--repository', root], { encoding: 'utf8' });
+    return { agents: JSON.parse(stdout) };
+  }
+  const args = [cli, 'update-finish', '--mode', mode, '--repository', root, ...(options['no-commit'] ? ['--no-commit'] : [])];
+  const { stdout } = await execFileAsync(process.execPath, args, { encoding: 'utf8' });
+  const finished = JSON.parse(stdout);
+  return { agents: finished.agents, commit: finished.commit, record: finished.record };
+}
+
+/** Refresh agent files, commit a vendored copy, and record the update for the partner. */
+async function finishUpdate(root, mode, options) {
+  const { version } = JSON.parse(await readFile(path.join(TOOL_ROOT, 'package.json'), 'utf8'));
+  const agents = mode === 'vendored' || await hasAgentsBlock(root) ? await syncAgentFiles({ productRoot: root }) : null;
+  const changedFiles = (agents?.files ?? []).filter(({ action }) => action !== 'unchanged').map((file) => file.path);
+  let commit;
+  if (mode !== 'vendored') commit = { status: 'skipped', reason: 'NOT_VENDORED' };
+  else if (options['no-commit']) commit = { status: 'skipped', reason: 'NO_COMMIT' };
+  else commit = await commitDuobrainUpdate({ productRoot: root, version, changedFiles });
+  let record;
+  try {
+    const manifest = mode === 'vendored' ? JSON.parse(await readFile(path.join(root, '.duobrain', 'VENDOR.json'), 'utf8')) : null;
+    const recorded = await recordToolUpdate({
+      repository: root,
+      version,
+      mode,
+      ref: manifest?.ref ?? null,
+      productCommit: commit.status === 'created' ? commit.commit : null,
+    });
+    record = { status: 'recorded', sync: recorded.sync?.status ?? null };
+  } catch (error) {
+    record = { status: 'skipped', reason: error.code ?? 'RECORD_FAILED' };
+  }
+  return { mode, version, agents, commit, record };
 }
 
 async function productRoot(repository) {
@@ -222,25 +277,16 @@ async function main() {
   } else if (command === 'update' && await isVendored(TOOL_ROOT)) {
     result = await updateVendored({ vendorRoot: TOOL_ROOT, check: options.check === true, ref: options.ref });
     if (result.updated) {
-      const { stdout } = await execFileAsync(
-        process.execPath,
-        [path.join(TOOL_ROOT, 'bin', 'duobrain.js'), 'agents-sync', '--repository', path.dirname(TOOL_ROOT)],
-        { encoding: 'utf8' },
-      );
-      result = { ...result, agents: JSON.parse(stdout) };
+      result = { ...result, ...await finishWithNewCode(path.dirname(TOOL_ROOT), 'vendored', options) };
     }
   } else if (command === 'update') {
     result = await updateTool({ check: options.check === true });
     const root = await productRoot(repository).catch(() => null);
-    if (result.updated && root !== null && root !== TOOL_ROOT && await hasAgentsBlock(root)) {
-      // Run the freshly pulled code, not the modules already loaded by this process.
-      const { stdout } = await execFileAsync(
-        process.execPath,
-        [path.join(TOOL_ROOT, 'bin', 'duobrain.js'), 'agents-sync', '--repository', root],
-        { encoding: 'utf8' },
-      );
-      result = { ...result, agents: JSON.parse(stdout) };
+    if (result.updated && root !== null && root !== TOOL_ROOT) {
+      result = { ...result, ...await finishWithNewCode(root, 'checkout', options) };
     }
+  } else if (command === 'update-finish') {
+    result = await finishUpdate(await productRoot(repository), options.mode === 'checkout' ? 'checkout' : 'vendored', options);
   } else if (command === 'onboarding-inspect') {
     result = await inspectOnboarding({ repository });
   } else if (command === 'onboarding-save') {

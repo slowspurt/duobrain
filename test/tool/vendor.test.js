@@ -26,7 +26,7 @@ async function identify(directory) {
   await git(directory, 'config', 'user.email', 'test@example.invalid');
 }
 
-/** A local stand-in for the GitHub repository: this checkout's runtime files, released as v0.1.0. */
+/** A local stand-in for the GitHub repository: this checkout's runtime files, released as v0.1.4. */
 async function upstreamRelease(root) {
   const upstream = path.join(root, 'upstream');
   await execFileAsync('git', ['init', '-q', '-b', 'main', upstream]);
@@ -38,11 +38,11 @@ async function upstreamRelease(root) {
   }
   const pkg = JSON.parse(await readFile(path.join(upstream, 'package.json'), 'utf8'));
   await writeFile(path.join(upstream, 'package.json'), `${JSON.stringify({
-    ...pkg, version: '0.1.0', repository: { type: 'git', url: upstream },
+    ...pkg, version: '0.1.4', repository: { type: 'git', url: upstream },
   }, null, 2)}\n`);
   await git(upstream, 'add', '-A');
-  await git(upstream, 'commit', '-q', '-m', 'release 0.1.0');
-  await git(upstream, 'tag', 'v0.1.0');
+  await git(upstream, 'commit', '-q', '-m', 'release 0.1.4');
+  await git(upstream, 'tag', 'v0.1.4');
   return upstream;
 }
 
@@ -75,16 +75,18 @@ test('one person vendors duobrain, the other joins from the clone, and update pu
   assert.equal(installed.action, 'created');
   assert.deepEqual(
     [installed.manifest.version, installed.manifest.ref, installed.manifest.source],
-    ['0.1.0', 'v0.1.0', upstream],
+    ['0.1.4', 'v0.1.4', upstream],
   );
   assert.equal(installed.agents.vendored, true);
   assert.deepEqual(installed.agents.files.map(({ path: file, action }) => [path.basename(file), action]), [
     ['AGENTS.md', 'created'], ['CLAUDE.md', 'created'], ['.gitattributes', 'created'],
   ]);
   const vendored = path.join(alice, '.duobrain', 'bin', 'duobrain.js');
-  assert.equal((await execFileAsync(process.execPath, [vendored, '--version'], { encoding: 'utf8' })).stdout.trim(), '0.1.0');
-  assert.match(await readFile(path.join(alice, 'AGENTS.md'), 'utf8'), /`node \.duobrain\/bin\/duobrain\.js <command>`/);
-  assert.match(await readFile(path.join(alice, '.duobrain', 'README.md'), 'utf8'), /^# Vendored duobrain 0\.1\.0/);
+  assert.equal((await execFileAsync(process.execPath, [vendored, '--version'], { encoding: 'utf8' })).stdout.trim(), '0.1.4');
+  const agentsBlock = await readFile(path.join(alice, 'AGENTS.md'), 'utf8');
+  assert.match(agentsBlock, /read and follow `\.duobrain\/AGENTS\.md`/);
+  assert.match(await readFile(path.join(alice, '.duobrain', 'AGENTS.md'), 'utf8'), /`node \.duobrain\/bin\/duobrain\.js <command>`/);
+  assert.match(await readFile(path.join(alice, '.duobrain', 'README.md'), 'utf8'), /^# Vendored duobrain 0\.1\.4/);
   await assert.rejects(stat(path.join(alice, '.duobrain', '.git')), { code: 'ENOENT' },
     'the copy has no .git of its own; it is ordinary product files');
   assert.equal(await git(alice, 'status', '--porcelain', '--', '.duobrain/bin/duobrain.js'), '?? .duobrain/bin/duobrain.js');
@@ -105,31 +107,53 @@ test('one person vendors duobrain, the other joins from the clone, and update pu
   const brief = await run(bob, path.join(bob, '.duobrain', 'bin', 'duobrain.js'), 'status', '--brief');
   assert.deepEqual([brief.participant, brief.partner], ['bob', 'alice']);
 
-  // A new release with a changed block.
+  // A new release with changed agent instructions.
   const toolSource = path.join(upstream, 'src', 'tool', 'index.js');
   await writeFile(toolSource, (await readFile(toolSource, 'utf8')).replace(
     'is a vendored copy of the duobrain tool', 'is a vendored copy (release two) of the duobrain tool',
   ));
   const pkg = JSON.parse(await readFile(path.join(upstream, 'package.json'), 'utf8'));
-  await writeFile(path.join(upstream, 'package.json'), `${JSON.stringify({ ...pkg, version: '0.1.1' }, null, 2)}\n`);
-  await git(upstream, 'commit', '-q', '-am', 'release 0.1.1');
-  await git(upstream, 'tag', 'v0.1.1');
+  await writeFile(path.join(upstream, 'package.json'), `${JSON.stringify({ ...pkg, version: '0.1.5' }, null, 2)}\n`);
+  await git(upstream, 'commit', '-q', '-am', 'release 0.1.5');
+  await git(upstream, 'tag', 'v0.1.5');
 
   const checked = await run(alice, vendored, 'update', '--check');
-  assert.deepEqual([checked.mode, checked.current, checked.latest, checked.updated], ['vendored', '0.1.0', '0.1.1', false]);
+  assert.deepEqual([checked.mode, checked.current, checked.latest, checked.updated], ['vendored', '0.1.4', '0.1.5', false]);
+
+  // Something else Alice has staged must stay out of the update commit.
+  await writeFile(path.join(alice, 'feature.js'), 'export const wip = true;\n');
+  await git(alice, 'add', 'feature.js');
 
   const updated = await run(alice, vendored, 'update');
-  assert.deepEqual([updated.updated, updated.from, updated.to], [true, '0.1.0', '0.1.1']);
-  assert.equal(JSON.parse(await readFile(path.join(alice, '.duobrain', 'VENDOR.json'), 'utf8')).ref, 'v0.1.1');
-  assert.match(await readFile(path.join(alice, 'AGENTS.md'), 'utf8'), /release two/, 'the new code rewrote the block');
-  assert.equal(updated.agents.commitNeeded, true);
+  assert.deepEqual([updated.updated, updated.from, updated.to], [true, '0.1.4', '0.1.5']);
+  assert.equal(JSON.parse(await readFile(path.join(alice, '.duobrain', 'VENDOR.json'), 'utf8')).ref, 'v0.1.5');
+  assert.match(await readFile(path.join(alice, '.duobrain', 'AGENTS.md'), 'utf8'), /release two/, 'the new code rewrote the vendored guide');
+  assert.equal(await readFile(path.join(alice, 'AGENTS.md'), 'utf8'), agentsBlock, 'AGENTS.md itself stays the same across releases');
+  assert.equal(updated.agents.commitNeeded, false);
+  assert.equal(updated.commit.status, 'created');
+  assert.equal(await git(alice, 'log', '-1', '--format=%s'), 'chore: update duobrain to v0.1.5');
+  const committed = (await git(alice, 'show', '--name-only', '--format=', 'HEAD')).split('\n');
+  assert.ok(committed.every((file) => file.startsWith('.duobrain/')), 'only the vendored copy is committed');
+  assert.equal(await git(alice, 'diff', '--cached', '--name-only'), 'feature.js', 'the unrelated staged file stays staged');
+  assert.equal(await git(alice, 'status', '--porcelain', '--', '.duobrain', 'AGENTS.md'), '');
+  assert.equal(updated.record.status, 'recorded');
   assert.equal((await run(alice, vendored, 'update')).updated, false, 'already on the newest release');
 
+  // Bob learns about the update from the work record and is told to pull; pulling clears it.
+  const bobCli = path.join(bob, '.duobrain', 'bin', 'duobrain.js');
+  await run(bob, bobCli, 'sync');
+  const told = await run(bob, bobCli, 'status', '--brief');
+  assert.deepEqual(
+    [told.duobrainUpdate.by, told.duobrainUpdate.version, told.duobrainUpdate.current, told.duobrainUpdate.mode, told.duobrainUpdate.productCommit],
+    ['alice', '0.1.5', '0.1.4', 'vendored', updated.commit.commit],
+  );
+  await git(alice, 'push', '-q');
+  await git(bob, 'pull', '-q');
+  assert.equal((await run(bob, bobCli, 'status', '--brief')).duobrainUpdate, undefined, 'the same version needs no notice');
+
   // Local edits to the committed copy are never overwritten.
-  await git(alice, 'add', '-A');
-  await git(alice, 'commit', '-q', '-m', 'chore: update duobrain to 0.1.1');
   await writeFile(vendored, `${await readFile(vendored, 'utf8')}// local edit\n`);
-  await assert.rejects(run(alice, vendored, 'update', '--ref', 'v0.1.0'), /VENDOR_DIRTY/);
+  await assert.rejects(run(alice, vendored, 'update', '--ref', 'v0.1.4'), /VENDOR_DIRTY/);
 });
 
 test('joining without shared state fails before creating anything', async (t) => {

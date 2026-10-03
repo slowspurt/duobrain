@@ -52,10 +52,10 @@ node .duobrain/src/dashboard/run.js --repository .
 ```sh
 node .duobrain/bin/duobrain.js update --check
 node .duobrain/bin/duobrain.js update
-git add .duobrain AGENTS.md && git commit -m "chore: update duobrain"
+git push
 ```
 
-`--check`는 아무것도 바꾸지 않고 최신 릴리스만 보여 준다. `update`는 최신 `vX.Y.Z` 릴리스를 받아 `.duobrain/`을 교체하고, 새 코드로 `AGENTS.md` 블록을 갱신한다. 한 사람이 업데이트해 커밋하면 다른 사람은 pull만 하면 되므로 두 사람이 항상 같은 버전을 쓴다. `--ref v0.1.1`로 특정 버전을 고를 수 있다. `.duobrain/` 안의 커밋된 파일을 직접 고친 상태면 덮어쓰지 않고 멈춘다.
+`--check`는 아무것도 바꾸지 않고 최신 릴리스만 보여 준다. `update`는 최신 `vX.Y.Z` 릴리스를 받아 `.duobrain/`을 교체하고 `chore: update duobrain to vX.Y.Z`로 커밋한 뒤(미리 스테이징해 둔 다른 파일은 섞이지 않는다), 업데이트 사실을 작업 기록에 남긴다. 푸시하면 상대의 대시보드와 AI가 두 사람의 버전이 같아질 때까지 pull 하라고 알려 준다. `AGENTS.md`는 `.duobrain/AGENTS.md`를 가리키기만 하므로 릴리스가 바뀌어도 그대로다. 대시보드의 `Check for updates` 버튼으로도 업데이트할 수 있다. `--ref v0.1.1`로 특정 버전을 고를 수 있다. `.duobrain/` 안의 커밋된 파일을 직접 고친 상태면 덮어쓰지 않고 멈춘다.
 
 ## 기존 AI에게 첫 작업 맡기기
 

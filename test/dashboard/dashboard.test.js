@@ -253,8 +253,12 @@ test('reports update failures by CLI code only and hides other details', async (
 test('summarizes CLI update reports without paths or remote URLs', async () => {
   const { summarizeUpdate } = await import('../../src/dashboard/source.js');
   assert.deepEqual(summarizeUpdate({ upstream: 'origin/main', current: '0.1.0', latest: '0.1.2', ahead: 0, behind: 2, commits: ['a1 fix', 'b2 feat'], updated: false }), {
-    mode: 'checkout', current: '0.1.0', latest: '0.1.2', available: true, updated: false, changes: ['a1 fix', 'b2 feat'], commitNeeded: false,
+    mode: 'checkout', current: '0.1.0', latest: '0.1.2', available: true, updated: false, changes: ['a1 fix', 'b2 feat'], commit: null, recorded: false, commitNeeded: false,
   });
+  const committed = summarizeUpdate({ mode: 'vendored', current: '0.1.3', latest: '0.1.4', updated: true, commit: { status: 'created', commit: 'abcdef1234567890' }, record: { status: 'recorded' } });
+  assert.deepEqual([committed.commit, committed.recorded, committed.commitNeeded], [{ status: 'created', commit: 'abcdef1' }, true, false]);
+  const failed = summarizeUpdate({ mode: 'vendored', current: '0.1.3', latest: '0.1.4', updated: true, commit: { status: 'failed', detail: '/secret' }, record: { status: 'skipped' } });
+  assert.deepEqual([failed.commit, failed.recorded, failed.commitNeeded], [{ status: 'failed', commit: null }, false, true]);
   const vendored = summarizeUpdate({ mode: 'vendored', source: 'https://example.com/secret.git', current: '0.1.2', latest: '0.1.10', updated: true });
   assert.equal(vendored.available, true);
   assert.equal(vendored.commitNeeded, true);
@@ -267,5 +271,5 @@ test('reports the running duobrain version for the settings tab', async (t) => {
   await once(server, 'listening');
   t.after(() => close(server));
   const response = await fetch(`http://127.0.0.1:${server.address().port}/api/meta`);
-  assert.deepEqual(await response.json(), { version: '0.1.2' });
+  assert.deepEqual(await response.json(), { version: '0.1.2', vendored: false });
 });

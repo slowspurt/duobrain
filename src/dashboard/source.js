@@ -67,7 +67,13 @@ export function summarizeUpdate(report) {
     available: vendored ? newerVersion(report.latest, report.current) : Number(report?.behind) > 0,
     updated,
     changes: vendored ? [] : (Array.isArray(report?.commits) ? report.commits.filter(Boolean).slice(0, 20) : []),
-    commitNeeded: updated && (vendored || report?.agents?.commitNeeded === true),
+    commit: updated && report?.commit ? {
+      status: ['created', 'unchanged', 'skipped', 'failed'].includes(report.commit.status) ? report.commit.status : 'failed',
+      commit: typeof report.commit.commit === 'string' ? report.commit.commit.slice(0, 7) : null,
+    } : null,
+    recorded: updated && report?.record?.status === 'recorded',
+    // Releases before 0.1.4 leave the copy for the user to commit.
+    commitNeeded: updated && (report?.commit ? report.commit.status !== 'created' && report.commit.status !== 'unchanged' : (vendored || report?.agents?.commitNeeded === true)),
   };
 }
 

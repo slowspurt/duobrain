@@ -16,6 +16,7 @@ Run duobrain from the product repository root: `node .duobrain/bin/duobrain.js <
 ## Lookup limit
 
 - **Step 1:** `sync`, then `status --brief` (or `overlap --scope <paths> --brief`). If that answers the question, answer now.
+  If the brief has `duobrainUpdate`, tell the user first: the partner moved duobrain to that version, so pull the project (vendored) or run `update` (own checkout). Do not run it for them.
 - **Step 2:** at most one targeted lookup, such as one wiki note, one ticket or one commit diff.
 - **Stop:** if still uncertain, mark it `unknown` and create or reuse a ticket, or ask the user. Do not run a third or fourth speculative check or invent a plausible reason.
 

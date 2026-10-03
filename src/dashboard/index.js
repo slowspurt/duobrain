@@ -90,6 +90,7 @@ export function startDashboard({
   checkUpdate,
   applyUpdate,
   version = null,
+  vendored = false,
   port = 0,
 } = {}) {
   if (typeof getSnapshot !== 'function') {
@@ -142,7 +143,7 @@ export function startDashboard({
     }
 
     if (pathname === '/api/meta') {
-      send(response, 200, json, JSON.stringify({ version: typeof version === 'string' ? version : null }), method);
+      send(response, 200, json, JSON.stringify({ version: typeof version === 'string' ? version : null, vendored: vendored === true }), method);
       return;
     }
 

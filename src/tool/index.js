@@ -53,18 +53,13 @@ export async function guidePaths(toolRoot = TOOL_ROOT) {
  */
 export function renderAgentsBlock({ vendored = false } = {}) {
   if (vendored) {
+    // Deliberately a fixed pointer: the instructions live in .duobrain/AGENTS.md, which every
+    // update replaces, so this file stays the same across duobrain versions.
     return [
       BLOCK_START,
       '## duobrain',
       '',
-      'Two people share this repository\'s work record through duobrain. This block is managed by `node .duobrain/bin/duobrain.js agents-sync`; edits inside it are overwritten.',
-      '',
-      '- `.duobrain/` is a vendored copy of the duobrain tool, pinned by `.duobrain/VENDOR.json`. It is not product code: never edit it and leave it out of product reviews, searches and refactors.',
-      '- Run duobrain as `node .duobrain/bin/duobrain.js <command>` from the repository root.',
-      '- If this clone is not connected yet, follow `.duobrain/guides/duobrain-onboarding.md`. A person joining existing shared state runs only `init --participant <their-id>`.',
-      '- Before starting work or answering about the partner\'s work, follow `.duobrain/guides/duobrain-ai.md`, beginning with `sync` and `status --brief`.',
-      '- Before every commit, follow `.duobrain/skills/duobrain-commit/SKILL.md`.',
-      '- To update duobrain for both people, run `update`, then commit `.duobrain/` and this file.',
+      'This repository shares its work record through duobrain. Before starting work, answering about your partner\'s work, or committing, read and follow `.duobrain/AGENTS.md`. `.duobrain/` is a vendored tool, not product code: never edit it. This block is managed by duobrain; edits inside it are overwritten.',
       BLOCK_END,
     ].join('\n');
   }
@@ -80,6 +75,33 @@ export function renderAgentsBlock({ vendored = false } = {}) {
     '- If `duobrain` is not on PATH, ask the user for the duobrain checkout and run `node <checkout>/bin/duobrain.js` instead.',
     BLOCK_END,
   ].join('\n');
+}
+
+/** The full agent instructions shipped inside a vendored copy as .duobrain/AGENTS.md. */
+export function renderVendoredGuide(version) {
+  return [
+    `# duobrain for AI agents (v${version})`,
+    '',
+    'This file belongs to the vendored duobrain copy and is replaced on every update; do not edit it.',
+    '',
+    '- `.duobrain/` is a vendored copy of the duobrain tool, pinned by `.duobrain/VENDOR.json`. It is not product code: never edit it and leave it out of product reviews, searches and refactors.',
+    '- Run duobrain as `node .duobrain/bin/duobrain.js <command>` from the repository root.',
+    '- If this clone is not connected yet, follow `.duobrain/guides/duobrain-onboarding.md`. A person joining existing shared state runs only `init --participant <their-id>`.',
+    '- Before starting work or answering about the partner\'s work, follow `.duobrain/guides/duobrain-ai.md`, beginning with `sync` and `status --brief`.',
+    '- If `status --brief` reports `duobrainUpdate`, tell the user the partner updated duobrain to that version and that pulling the project brings the same version.',
+    '- Before every commit, follow `.duobrain/skills/duobrain-commit/SKILL.md`.',
+    '- To update duobrain for both people, run `update`. It commits `.duobrain/` and records the update so the partner is told to pull; the user then pushes as usual.',
+    '',
+  ].join('\n');
+}
+
+async function writeVendoredGuide(vendorRoot) {
+  const { version } = JSON.parse(await readFile(path.join(vendorRoot, 'package.json'), 'utf8'));
+  const filePath = path.join(vendorRoot, 'AGENTS.md');
+  const content = renderVendoredGuide(version);
+  const existing = await readOptional(filePath);
+  if (existing !== content) await writeFile(filePath, content, 'utf8');
+  return { path: filePath, action: existing === null ? 'created' : existing === content ? 'unchanged' : 'updated' };
 }
 
 /** Insert or replace the managed block, leaving everything outside the markers untouched. */
@@ -137,12 +159,33 @@ export async function syncAgentFiles({ productRoot, dryRun = false }) {
     if (!dryRun && action !== 'unchanged') await writeFile(filePath, content, 'utf8');
     files.push({ path: filePath, action });
   }
+  if (vendored && !dryRun) await writeVendoredGuide(path.join(productRoot, VENDOR_DIR));
   return {
     dryRun,
     vendored,
     files,
     commitNeeded: files.some(({ action }) => action !== 'unchanged'),
   };
+}
+
+/**
+ * Commit a finished update: the vendored copy plus whichever agent files the update rewrote.
+ * The commit names only those paths, so anything else the user has staged stays staged and
+ * out of it. Hooks run as usual; if the commit fails, the files stay ready to commit by hand.
+ */
+export async function commitDuobrainUpdate({ productRoot, version, changedFiles = [] }) {
+  if (!(await isOwnCheckout(productRoot))) return { status: 'skipped', reason: 'NOT_A_REPOSITORY' };
+  const paths = [VENDOR_DIR, ...changedFiles.map((file) => path.relative(productRoot, file)).filter((name) => name && !name.startsWith('..'))];
+  await git(productRoot, ['add', '-A', '--', ...paths]);
+  const staged = await git(productRoot, ['diff', '--cached', '--name-only', '--', ...paths]);
+  if (staged === '') return { status: 'unchanged' };
+  const message = `chore: update duobrain to v${version}`;
+  try {
+    await execFileAsync('git', ['-C', productRoot, 'commit', '--quiet', '-m', message, '--', ...paths], { encoding: 'utf8' });
+  } catch (error) {
+    return { status: 'failed', reason: 'COMMIT_FAILED', detail: String(error.stderr || error.message).trim().split('\n')[0] };
+  }
+  return { status: 'created', commit: await git(productRoot, ['rev-parse', 'HEAD']), message };
 }
 
 /** Mark the vendored copy so GitHub leaves it out of language stats and collapses its diffs. */
@@ -232,7 +275,7 @@ function vendorReadme(manifest) {
     '',
     `- Source: ${manifest.source} at \`${manifest.ref}\``,
     '- Run: `node .duobrain/bin/duobrain.js <command>` from the repository root',
-    '- Update: `node .duobrain/bin/duobrain.js update`, then commit `.duobrain/` and `AGENTS.md`',
+    '- Update: `node .duobrain/bin/duobrain.js update`; it commits `.duobrain/` for you, then push',
     '',
   ].join('\n');
 }
@@ -286,6 +329,7 @@ export async function installVendored({ sourceRoot = TOOL_ROOT, productRoot }) {
   }
   await writeFile(path.join(vendorRoot, 'VENDOR.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
   await writeFile(path.join(vendorRoot, 'README.md'), vendorReadme(manifest), 'utf8');
+  await writeVendoredGuide(vendorRoot);
   return {
     path: vendorRoot,
     action: previous === null ? 'created' : 'updated',

@@ -110,11 +110,11 @@ Open [localhost:4173](http://127.0.0.1:4173) to explore sample records. Stop it 
 
 ```sh
 node .duobrain/bin/duobrain.js update --check   # show the newest release; changes nothing
-node .duobrain/bin/duobrain.js update           # replace .duobrain with the newest release
-git add .duobrain AGENTS.md && git commit -m "chore: update duobrain"
+node .duobrain/bin/duobrain.js update           # replace .duobrain, commit it, and tell your partner
+git push
 ```
 
-`update` downloads the newest `vX.Y.Z` release, replaces `.duobrain/`, and refreshes the `AGENTS.md` block with the new code. One person updates and commits; the other just pulls, so both always run the same version. Pin a version with `--ref v0.1.1`. It refuses to overwrite committed files in `.duobrain/` that were edited locally. With a global install, `update` fast-forwards the duobrain checkout instead.
+`update` downloads the newest `vX.Y.Z` release, replaces `.duobrain/`, commits it as `chore: update duobrain to vX.Y.Z` (nothing else you have staged goes into that commit), and records the update in the work record. Push, and your partner's dashboard and AI say to pull until both run the same version. `AGENTS.md` only points at `.duobrain/AGENTS.md`, so it stays the same across releases. You can also update from the dashboard's `Check for updates` button. Pin a version with `--ref v0.1.1`. It refuses to overwrite committed files in `.duobrain/` that were edited locally. With a global install, `update` fast-forwards the duobrain checkout instead.
 
 ## Everyday commands
 

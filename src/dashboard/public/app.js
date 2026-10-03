@@ -23,7 +23,7 @@ document.title = `duobrain ${t('dashboardTitle')}`;
 const sections = ['current', 'requests', 'records', 'wiki', 'settings'];
 
 const state = {
-  tickets: [], sessions: [], conflicts: [], participants: [], profiles: [], goals: {}, sample: false, identity: null,
+  tickets: [], sessions: [], conflicts: [], participants: [], profiles: [], tools: [], goals: {}, sample: false, identity: null,
   tab: 'inbox', query: '', status: '', kind: '', peer: '', period: '30d',
   wikiTab: 'all', wikiRecords: [], wikiSearchResults: [], wikiIssues: [],
   section: 'current', selectedTicketId: null, selectedWikiPath: null, assignments: [],
@@ -819,13 +819,22 @@ function showUpdate(view, result) {
       result.changes.forEach((change) => list.append(element('li', '', change)));
       body.append(list);
     }
+    const partnerTool = partnerNewerTool();
+    if (runningVendored && partnerTool && partnerTool.version === result.latest) {
+      body.append(element('p', 'update-note', format('partnerAlreadyUpdated', { person: participantLabel(partnerTool.participant), version: versionLabel(partnerTool.version) })));
+    }
     body.append(element('p', '', t('updateAsk')));
     actions.append(updateButton(t('notNow'), close), updateButton(t('updateNow'), runUpdate, true));
     return;
   }
   if (view === 'done') {
     body.append(element('h3', '', format('updatedTo', { version: versionLabel(result.latest) })), element('p', '', t('restartNeeded')));
-    if (result.commitNeeded) body.append(element('p', 'update-note', t('commitAfterUpdate')));
+    const partner = partnerOf(state.identity ?? state.viewer);
+    const person = partner ? participantLabel(partner) : t('yourPartner');
+    if (result.commit?.status === 'created') body.append(element('p', 'update-note', format('updateCommitted', { commit: result.commit.commit ?? '', person })));
+    else if (result.commit?.status === 'failed') body.append(element('p', 'update-note', t('updateCommitFailed')));
+    else if (result.commitNeeded) body.append(element('p', 'update-note', t('commitAfterUpdate')));
+    if (result.recorded) body.append(element('p', '', format('updateRecorded', { person })));
     actions.append(updateButton(t('close'), close, true));
     return;
   }
@@ -835,6 +844,26 @@ function showUpdate(view, result) {
 // ---------- daily update check ----------
 const dayMs = 86_400_000;
 let runningVersion = null;
+let runningVendored = false;
+const partnerOf = (participant) => state.participants.find((item) => item !== participant) ?? null;
+// The partner recorded a newer duobrain than the one running here: say how to catch up.
+// Pulling (vendored) or updating (own checkout) brings the versions together and the notice goes away.
+function partnerNewerTool() {
+  const me = state.identity ?? state.viewer;
+  return state.tools
+    .filter((tool) => tool?.participant && tool.participant !== me && runningVersion && newerVersion(tool.version, runningVersion))
+    .sort((left, right) => (newerVersion(left.version, right.version) ? -1 : 1))[0] ?? null;
+}
+function renderVersionNotice() {
+  const newer = partnerNewerTool();
+  const notice = byId('version-notice');
+  notice.hidden = !newer;
+  if (!newer) return;
+  byId('version-notice-title').textContent = format('partnerUpdated', { person: participantLabel(newer.participant), version: `v${newer.version}` });
+  byId('version-notice-body').textContent = runningVendored
+    ? format('partnerUpdatedPull', { commit: newer.productCommit ? ` (${newer.productCommit.slice(0, 7)})` : '' })
+    : t('partnerUpdatedCheckout');
+}
 let dailyCheckRunning = false;
 function newerVersion(latest, current) {
   const left = String(latest).split('.').map(Number);
@@ -928,6 +957,7 @@ function render(snapshot) {
   state.conflicts = Array.isArray(snapshot.conflicts) ? snapshot.conflicts : [];
   state.participants = Array.isArray(snapshot.participants) ? snapshot.participants : [];
   state.profiles = Array.isArray(snapshot.profiles) ? snapshot.profiles : [];
+  state.tools = Array.isArray(snapshot.tools) ? snapshot.tools : [];
   state.identity = typeof snapshot.viewer === 'string' && state.participants.includes(snapshot.viewer) ? snapshot.viewer : null;
   state.goals = snapshot.goals ?? {};
   state.plan = snapshot.plan;
@@ -936,6 +966,7 @@ function render(snapshot) {
   fillFilters();
   renderPeople();
   renderSync(snapshot.sync);
+  renderVersionNotice();
   loadWikiList();
 }
 
@@ -949,12 +980,14 @@ function scheduleRefresh() {
 }
 async function loadVersion() {
   try {
-    const { version } = await (await fetch('/api/meta', { headers: { Accept: 'application/json' } })).json();
+    const { version, vendored } = await (await fetch('/api/meta', { headers: { Accept: 'application/json' } })).json();
     runningVersion = typeof version === 'string' ? version : null;
+    runningVendored = vendored === true;
   } catch {
     runningVersion = null;
   }
   renderUpdateBadge();
+  renderVersionNotice();
   dailyUpdateCheck();
 }
 let lastSnapshotBody = null;

@@ -10,9 +10,10 @@ duobrain recommends it because the product is built for exactly two people, and 
 product/
 ├── .duobrain/            vendored duobrain: bin, src, guides, skills, package.json, LICENSE
 │   ├── VENDOR.json       which release this copy is: version, source URL, tag, commit
-│   └── README.md         "do not edit; update with node .duobrain/bin/duobrain.js update"
+│   ├── README.md         "do not edit; update with node .duobrain/bin/duobrain.js update"
+│   └── AGENTS.md         the agent instructions for this version, replaced on every update
 ├── .gitattributes        /.duobrain/** linguist-vendored linguist-generated
-├── AGENTS.md             managed duobrain block: run node .duobrain/bin/duobrain.js
+├── AGENTS.md             managed duobrain block: a fixed pointer to .duobrain/AGENTS.md
 └── CLAUDE.md             @AGENTS.md
 ```
 
@@ -35,7 +36,7 @@ duobrain works in any repository, not only JavaScript projects, so it cannot rel
 What you gain:
 
 - **One person installs, both use it.** A clone or pull brings the tool along.
-- **The same version for both people.** The version is part of the commit. When one person updates and commits, the other gets the update by pulling.
+- **The same version for both people.** The version is part of the commit. When one person updates, `update` commits the copy and records the update; after a push, the other person is told to pull and gets the same version.
 - **No network or registry needed** to run it, and nothing outside the project.
 - **Stable paths.** `AGENTS.md` can point at `.duobrain/guides/…`, the same on every machine.
 
@@ -52,11 +53,11 @@ What it costs, and how duobrain handles it:
 
 ```sh
 node .duobrain/bin/duobrain.js update --check   # compare VENDOR.json with the newest release tag
-node .duobrain/bin/duobrain.js update           # replace .duobrain and refresh AGENTS.md
-git add .duobrain AGENTS.md && git commit -m "chore: update duobrain"
+node .duobrain/bin/duobrain.js update           # replace .duobrain, commit it, record the update
+git push
 ```
 
-`update` lists the `vX.Y.Z` tags at the source in `VENDOR.json`, shallow-clones the newest one into a temporary folder, copies its runtime files over `.duobrain/`, rewrites `VENDOR.json`, and deletes the temporary folder. The `AGENTS.md` block is then rewritten by the **new** code, so block changes ship with the release. Without `--ref`, it only moves to a newer version.
+`update` lists the `vX.Y.Z` tags at the source in `VENDOR.json`, shallow-clones the newest one into a temporary folder, copies its runtime files over `.duobrain/`, rewrites `VENDOR.json`, and deletes the temporary folder. The **new** code then finishes the update: it writes `.duobrain/AGENTS.md`, commits only `.duobrain/` (other staged files stay out), and records the update so the partner's dashboard and AI say to pull. The product's `AGENTS.md` block is a fixed pointer, so it does not change between releases. Without `--ref`, it only moves to a newer version.
 
 ## Moving from a copied folder
 

@@ -321,7 +321,7 @@ export function planPresentation(snapshot = {}) {
       || (
         typeof conflict?.entityId === 'string'
         && !knownIds.has(conflict.entityId)
-        && !/(session|ticket|requester clarification)/i.test(conflict?.message ?? '')
+        && !/(session|ticket|requester clarification|duobrain update)/i.test(conflict?.message ?? '')
       ),
   );
   if (planConflicts.length) return { state: 'conflict', plan: null, conflicts: planConflicts };

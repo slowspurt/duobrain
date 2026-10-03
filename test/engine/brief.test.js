@@ -176,3 +176,18 @@ test('overlap --brief reports the verdict, overlapping paths and unknowns', asyn
   assert.equal(clear.verdict, 'no_overlap');
   assert.deepEqual(clear.overlaps, []);
 });
+
+test('tells a participant when the partner recorded a newer duobrain', async () => {
+  const { duobrainUpdateNotice } = await import('../../src/engine/index.js');
+  const tools = [
+    { participant: 'alice', version: '0.1.5', mode: 'vendored', productCommit: 'abc1234', at: '2026-10-04T00:00:00Z' },
+    { participant: 'bob', version: '0.1.4', mode: 'vendored', productCommit: null, at: '2026-10-03T00:00:00Z' },
+  ];
+  assert.deepEqual(duobrainUpdateNotice({ participant: 'bob', toolVersion: '0.1.4', tools }), {
+    by: 'alice', version: '0.1.5', current: '0.1.4', mode: 'vendored', productCommit: 'abc1234', at: '2026-10-04T00:00:00Z',
+  });
+  assert.equal(duobrainUpdateNotice({ participant: 'bob', toolVersion: '0.1.5', tools }), null, 'same version');
+  assert.equal(duobrainUpdateNotice({ participant: 'bob', toolVersion: '0.2.0', tools }), null, 'already ahead');
+  assert.equal(duobrainUpdateNotice({ participant: 'alice', toolVersion: '0.1.5', tools }), null, 'own records never notify');
+  assert.equal(duobrainUpdateNotice({ participant: 'bob', toolVersion: '0.1.4', tools: undefined }), null);
+});

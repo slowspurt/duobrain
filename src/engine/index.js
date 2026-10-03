@@ -2688,8 +2688,10 @@ async function buildSnapshot(layout) {
   const conflicts = [];
   const planState = await buildPlanState(layout, config, events);
   const profileState = buildProfileState(config, events);
+  const toolState = buildToolState(config, events);
   conflicts.push(...planState.conflicts);
   conflicts.push(...profileState.conflicts);
+  conflicts.push(...toolState.conflicts);
 
   for (const root of sessionRoots) {
     const entityEvents = events.filter((event) => event.entityId === root.entityId);
@@ -2804,6 +2806,7 @@ async function buildSnapshot(layout) {
     sample: false,
     participants: config.participants,
     profiles: profileState.profiles,
+    tools: toolState.tools,
     localPreferences: await localPreferences(layout),
     goals: planState.plan ? { ...planState.plan.goals } : { ...NULL_GOALS },
     plan: planState.plan,
@@ -2818,6 +2821,114 @@ async function buildSnapshot(layout) {
   };
 }
 
+const TOOL_MODES = new Set(['vendored', 'checkout']);
+const TOOL_VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
+const TOOL_COMMIT_PATTERN = /^[0-9a-f]{7,40}$/;
+
+/** The duobrain version this engine belongs to, read from its own package.json. */
+export async function runningToolVersion() {
+  try {
+    return JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8')).version ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function isNewerToolVersion(candidate, current) {
+  if (!TOOL_VERSION_PATTERN.test(candidate ?? '')) return false;
+  if (!TOOL_VERSION_PATTERN.test(current ?? '')) return true;
+  const left = candidate.split('.').map(Number);
+  const right = current.split('.').map(Number);
+  for (let index = 0; index < 3; index += 1) if (left[index] !== right[index]) return left[index] > right[index];
+  return false;
+}
+
+function validToolUpdate(event, config) {
+  const data = event?.data ?? {};
+  return event?.type === 'tool.updated'
+    && event.previous === null
+    && config.participants.includes(event.actor?.participant)
+    && TOOL_VERSION_PATTERN.test(data.version ?? '')
+    && TOOL_MODES.has(data.mode)
+    && (data.ref === null || (typeof data.ref === 'string' && data.ref.trim() !== ''))
+    && (data.productCommit === null || TOOL_COMMIT_PATTERN.test(data.productCommit ?? ''));
+}
+
+/**
+ * Each participant's most recent duobrain update. Every update is its own root event, so
+ * there is no history chain; an invalid record is reported and otherwise ignored. Engines
+ * from before this record existed skip `tool.*` events entirely.
+ */
+function buildToolState(config, events) {
+  const latest = new Map();
+  const conflicts = [];
+  for (const event of events.filter((item) => typeof item.type === 'string' && item.type.startsWith('tool.'))) {
+    if (!validToolUpdate(event, config)) {
+      conflicts.push({ entityId: event.entityId ?? null, previous: event.previous ?? null, eventIds: [event.id], message: 'Invalid duobrain update record.' });
+      continue;
+    }
+    const participant = event.actor.participant;
+    const current = latest.get(participant);
+    if (current && (Date.parse(current.at) || 0) >= (Date.parse(event.at) || 0)) continue;
+    latest.set(participant, {
+      participant,
+      version: event.data.version,
+      mode: event.data.mode,
+      ref: event.data.ref,
+      productCommit: event.data.productCommit,
+      at: event.at,
+    });
+  }
+  return { tools: [...latest.values()].sort((left, right) => left.participant.localeCompare(right.participant)), conflicts };
+}
+
+/** A newer duobrain version recorded by the other participant than the one running here, or null. */
+export function duobrainUpdateNotice({ participant, toolVersion, tools = [] }) {
+  const newer = (Array.isArray(tools) ? tools : [])
+    .filter((tool) => tool?.participant !== participant && isNewerToolVersion(tool?.version, toolVersion))
+    .sort((left, right) => (isNewerToolVersion(left.version, right.version) ? -1 : isNewerToolVersion(right.version, left.version) ? 1 : 0))[0];
+  return newer
+    ? { by: newer.participant, version: newer.version, current: toolVersion, mode: newer.mode, productCommit: newer.productCommit, at: newer.at }
+    : null;
+}
+
+/**
+ * Record that this participant updated duobrain, so the partner's engine can tell them to
+ * pull (vendored) or update their own checkout. It is a work-record fact, not a request.
+ */
+export async function recordToolUpdate({
+  repository = '.',
+  version,
+  mode,
+  ref = null,
+  productCommit = null,
+  actorKind = 'human',
+  sync = true,
+} = {}) {
+  assertActorKind(actorKind);
+  if (!TOOL_VERSION_PATTERN.test(version ?? '')) throw new EngineError('version must be x.y.z.', { code: 'INVALID_INPUT' });
+  if (!TOOL_MODES.has(mode)) throw new EngineError('mode must be vendored or checkout.', { code: 'INVALID_INPUT' });
+  if (ref !== null) assertString(ref, 'ref');
+  if (productCommit !== null && !TOOL_COMMIT_PATTERN.test(productCommit)) {
+    throw new EngineError('productCommit must be a Git commit hash.', { code: 'INVALID_INPUT' });
+  }
+  const layout = await loadLayout(repository);
+  const identity = await loadIdentity(layout);
+  const config = await loadConfig(layout);
+  if (!config.participants.includes(identity.participant)) {
+    throw new EngineError('Local identity is not in shared configuration.', { code: 'IDENTITY_MISMATCH' });
+  }
+  const event = createEvent({
+    identity,
+    entityId: randomUUID(),
+    type: 'tool.updated',
+    previous: null,
+    data: { version, mode, ref, productCommit },
+    actorKind,
+  });
+  return recordEvent(layout, event, sync);
+}
+
 export async function getSnapshot({ repository = '.' } = {}) {
   const layout = await loadLayout(repository);
   return buildSnapshot(layout);
@@ -2828,7 +2939,7 @@ export async function getEngineStatus({ repository = '.' } = {}) {
   const identity = await loadIdentity(layout);
   const snapshot = await buildSnapshot(layout);
   const head = (await git(layout.statePath, ['rev-parse', 'HEAD'])).stdout;
-  return { participant: identity.participant, head, storePath: layout.statePath, snapshot };
+  return { participant: identity.participant, toolVersion: await runningToolVersion(), head, storePath: layout.statePath, snapshot };
 }
 
 function compact(value) {
@@ -2842,7 +2953,7 @@ function compact(value) {
  * each participant's latest handoff, actionable tickets, sync state and
  * conflicts. Event histories are omitted; run status without --brief for them.
  */
-export function briefStatus({ participant, snapshot }) {
+export function briefStatus({ participant, toolVersion = null, snapshot }) {
   const partner = snapshot.participants.find((id) => id !== participant) ?? null;
   const lastEventAt = (session) => session.history.at(-1)?.at ?? session.startedAt;
   const latestEnded = snapshot.participants.map((id) => snapshot.sessions
@@ -2897,6 +3008,7 @@ export function briefStatus({ participant, snapshot }) {
         .map((item) => ticket(item, { evidence: item.evidence })),
     },
     conflicts: snapshot.conflicts.map(({ entityId, message }) => ({ entityId, message })),
+    ...compact({ duobrainUpdate: duobrainUpdateNotice({ participant, toolVersion, tools: snapshot.tools }) }),
   };
 }
 

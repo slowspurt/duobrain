@@ -46,22 +46,44 @@ and commit skill. `agents-sync [--dry-run]` rewrites the block and reports `comm
 
 `update --check` fetches and reports the current and upstream version, the ahead/behind counts and the
 incoming commits. `update` fast-forwards the checkout only when it is clean and has no local commits
-(`UPDATE_DIRTY`, `UPDATE_DIVERGED`), then, inside a product that already has the block, runs the new
-code's `agents-sync`.
+(`UPDATE_DIRTY`, `UPDATE_DIVERGED`), then lets the new code finish with `update-finish --mode checkout`:
+it rewrites the block inside a product that already has one and records the update (below).
+
+`update-finish` always runs with the newly installed code, so the newest rules for agent files, commits
+and records apply. When the new release is older than 0.1.4 (an explicit `--ref` downgrade), `update`
+falls back to that code's `agents-sync`. `update` reports `commit` and `record` alongside the release.
+
+#### Recorded updates
+
+`recordToolUpdate({repository, version, mode, ref, productCommit})` writes a `tool.updated` event, its
+own root with no history chain, and syncs it. Snapshot `tools` holds each participant's latest recorded
+`{participant, version, mode, ref, productCommit, at}`; invalid records become conflicts and are
+otherwise ignored. Engines before 0.1.4 skip `tool.*` events, and the store validator already accepts any
+file under `events/`, so mixed versions keep working. `status --brief` adds `duobrainUpdate`
+(`by`, `version`, `current`, `mode`, `productCommit`, `at`) while the partner has recorded a newer version
+than the one running; it disappears once the versions match. This is a work-record fact, not a request,
+so nothing has to be answered or closed.
 
 ### Vendored install
 
 `install` copies the runtime files (`package.json`, `LICENSE`, `bin`, `src`, `guides`, `skills`) of the
 running duobrain into `<product>/.duobrain/`, writes `VENDOR.json` (`version`, `source`, `ref`, `commit`)
-and a short `README.md`, then runs the copied code's `agents-sync`, which writes the vendored `AGENTS.md`
-block, the `CLAUDE.md` import and the `.gitattributes` line
+and a short `README.md` and `AGENTS.md` (the full agent instructions for that version), then runs the
+copied code's `agents-sync`, which writes the `AGENTS.md` block, the `CLAUDE.md` import and the
+`.gitattributes` line
 `/.duobrain/** linguist-vendored linguist-generated`. Reinstalling the same commit is `unchanged`.
 Nothing is committed. See [docs/vendoring.md](../vendoring.md).
 
 Run from a vendored copy, `update [--check] [--ref vX.Y.Z]` lists the release tags at `VENDOR.json`'s
 source, shallow-clones the newest (or `--ref`) into a temporary directory, replaces `.duobrain/` and runs
-the new code's `agents-sync`. Without `--ref` it only moves to a newer version. It refuses when committed
-files under `.duobrain/` have local edits (`VENDOR_DIRTY`).
+the new code's `update-finish`. That refreshes `.duobrain/AGENTS.md`, commits only `.duobrain/` and any
+agent file it rewrote as `chore: update duobrain to vX.Y.Z` (other staged files stay staged and out of
+the commit; `--no-commit` skips it; a failing hook leaves the files for a manual commit), and records the
+update with the new commit so the partner is told to pull. Without `--ref` it only moves to a newer
+version. It refuses when committed files under `.duobrain/` have local edits (`VENDOR_DIRTY`).
+
+For a vendored copy the product's `AGENTS.md` block is a fixed pointer to `.duobrain/AGENTS.md`, so it no
+longer changes between releases; the instructions themselves travel inside `.duobrain/`.
 
 `init --participant <id>` without `--participants` joins existing shared state and reads the participant
 pair from it. When the remote has no shared state yet it fails with `PARTICIPANTS_REQUIRED` before

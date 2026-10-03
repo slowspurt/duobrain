@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { startDashboard } from './index.js';
+import { TOOL_ROOT, isVendored } from '../tool/index.js';
 import { createSnapshotGetter, createUpdateTools, createWikiNoteGetter, createWikiToolGetters, sampleSnapshotUrl } from './source.js';
 
 function usage() {
@@ -50,6 +51,7 @@ if (options?.help) {
       ...createWikiToolGetters(options),
       ...createUpdateTools(options),
       version: JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version,
+      vendored: await isVendored(TOOL_ROOT),
     });
 
     server.once('listening', () => {
