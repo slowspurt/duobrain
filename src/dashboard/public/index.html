@@ -9,85 +9,116 @@
   <script type="module" src="/app.js"></script>
 </head>
 <body>
-  <div class="app-shell">
-    <header class="topbar">
-      <div class="brand-lockup">
-        <button id="brand-home" class="wordmark" type="button" aria-label="duobrain current view" data-i18n-aria-label="brandHome"><span>duo</span>brain</button>
-        <div><h1 data-i18n="dashboardTitle">Dashboard</h1></div>
+  <div id="app-shell" class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-head">
+        <button id="brand-home" class="wordmark" type="button" aria-label="duobrain current view" data-i18n-aria-label="brandHome"><span>duo</span><b>brain</b></button>
+        <button id="sidebar-toggle" class="icon-button sidebar-toggle" type="button" aria-expanded="true" aria-label="Collapse sidebar" data-i18n-aria-label="collapseSidebar">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="3.5" width="14" height="13" rx="2.5"/><path d="M8 3.5v13M13 8l-2 2 2 2"/></svg>
+        </button>
       </div>
-      <div class="source-state">
-        <span id="source-badge" hidden data-i18n="source">Live record</span>
-        <span id="sync-badge" class="status unknown" data-i18n="syncUnknown">Sync unknown</span>
-        <button id="refresh" class="refresh-button" type="button" data-i18n="refresh">Refresh</button>
+
+      <nav class="app-nav" role="tablist" aria-orientation="vertical" aria-label="Dashboard areas" data-i18n-aria-label="navLabel">
+        <button id="nav-current" class="app-tab active" type="button" role="tab" aria-selected="true" aria-controls="panel-current">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="8" r="3"/><circle cx="14" cy="8" r="3"/><path d="M2 17c.8-2.8 2.6-4 5-4s4.2 1.2 5 4M12 13.2c.6-.2 1.3-.2 2-.2 2.4 0 4.2 1.2 5 4"/></svg>
+          <span class="tab-label" data-i18n="current">Now</span>
+        </button>
+        <button id="nav-requests" class="app-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-requests">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h9A2.5 2.5 0 0 1 17 5.5v6a2.5 2.5 0 0 1-2.5 2.5H9l-4 3v-3A2 2 0 0 1 3 12z"/></svg>
+          <span class="tab-label" data-i18n="requests">Requests</span><span id="nav-requests-count" class="nav-count"></span>
+        </button>
+        <button id="nav-records" class="app-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-records">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 2v16"/><rect x="2" y="4" width="6" height="4" rx="2"/><rect x="12" y="9" width="6" height="4" rx="2"/><rect x="2" y="14" width="6" height="3" rx="1.5"/></svg>
+          <span class="tab-label" data-i18n="records">Flow</span>
+        </button>
+        <button id="nav-wiki" class="app-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-wiki">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 3h8l4 4v10H4z"/><path d="M12 3v4h4M7 11h6M7 14h4"/></svg>
+          <span class="tab-label" data-i18n="wiki">Wiki</span>
+        </button>
+      </nav>
+
+      <section class="sidebar-people" aria-labelledby="sidebar-people-title">
+        <h2 id="sidebar-people-title" class="sidebar-label" data-i18n="rightNow">Right now</h2>
+        <div id="sidebar-people"></div>
+      </section>
+
+      <div class="sidebar-foot">
+        <label class="viewer-control"><span class="sidebar-label" data-i18n="viewingAs">Viewing as</span><select id="viewer"><option value="" data-i18n="everyone">Everyone</option></select></label>
+        <button id="refresh" class="sync-line" type="button"><i id="sync-dot" class="sync-dot unknown"></i><span class="sync-copy"><b id="sync-badge" data-i18n="syncUnknown">Sync unknown</b><small id="refresh-label" data-i18n="refresh">Refresh</small></span></button>
         <div class="language-switch" role="group" aria-label="Language" data-i18n-aria-label="language">
           <button type="button" data-locale="en" lang="en">EN</button><button type="button" data-locale="ko" lang="ko">한국어</button>
         </div>
       </div>
-    </header>
+    </aside>
 
-    <nav class="app-nav" role="tablist" aria-label="Dashboard areas" data-i18n-aria-label="navLabel">
-      <button id="nav-current" class="app-tab active" type="button" role="tab" aria-selected="true" aria-controls="panel-current" data-i18n="current">Now</button>
-      <button id="nav-requests" class="app-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-requests"><span data-i18n="requests">Requests</span> <span id="nav-requests-count" class="nav-count"></span></button>
-      <button id="nav-records" class="app-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-records" data-i18n="records">Records</button>
-      <button id="nav-wiki" class="app-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-wiki" data-i18n="wiki">Wiki</button>
-    </nav>
-
-    <main>
+    <div class="main-column">
       <aside id="sample-banner" class="notice" hidden><strong data-i18n="sample">Sample data</strong><span data-i18n="sampleDescription">This sample shows the product flow; it is not a real project or sync state.</span></aside>
       <section id="error-panel" class="error-panel" hidden><div><strong data-i18n="loadFailed">Could not load the record.</strong><span data-i18n="loadFailedDetail">Check that the dashboard server is running and can read the snapshot.</span></div><button id="retry" type="button" data-i18n="retry">Try again</button></section>
 
-      <section id="panel-current" class="workspace-panel current-panel" role="tabpanel" aria-labelledby="nav-current">
-        <div class="current-grid">
-          <section class="goal-section" aria-labelledby="goals-title">
-            <div class="section-heading"><h2 id="goals-title" data-i18n="goals">Goal</h2><span id="plan-status" class="plan-status none" data-i18n="planNone">No shared plan</span></div>
-            <div id="goals" class="goal-grid"></div><div id="plan-detail" class="plan-detail"></div>
+      <main id="workspace" class="workspace">
+        <section id="panel-current" class="panel" role="tabpanel" aria-labelledby="nav-current">
+          <section class="card hero" aria-labelledby="goal-current">
+            <div class="hero-copy">
+              <p class="eyebrow" data-i18n="headedTo">Where we’re headed</p>
+              <h1 id="goal-current"></h1>
+              <p id="goal-trail" class="hero-trail"></p>
+            </div>
+            <span id="plan-status" class="plan-status none" data-i18n="planNone">No shared plan</span>
+            <div id="plan-detail" class="plan-detail"></div>
           </section>
-          <section class="people-section" aria-labelledby="people-title">
-            <div class="section-heading"><h2 id="people-title" data-i18n="people">Next steps</h2><span class="caption" data-i18n="noInference">Only recorded activity is shown.</span></div>
-            <div id="participants" class="people-grid"></div>
-          </section>
-          <section class="attention-section" aria-labelledby="attention-title">
-            <div class="section-heading"><h2 id="attention-title" data-i18n="attention">Needs attention</h2><span id="attention-count" class="plain-count"></span><label class="viewer-control"><span data-i18n="viewingAs">Viewing as</span><select id="viewer"><option value="" data-i18n="everyone">Everyone</option></select></label></div>
-            <div id="attention-list" class="attention-list"></div>
-          </section>
-          <aside id="delivery-panel" class="delivery-panel"><div><span data-i18n="delivery">Remote sharing</span><strong id="delivery-copy" data-i18n="unknownCopy">Remote sharing status unknown</strong></div><p id="sync-message"></p></aside>
-        </div>
-      </section>
 
-      <section id="panel-requests" class="workspace-panel" role="tabpanel" aria-labelledby="nav-requests" hidden>
-        <div class="panel-heading"><div><h2 data-i18n="requests">Requests</h2><p id="ticket-context"></p></div><span id="ticket-count" class="plain-count"></span></div>
-        <div class="compact-tabs" role="tablist" aria-label="Request view on narrow screens" data-i18n-aria-label="compactRequests"><button id="compact-requests-list" class="compact-tab active" type="button" role="tab" aria-selected="true" data-compact-group="requests" data-compact-view="list" data-i18n="list">List</button><button id="compact-requests-detail" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="requests" data-compact-view="detail" data-i18n="detail">Details</button><button id="compact-requests-filters" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="requests" data-compact-view="filters" data-i18n="filters">Filters</button></div>
-        <div class="ticket-toolbar" data-compact-pane="requests:filters">
-          <div class="tabs" role="tablist" aria-label="Request view" data-i18n-aria-label="requestView"><button id="inbox-tab" class="tab active" type="button" role="tab" aria-selected="true" data-i18n="inbox">Open</button><button id="history-tab" class="tab" type="button" role="tab" aria-selected="false" data-i18n="history">Done</button></div>
-          <label class="search"><span data-i18n="search">Search</span><input id="ticket-search" type="search" placeholder="Title, body, goal, evidence" data-i18n-placeholder="searchTickets"></label>
-          <label><span data-i18n="status">Status</span><select id="status-filter"><option value="" data-i18n="all">All</option></select></label>
-          <label><span data-i18n="kind">Type</span><select id="kind-filter"><option value="" data-i18n="all">All</option><option value="information" data-i18n="information">Question</option><option value="feedback" data-i18n="feedback">Feedback</option></select></label>
-          <label><span data-i18n="peerFilter">Person</span><select id="peer-filter"><option value="" data-i18n="all">All</option></select></label>
-        </div>
-        <div class="split-workspace request-workspace"><div id="tickets" class="ticket-list" aria-label="Requests" data-i18n-aria-label="requests" data-compact-pane="requests:list"></div><div id="ticket-detail-pane" class="detail-pane" aria-live="polite" data-compact-pane="requests:detail"></div></div>
-      </section>
+          <h2 class="section-title"><span data-i18n="people">What you’re both on</span><small data-i18n="fromLatest">from the latest records</small></h2>
+          <div id="participants" class="duo"></div>
 
-      <section id="panel-records" class="workspace-panel" role="tabpanel" aria-labelledby="nav-records" hidden>
-        <div class="panel-heading records-heading"><div><h2 data-i18n="recordedWork">Records</h2><p data-i18n="recordsDescription">Recorded time spans only — not working hours or productivity.</p></div><label class="period-control"><span data-i18n="period">Period</span><select id="session-period"><option value="7d" data-i18n="days7">Last 7 days</option><option value="30d" selected data-i18n="days30">Last 30 days</option><option value="all" data-i18n="allRecords">All time</option></select></label></div>
-        <div class="compact-tabs" role="tablist" aria-label="Records view on narrow screens" data-i18n-aria-label="compactRecords"><button id="compact-records-work" class="compact-tab active" type="button" role="tab" aria-selected="true" data-compact-group="records" data-compact-view="work" data-i18n="work">Work</button><button id="compact-records-blockers" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="records" data-compact-view="blockers" data-i18n="blockers">Blockers</button><button id="compact-records-time" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="records" data-compact-view="time" data-i18n="time">Time</button></div>
-        <div class="records-workspace">
-          <section class="records-column work-column" data-compact-pane="records:work"><h3 data-i18n="recentWork">Recent work</h3><div id="session-records" class="session-list"></div></section>
-          <section class="records-column blockers-column" data-compact-pane="records:blockers"><h3 data-i18n="blockers">Blockers</h3><div id="blocker-list" class="blocker-list"></div></section>
-          <aside class="records-summary" data-compact-pane="records:time"><h3 data-i18n="timeSummary">Time</h3><div id="time-overview" class="time-overview"></div><h3 data-i18n="participantTime">By person</h3><div id="participant-time" class="metric-list"></div><h3 data-i18n="scopeTime">By person and area</h3><div id="scope-time" class="metric-list"></div><p class="caption" data-i18n="scopeTimeNote">Overlapping areas are not added together.</p></aside>
-        </div>
-      </section>
+          <h2 class="section-title"><span data-i18n="attention">Waiting for an answer</span><small id="attention-count"></small><button class="section-link" type="button" data-go="requests" data-i18n="allRequests">All requests →</button></h2>
+          <div id="attention-list" class="asks"></div>
 
-      <section id="panel-wiki" class="workspace-panel" role="tabpanel" aria-labelledby="nav-wiki" hidden>
-        <div class="panel-heading"><div><h2 data-i18n="wikiTitle">Wiki</h2><p data-i18n="wikiDescription">Evidence and linked records shared during the work.</p></div><span id="wiki-count" class="plain-count"></span></div>
-        <div class="compact-tabs" role="tablist" aria-label="Wiki view on narrow screens" data-i18n-aria-label="compactWiki"><button id="compact-wiki-list" class="compact-tab active" type="button" role="tab" aria-selected="true" data-compact-group="wiki" data-compact-view="list" data-i18n="list">List</button><button id="compact-wiki-detail" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="wiki" data-compact-view="detail" data-i18n="detail">Details</button><button id="compact-wiki-filters" class="compact-tab" type="button" role="tab" aria-selected="false" data-compact-group="wiki" data-compact-view="filters" data-i18n="filters">Filters</button></div>
-        <div class="wiki-toolbar" data-compact-pane="wiki:filters">
-          <div class="tabs" role="tablist" aria-label="Wiki view" data-i18n-aria-label="wikiView"><button id="wiki-all-tab" class="tab active" type="button" role="tab" aria-selected="true" data-i18n="allRecords">All time</button><button id="wiki-search-tab" class="tab" type="button" role="tab" aria-selected="false" data-i18n="searchResults">Results</button><button id="wiki-refinement-tab" class="tab" type="button" role="tab" aria-selected="false" data-i18n="dailyRefinement">Refined</button></div>
-          <form id="wiki-search-form" class="wiki-search-form"><label class="search"><span data-i18n="search">Search</span><input id="wiki-query" type="search" maxlength="500" placeholder="Title, body, work context" data-i18n-placeholder="searchWiki"></label><label><span data-i18n="participant">Person</span><input id="wiki-participant" type="text" maxlength="100" placeholder="All" data-i18n-placeholder="all"></label><label><span data-i18n="status">Status</span><select id="wiki-status"><option value="" data-i18n="all">All</option><option value="personal" data-i18n="personal">Personal</option><option value="proposed" data-i18n="proposed">Proposed</option><option value="agreed" data-i18n="agreed">Agreed</option><option value="superseded" data-i18n="superseded">Replaced</option></select></label><label><span data-i18n="recordType">Record type</span><select id="wiki-record-type"><option value="" data-i18n="all">All</option><option value="source-note" data-i18n="sourceNote">Source note</option><option value="summary" data-i18n="summary">Summary</option></select></label><label class="check"><input id="wiki-include-superseded" type="checkbox" checked> <span data-i18n="includeSuperseded">Include replaced records</span></label><button class="wiki-submit" type="submit" data-i18n="submitSearch">Search</button></form>
-        </div>
-        <div id="wiki-state" class="wiki-state"></div>
-        <div class="split-workspace wiki-workspace"><div id="wiki-records" class="wiki-list" aria-label="Wiki" data-i18n-aria-label="wikiTitle" data-compact-pane="wiki:list"></div><div class="wiki-detail-column" data-compact-pane="wiki:detail"><div id="wiki-detail-pane" class="detail-pane" aria-live="polite"></div></div></div>
-      </section>
-    </main>
+          <h2 class="section-title"><span data-i18n="latestFlow">Latest in the flow</span><small data-i18n="latestFlowNote">both lanes, as recorded</small><button class="section-link" type="button" data-go="records" data-i18n="fullFlow">Full flow →</button></h2>
+          <div id="latest-lanes" class="card lanes"></div>
+        </section>
+
+        <section id="panel-requests" class="panel" role="tabpanel" aria-labelledby="nav-requests" hidden>
+          <header class="panel-heading"><div><h1 data-i18n="requests">Requests</h1><p id="ticket-context"></p></div><span id="ticket-count" class="plain-count"></span></header>
+          <div class="toolbar">
+            <div class="chip-tabs" role="tablist" aria-label="Request view" data-i18n-aria-label="requestView"><button id="inbox-tab" class="chip-tab active" type="button" role="tab" aria-selected="true" data-i18n="inbox">Open</button><button id="history-tab" class="chip-tab" type="button" role="tab" aria-selected="false" data-i18n="history">Done</button></div>
+            <label class="field search"><span data-i18n="search">Search</span><input id="ticket-search" type="search" placeholder="Title, body, goal, evidence" data-i18n-placeholder="searchTickets"></label>
+            <label class="field"><span data-i18n="status">Status</span><select id="status-filter"><option value="" data-i18n="all">All</option></select></label>
+            <label class="field"><span data-i18n="kind">Type</span><select id="kind-filter"><option value="" data-i18n="all">All</option><option value="information" data-i18n="information">Question</option><option value="feedback" data-i18n="feedback">Feedback</option></select></label>
+            <label class="field"><span data-i18n="peerFilter">Person</span><select id="peer-filter"><option value="" data-i18n="all">All</option></select></label>
+          </div>
+          <div class="split">
+            <div><div id="tickets" class="asks" aria-label="Requests" data-i18n-aria-label="requests"></div><p class="hint" data-i18n="keyboardHint">J / K to move between requests</p></div>
+            <aside id="ticket-detail-pane" class="card detail" aria-live="polite"></aside>
+          </div>
+        </section>
+
+        <section id="panel-records" class="panel" role="tabpanel" aria-labelledby="nav-records" hidden>
+          <header class="panel-heading"><div><h1 data-i18n="records">Flow</h1><p data-i18n="recordsDescription">Recorded time spans only — not working hours or productivity.</p></div>
+            <label class="field"><span data-i18n="period">Period</span><select id="session-period"><option value="7d" data-i18n="days7">Last 7 days</option><option value="30d" selected data-i18n="days30">Last 30 days</option><option value="all" data-i18n="allRecords">All time</option></select></label></header>
+          <div id="time-overview" class="stat-row"></div>
+          <div class="flow-grid">
+            <section class="card lanes" aria-labelledby="flow-title">
+              <h2 id="flow-title" class="card-title"><span data-i18n="flowTitle">Everything, in order</span><small data-i18n="flowNote">each person in their own lane</small></h2>
+              <div id="session-lanes"></div>
+            </section>
+            <div class="flow-side">
+              <section class="card side-card"><h2 class="card-title" data-i18n="blockers">Blockers</h2><div id="blocker-list" class="blocker-list"></div></section>
+              <section class="card side-card"><h2 class="card-title" data-i18n="scopeTime">By person and area</h2><div id="scope-time" class="metric-list"></div><p class="hint" data-i18n="scopeTimeNote">Overlapping areas are not added together.</p></section>
+            </div>
+          </div>
+        </section>
+
+        <section id="panel-wiki" class="panel" role="tabpanel" aria-labelledby="nav-wiki" hidden>
+          <header class="panel-heading"><div><h1 data-i18n="wikiTitle">Wiki</h1><p data-i18n="wikiDescription">Evidence and notes shared during the work.</p></div><span id="wiki-count" class="plain-count"></span></header>
+          <div class="toolbar wiki-toolbar">
+            <div class="chip-tabs" role="tablist" aria-label="Wiki view" data-i18n-aria-label="wikiView"><button id="wiki-all-tab" class="chip-tab active" type="button" role="tab" aria-selected="true" data-i18n="allRecords">All time</button><button id="wiki-search-tab" class="chip-tab" type="button" role="tab" aria-selected="false" data-i18n="searchResults">Results</button><button id="wiki-refinement-tab" class="chip-tab" type="button" role="tab" aria-selected="false" data-i18n="dailyRefinement">Refined</button></div>
+            <form id="wiki-search-form" class="wiki-search-form"><label class="field search"><span data-i18n="search">Search</span><input id="wiki-query" type="search" maxlength="500" placeholder="Title, body, work context" data-i18n-placeholder="searchWiki"></label><label class="field"><span data-i18n="participant">Person</span><input id="wiki-participant" type="text" maxlength="100" placeholder="All" data-i18n-placeholder="all"></label><label class="field"><span data-i18n="status">Status</span><select id="wiki-status"><option value="" data-i18n="all">All</option><option value="personal" data-i18n="personal">Personal</option><option value="proposed" data-i18n="proposed">Proposed</option><option value="agreed" data-i18n="agreed">Agreed</option><option value="superseded" data-i18n="superseded">Replaced</option></select></label><label class="field"><span data-i18n="recordType">Record type</span><select id="wiki-record-type"><option value="" data-i18n="all">All</option><option value="source-note" data-i18n="sourceNote">Source note</option><option value="summary" data-i18n="summary">Summary</option></select></label><label class="check"><input id="wiki-include-superseded" type="checkbox" checked> <span data-i18n="includeSuperseded">Include replaced records</span></label><button class="primary-button" type="submit" data-i18n="submitSearch">Search</button></form>
+          </div>
+          <div id="wiki-state" class="wiki-state"></div>
+          <div class="split wiki-split"><div id="wiki-records" class="wiki-list" aria-label="Wiki" data-i18n-aria-label="wikiTitle"></div><aside id="wiki-detail-pane" class="card detail" aria-live="polite"></aside></div>
+        </section>
+      </main>
+    </div>
   </div>
 </body>
 </html>

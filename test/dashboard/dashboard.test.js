@@ -63,10 +63,8 @@ test('serves a static shell with a restrictive policy and no snapshot interpolat
   assert.match(html, /id="nav-records"/);
   assert.match(html, /id="nav-wiki"/);
   assert.match(html, /role="tabpanel"/);
-  assert.match(html, /data-compact-group="records"/);
-  assert.match(html, /data-compact-view="work"/);
-  assert.match(html, /data-compact-pane="requests:filters"/);
-  assert.match(html, /data-compact-pane="wiki:filters"/);
+  assert.match(html, /id="sidebar-toggle"[^>]*aria-expanded="true"/);
+  assert.match(html, /class="tab-label"/);
 
   const script = await (await fetch(`${origin}/app.js`)).text();
   assert.match(script, /textContent/);
@@ -83,7 +81,7 @@ test('serves a static shell with a restrictive policy and no snapshot interpolat
   assert.match(styles, /body\s*{[^}]*overflow:\s*hidden;/);
   assert.match(styles, /height:\s*100dvh/);
   assert.match(styles, /@media\s*\(max-width:900px\)/);
-  assert.doesNotMatch(styles, /blockers-column\s*{\s*display:\s*none/);
+  assert.match(styles, /\[data-sidebar="collapsed"\]/);
   assert.doesNotMatch(styles, /overflow-x:\s*auto/);
 });
 

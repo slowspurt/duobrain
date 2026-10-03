@@ -11,34 +11,26 @@ import {
 import { resolveLocale, translator } from '/i18n.js';
 
 const byId = (id) => document.getElementById(id);
-const localeStorageKey = 'duobrain.dashboard.locale';
-function storedLocale() {
-  try { return localStorage.getItem(localeStorageKey); } catch { return null; }
-}
-const viewerStorageKey = 'duobrain.dashboard.viewer';
-function storedViewer() {
-  try { return localStorage.getItem(viewerStorageKey) ?? ''; } catch { return ''; }
-}
-const locale = resolveLocale({ search: location.search, stored: storedLocale(), languages: navigator.languages });
+const storage = {
+  get(key, fallback = null) { try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; } },
+  set(key, value) { try { localStorage.setItem(key, value); } catch { /* the choice lasts for this page */ } },
+};
+const keys = { locale: 'duobrain.dashboard.locale', viewer: 'duobrain.dashboard.viewer', sidebar: 'duobrain.dashboard.sidebar' };
+const locale = resolveLocale({ search: location.search, stored: storage.get(keys.locale), languages: navigator.languages });
 const t = translator(locale);
 document.documentElement.lang = locale;
 document.title = `duobrain ${t('dashboardTitle')}`;
-const labels = {
-  project: t('project'), mediumTerm: t('mediumTerm'), currentPhase: t('currentPhase'),
-  active: t('active'), paused: t('paused'), ended: t('ended'),
-  information: t('information'), feedback: t('feedback'),
-  synced: t('synced'), pending: t('pending'), error: t('error'), unknown: t('unknown'), syncUnknown: t('syncUnknown'),
-  open: t('open'), acknowledged: t('acknowledged'), needs_information: t('needs_information'), answered: t('answered'), resolved: t('resolved'), closed: t('closed'),
-  personal: t('personal'), proposed: t('proposed'), agreed: t('agreed'), superseded: t('superseded'), sourceNote: t('sourceNote'), summary: t('summary'),
-};
+const sections = ['current', 'requests', 'records', 'wiki'];
 
 const state = {
-  tickets: [], sessions: [], conflicts: [], participants: [], sample: false,
+  tickets: [], sessions: [], conflicts: [], participants: [], goals: {}, sample: false,
   tab: 'inbox', query: '', status: '', kind: '', peer: '', period: '30d',
   wikiTab: 'all', wikiRecords: [], wikiSearchResults: [], wikiIssues: [],
   section: 'current', selectedTicketId: null, selectedWikiPath: null, assignments: [],
-  compactViews: { requests: 'list', records: 'work', wiki: 'list' }, locale, viewer: storedViewer(),
+  viewer: storage.get(keys.viewer, ''),
 };
+
+// ---------- copy helpers ----------
 const format = (key, values) => t(key).replace(/\{(\w+)\}/g, (_, name) => values[name] ?? '');
 const text = (value, fallback = t('unknown')) => typeof value === 'string' && value.trim() ? value : fallback;
 const participantLabel = (value) => {
@@ -46,6 +38,9 @@ const participantLabel = (value) => {
   const index = state.participants.indexOf(value);
   return index >= 0 && index < 26 ? String.fromCharCode(65 + index) : text(value);
 };
+const personName = (value) => (state.viewer && value === state.viewer ? format('youSuffix', { person: participantLabel(value) }) : participantLabel(value));
+const personRef = (value) => (state.viewer && value === state.viewer ? t('you') : participantLabel(value));
+// Sample copy mentions people by id; show the same A/B letters the rest of the sample uses.
 const displayCopy = (value, fallback = t('unknown')) => {
   let result = text(value, fallback);
   if (!state.sample) return result;
@@ -56,33 +51,145 @@ const displayCopy = (value, fallback = t('unknown')) => {
   });
   return result;
 };
+const labels = {
+  active: t('active'), paused: t('paused'), ended: t('ended'), information: t('information'), feedback: t('feedback'),
+  synced: t('synced'), pending: t('pending'), error: t('error'), unknown: t('syncUnknown'),
+  open: t('open'), acknowledged: t('acknowledged'), needs_information: t('needs_information'), answered: t('answered'), resolved: t('resolved'), closed: t('closed'),
+  personal: t('personal'), proposed: t('proposed'), agreed: t('agreed'), superseded: t('superseded'), 'source-note': t('sourceNote'), summary: t('summary'),
+};
 
 function element(tag, className, value) {
   const node = document.createElement(tag);
   if (className) node.className = className;
-  if (value !== undefined) node.textContent = value;
+  if (value !== undefined && value !== null) node.textContent = value;
   return node;
 }
 const empty = (message) => element('p', 'empty', message);
+const personClass = (participant) => {
+  const index = state.participants.indexOf(participant);
+  return index === 0 ? 'p0' : index === 1 ? 'p1' : 'px';
+};
+function face(participant, { size = '', status } = {}) {
+  const node = element('span', `face ${personClass(participant)} ${size}`.trim(), participantLabel(participant).slice(0, 1).toUpperCase());
+  node.setAttribute('aria-hidden', 'true');
+  if (status) node.dataset.state = status;
+  return node;
+}
 
+// ---------- time helpers ----------
+function formatDate(value, fallback = t('unknown')) {
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(timestamp) : fallback;
+}
+const relativeFormat = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+function relativeTime(value) {
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return null;
+  const difference = timestamp - Date.now();
+  if (Math.abs(difference) < 60_000) return t('justNow');
+  for (const [unit, size] of [['day', 86_400_000], ['hour', 3_600_000], ['minute', 60_000]]) {
+    if (Math.abs(difference) >= size || unit === 'minute') return relativeFormat.format(Math.round(difference / size), unit);
+  }
+  return null;
+}
+function dayLabel(value) {
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return t('unknown');
+  const startOfToday = new Date().setHours(0, 0, 0, 0);
+  const days = Math.floor((startOfToday - new Date(timestamp).setHours(0, 0, 0, 0)) / 86_400_000);
+  if (days <= 1) return relativeFormat.format(-days, 'day');
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(timestamp);
+}
+function formatDuration(milliseconds) {
+  if (!Number.isFinite(milliseconds)) return '—';
+  const totalMinutes = Math.floor(milliseconds / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (!hours) return `${minutes}${t('minutes')}`;
+  return minutes ? `${hours}${t('hours')} ${minutes}${t('minutes')}` : `${hours}${t('hours')}`;
+}
+function formatRecordedRange(session) {
+  const started = relativeTime(session.startedAt);
+  if (!started) return t('startUnknown');
+  if (!session.endedAt) return format('startedRelative', { time: started });
+  return format('finishedRange', { range: `${formatDate(session.startedAt)} — ${formatDate(session.endedAt, t('endUnknown'))}`, time: relativeTime(session.endedAt) ?? '' });
+}
+function selectedPeriod() {
+  if (state.period === 'all') return {};
+  const days = state.period === '7d' ? 7 : 30;
+  const to = new Date();
+  return { from: new Date(to.getTime() - days * 86_400_000).toISOString(), to: to.toISOString() };
+}
+const ticketOpenedAt = (ticket) => (Array.isArray(ticket?.history) ? ticket.history : []).find((event) => event?.type === 'ticket.created')?.at ?? null;
+const eventLabel = (type) => (typeof type === 'string' && t(`event.${type}`) !== `event.${type}` ? t(`event.${type}`) : text(type, t('eventUnknown')));
+const actorLabel = (actor) => {
+  const person = personName(actor?.participant);
+  return actor?.kind === 'ai' ? format('viaAi', { person }) : person;
+};
+const latestSession = (participant) => state.sessions
+  .filter((session) => session?.participant === participant)
+  .sort((left, right) => (Date.parse(left?.startedAt) || 0) - (Date.parse(right?.startedAt) || 0))
+  .at(-1);
+
+// ---------- static copy and shell ----------
 function applyStaticUi() {
   for (const node of document.querySelectorAll('[data-i18n]')) node.textContent = t(node.dataset.i18n);
   for (const node of document.querySelectorAll('[data-i18n-placeholder]')) node.placeholder = t(node.dataset.i18nPlaceholder);
   for (const node of document.querySelectorAll('[data-i18n-aria-label]')) node.setAttribute('aria-label', t(node.dataset.i18nAriaLabel));
+  for (const section of sections) byId(`nav-${section}`).title = t(section);
   for (const button of document.querySelectorAll('[data-locale]')) {
     const selected = button.dataset.locale === locale;
     button.classList.toggle('active', selected);
     button.setAttribute('aria-pressed', String(selected));
   }
 }
-
 function switchLocale(next) {
-  try { localStorage.setItem(localeStorageKey, next); } catch { /* the query parameter still applies */ }
+  storage.set(keys.locale, next);
   const url = new URL(location.href);
   url.searchParams.set('lang', next);
   location.replace(url);
 }
+function setSidebar(collapsed) {
+  byId('app-shell').dataset.sidebar = collapsed ? 'collapsed' : 'open';
+  const toggle = byId('sidebar-toggle');
+  toggle.setAttribute('aria-expanded', String(!collapsed));
+  toggle.setAttribute('aria-label', t(collapsed ? 'expandSidebar' : 'collapseSidebar'));
+  toggle.title = t(collapsed ? 'expandSidebar' : 'collapseSidebar');
+  storage.set(keys.sidebar, collapsed ? 'collapsed' : 'open');
+}
 
+function renderSidebarPeople() {
+  const container = byId('sidebar-people');
+  container.replaceChildren();
+  for (const participant of state.participants) {
+    const recent = latestSession(participant);
+    const row = element('div', 'side-person');
+    row.title = participantLabel(participant);
+    row.append(face(participant, { status: recent?.status ?? 'none' }), element('b', '', personName(participant)));
+    row.append(element('small', '', recent ? `${recent.status === 'paused' ? `${labels.paused} · ` : ''}${displayCopy(recent.title, t('noTitle'))}` : t('noRecord')));
+    container.append(row);
+  }
+}
+
+function renderViewer() {
+  const select = byId('viewer');
+  if (state.viewer && !state.participants.includes(state.viewer)) state.viewer = '';
+  select.replaceChildren(new Option(t('everyone'), ''));
+  state.participants.forEach((value) => select.add(new Option(participantLabel(value), value)));
+  select.value = state.viewer;
+}
+
+function renderSync(sync = {}) {
+  const status = ['synced', 'pending', 'error', 'unknown'].includes(sync.status) ? sync.status : 'unknown';
+  byId('sync-dot').className = `sync-dot ${status}`;
+  byId('sync-badge').textContent = labels[status];
+  const copy = { synced: t('syncedCopy'), pending: t('pendingCopy'), error: t('errorCopy'), unknown: t('unknownCopy') }[status];
+  const detail = text(sync.message, sync.lastSyncedAt ? formatDate(sync.lastSyncedAt) : '');
+  byId('refresh').title = [copy, detail, t('refresh')].filter(Boolean).join(' · ');
+}
+
+// ---------- evidence ----------
+const apiErrorCopy = (result) => (t(`apiError.${result?.error}`) === `apiError.${result?.error}` ? t('noIssueDetail') : t(`apiError.${result?.error}`));
 function appendEvidenceButtons(container, evidence) {
   for (const path of evidence) {
     const item = element('div', 'evidence-item');
@@ -95,253 +202,17 @@ function appendEvidenceButtons(container, evidence) {
     container.append(item);
   }
 }
-
-function renderGoals(goals = {}, snapshot = {}) {
-  const container = byId('goals');
-  container.replaceChildren();
-  for (const key of ['currentPhase', 'project', 'mediumTerm']) {
-    const card = element('article', `goal-card${key === 'currentPhase' ? ' current-goal' : ''}`);
-    card.append(element('p', 'label', labels[key]), element('p', 'goal-copy', text(goals[key])));
-    container.append(card);
-  }
-  const presentation = planPresentation(snapshot);
-  const badge = byId('plan-status');
-  badge.className = `plan-status ${presentation.state}`;
-  badge.textContent = ({ agreed: t('planAgreed'), proposed: t('proposed'), conflict: t('planConflict'), none: t('planNone') }[presentation.state] ?? t('unknown'));
-  const detail = byId('plan-detail');
-  detail.replaceChildren();
-  if (!presentation.plan) {
-    // The status badge already says there is no shared plan; only a conflict needs explaining.
-    if (presentation.state === 'conflict') {
-      detail.append(empty(t('planConflictNotice')));
-      presentation.conflicts.forEach((conflict) => detail.append(element('p', 'conflict-copy', text(conflict?.message, t('noConflictDetail')))));
-    }
-    return;
-  }
-  state.assignments = Array.isArray(presentation.plan.assignments) ? presentation.plan.assignments : [];
-  const explorer = element('details', 'plan-explorer');
-  explorer.append(element('summary', '', t('planView')));
-  const explorerBody = element('div', 'plan-explorer-body');
-  explorerBody.append(element('p', 'plan-body', text(presentation.plan.body, t('noPlanDetail'))));
-  const assignments = element('div', 'assignment-grid');
-  for (const assignment of state.assignments) {
-    const card = element('article', 'assignment-card');
-    card.append(element('h3', '', participantLabel(assignment?.participant)));
-    const scopes = element('div', 'chips');
-    const scopeItems = Array.isArray(assignment?.scope) ? assignment.scope : [];
-    (scopeItems.length ? scopeItems : [t('noAssignments')]).forEach((scope) => scopes.append(element('span', `chip${scopeItems.length ? '' : ' muted'}`, scope)));
-    card.append(scopes, element('p', 'assignment-next', `${t('next')} · ${displayCopy(assignment?.next)}`));
-    assignments.append(card);
-  }
-  explorerBody.append(assignments);
-  const expandable = element('details', 'plan-history');
-  expandable.append(element('summary', '', t('planHistory')));
-  const history = element('div', 'plan-history-list');
-  for (const event of Array.isArray(presentation.plan.history) ? presentation.plan.history : []) {
-    const item = element('article', 'timeline-item');
-    item.append(element('p', 'timeline-type', eventLabel(event?.type)));
-    item.append(element('p', 'caption', `${actorLabel(event?.actor)} · ${formatDate(event?.at)}`));
-    if (event?.data?.body) item.append(element('p', 'timeline-body', displayCopy(event.data.body)));
-    history.append(item);
-  }
-  if (!history.children.length) history.append(empty(t('noHistory')));
-  const evidence = Array.isArray(presentation.plan.evidence) ? presentation.plan.evidence : [];
-  history.append(element('h4', '', t('evidence')));
-  if (evidence.length) appendEvidenceButtons(history, evidence);
-  else history.append(empty(t('noEvidence')));
-  expandable.append(history);
-  explorerBody.append(expandable);
-  explorer.append(explorerBody);
-  detail.append(explorer);
-}
-
-function formatDate(value, fallback = t('unknown')) {
-  const timestamp = Date.parse(value);
-  return Number.isFinite(timestamp)
-    ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(timestamp)
-    : fallback;
-}
-
-const relativeFormat = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
-function relativeTime(value) {
-  const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return null;
-  const difference = timestamp - Date.now();
-  if (Math.abs(difference) < 60_000) return t('justNow');
-  for (const [unit, size] of [['day', 86_400_000], ['hour', 3_600_000], ['minute', 60_000]]) {
-    if (Math.abs(difference) >= size || unit === 'minute') return relativeFormat.format(Math.round(difference / size), unit);
-  }
-  return null;
-}
-
-function formatRecordedRange(session) {
-  const started = relativeTime(session.startedAt);
-  if (!started) return t('startUnknown');
-  if (!session.endedAt) return format('startedRelative', { time: started });
-  return format('finishedRange', { range: `${formatDate(session.startedAt)} — ${formatDate(session.endedAt, t('endUnknown'))}`, time: relativeTime(session.endedAt) ?? '' });
-}
-
-const ticketOpenedAt = (ticket) => (Array.isArray(ticket?.history) ? ticket.history : []).find((event) => event?.type === 'ticket.created')?.at ?? null;
-const ticketAge = (ticket) => {
-  const opened = relativeTime(ticketOpenedAt(ticket));
-  return opened ? format('askedRelative', { time: opened }) : null;
-};
-const eventLabel = (type) => typeof type === 'string' && t(`event.${type}`) !== `event.${type}` ? t(`event.${type}`) : text(type, t('eventUnknown'));
-const actorLabel = (actor) => {
-  const person = participantLabel(actor?.participant);
-  return actor?.kind === 'ai' ? format('viaAi', { person }) : person;
-};
-
-function renderParticipants(participants = [], sessions = []) {
-  const container = byId('participants');
-  container.replaceChildren();
-  if (!participants.length) return container.append(empty(t('noParticipants')));
-  participants.forEach((participant) => {
-    const recent = sessions.filter((session) => session?.participant === participant).at(-1);
-    const assignment = state.assignments.find((item) => item?.participant === participant);
-    const card = element('article', 'person-card');
-    const heading = element('div', 'person-heading');
-    heading.append(element('h3', '', participantLabel(participant)), element('span', `status ${recent ? recent.status : 'unknown'}`, recent ? text(labels[recent.status]) : t('noRecord')));
-    card.append(heading);
-    const role = element('dl', 'person-role');
-    const scopes = Array.isArray(assignment?.scope) && assignment.scope.length ? assignment.scope : (Array.isArray(recent?.scope) ? recent.scope : []);
-    const next = assignment?.next ?? recent?.next;
-    if (scopes.length) role.append(element('dt', '', t('roleScope')), element('dd', '', scopes.join(', ')));
-    if (typeof next === 'string' && next.trim()) role.append(element('dt', '', t('nextAction')), element('dd', 'next-copy', displayCopy(next)));
-    if (role.children.length) card.append(role);
-    if (!recent) {
-      card.append(empty(t('noRecentWork')));
-      container.append(card);
-      return;
-    }
-    card.append(element('p', 'session-title', displayCopy(recent.title, t('noTitle'))), element('p', 'recorded-time', formatRecordedRange(recent)));
-    const blockerItems = Array.isArray(recent.blockers) ? recent.blockers : [];
-    if (blockerItems.length) {
-      const blockers = element('div', 'blockers');
-      blockers.append(element('p', 'label', t('blockers')), element('p', '', blockerItems.map((item) => displayCopy(item)).join(' · ')));
-      card.append(blockers);
-    }
-    container.append(card);
-  });
-}
-
-function formatDuration(milliseconds) {
-  if (!Number.isFinite(milliseconds)) return t('unknown');
-  const totalMinutes = Math.floor(milliseconds / 60_000);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (!hours) return `${minutes}${t('minutes')}`;
-  return minutes ? `${hours}${t('hours')} ${minutes}${t('minutes')}` : `${hours}${t('hours')}`;
-}
-
-function selectedPeriod() {
-  if (state.period === 'all') return {};
-  const days = state.period === '7d' ? 7 : 30;
-  const to = new Date();
-  const from = new Date(to.getTime() - (days * 24 * 60 * 60 * 1000));
-  return { from: from.toISOString(), to: to.toISOString() };
-}
-
-function metricRow(label, value, note) {
-  const row = element('div', 'metric-row');
-  const copy = element('div', '');
-  copy.append(element('strong', '', label));
-  if (note) copy.append(element('p', 'caption', note));
-  row.append(copy, element('span', 'metric-value', value));
-  return row;
-}
-
-function renderSessionAnalysis() {
-  const result = aggregateSessions(state.sessions, { conflicts: state.conflicts, ...selectedPeriod() });
-  const overview = byId('time-overview');
-  overview.replaceChildren();
-  overview.append(metricRow(t('projectInterval'), formatDuration(result.projectWallClockMs), t('projectIntervalNote')));
-  overview.append(metricRow(t('unknownTime'), String(result.unknownSessionCount), t('unknownTimeNote')));
-
-  const participant = byId('participant-time');
-  participant.replaceChildren();
-  const participantIds = [...new Set([...state.participants, ...result.participantTotals.map((item) => item.participant)])];
-  if (!participantIds.length) participant.append(empty(t('noTimeRecords')));
-  for (const participantId of participantIds) {
-    const item = result.participantTotals.find((entry) => entry.participant === participantId);
-    if (!item) {
-      participant.append(metricRow(participantLabel(participantId), t('noRecord')));
-      continue;
-    }
-    const note = item.unknownSessionCount ? format('notCountedCount', { count: item.unknownSessionCount }) : '';
-    const nothingCounted = item.recordedActiveMs === 0 && item.unknownSessionCount > 0;
-    participant.append(metricRow(participantLabel(item.participant), nothingCounted ? '—' : formatDuration(item.recordedActiveMs), note));
-  }
-
-  const scopes = byId('scope-time');
-  scopes.replaceChildren();
-  if (!result.scopeTotals.length) scopes.append(empty(t('noScopeRecords')));
-  for (const item of result.scopeTotals) scopes.append(metricRow(`${participantLabel(item.participant)} · ${item.scope ?? t('unknown')}`, formatDuration(item.recordedActiveMs)));
-
-  const sessions = byId('session-records');
-  sessions.replaceChildren();
-  if (!result.sessions.length) sessions.append(empty(t('noSessions')));
-  for (const item of result.sessions) {
-    const card = element('article', 'session-record-card');
-    const heading = element('div', 'person-heading');
-    heading.append(element('strong', '', displayCopy(item.title, t('noTitle'))), element('span', `time-state ${item.timeStatus}`, item.timeStatus === 'known' ? t('timeKnown') : t('timeUnknown')));
-    card.append(heading, element('p', 'caption', `${participantLabel(item.participant)} · ${formatRecordedRange(item)}`));
-    if (item.timeStatus !== 'known' && item.timeReason) card.append(element('p', 'caption time-reason', format('notCountedBecause', { reason: t(`reason.${item.timeReason}`) })));
-    if (item.summary) card.append(element('p', 'session-summary', displayCopy(item.summary)));
-    const technical = element('details', 'session-technical');
-    technical.append(element('summary', '', t('timeDetails')));
-    const technicalBody = element('div', 'session-technical-body');
-    const timings = element('div', 'session-times');
-    timings.append(metricRow(t('totalInterval'), formatDuration(item.wallClockMs)));
-    timings.append(metricRow(t('activeInterval'), formatDuration(item.recordedActiveMs)));
-    technicalBody.append(timings);
-    technical.append(technicalBody);
-    card.append(technical);
-    sessions.append(card);
-  }
-
-  const blockers = byId('blocker-list');
-  blockers.replaceChildren();
-  if (!result.blockers.length) blockers.append(empty(t('noBlockers')));
-  for (const item of result.blockers) {
-    const row = element('article', 'blocker-row');
-    row.append(element('p', 'label', `${participantLabel(item.participant)} · ${displayCopy(item.title)}`), element('p', '', displayCopy(item.blocker)));
-    blockers.append(row);
-  }
-}
-
-function renderTimeline(ticket) {
-  const section = element('section', 'ticket-detail');
-  section.append(element('h4', '', t('details')));
-  const history = Array.isArray(ticket.history) ? ticket.history : [];
-  if (!history.length) section.append(empty(t('noDetails')));
-  for (const event of history) {
-    const item = element('article', 'timeline-item');
-    item.append(element('p', 'timeline-type', eventLabel(event?.type)));
-    item.append(element('p', 'caption', `${actorLabel(event?.actor)} · ${formatDate(event?.at)}`));
-    if (event?.data?.body) item.append(element('p', 'timeline-body', displayCopy(event.data.body)));
-    section.append(item);
-  }
-  const evidence = ticketEvidence(ticket);
-  section.append(element('h4', '', t('evidencePaths')));
-  if (!evidence.length) section.append(empty(t('noEvidencePaths')));
-  else appendEvidenceButtons(section, evidence);
-  return section;
-}
-
-const apiErrorCopy = (result) => t(`apiError.${result?.error}`) === `apiError.${result?.error}` ? t('noIssueDetail') : t(`apiError.${result?.error}`);
-
 async function loadEvidence(path, button, content) {
   button.disabled = true;
   content.hidden = false;
-  content.replaceChildren(element('p', 'caption', t('loadEvidence')));
+  content.replaceChildren(element('p', 'empty', t('loadEvidence')));
   try {
     const response = await fetch(`/api/wiki?path=${encodeURIComponent(path)}`, { headers: { Accept: 'application/json' } });
     const result = await response.json();
     if (!response.ok) {
       const missing = response.status === 404;
       const label = missing ? t('evidenceMissing') : response.status === 413 ? t('tooLarge') : t('requestFailed');
-      content.replaceChildren(element('strong', `validation ${missing ? 'missing' : 'failure'}`, label), element('p', 'caption', apiErrorCopy(result)));
+      content.replaceChildren(element('strong', `validation ${missing ? 'missing' : 'failure'}`, label), element('p', 'empty', apiErrorCopy(result)));
       return;
     }
     const validation = wikiValidationPresentation(result.validation);
@@ -360,28 +231,401 @@ async function loadEvidence(path, button, content) {
   }
 }
 
-function wikiMetadata(record) {
-  const parts = [
-    labels[record.recordType === 'source-note' ? 'sourceNote' : record.recordType] ?? t('unknown'),
-    labels[record.status] ?? t('unknown'),
-    state.sample ? participantLabel(record.author?.participant) : text(record.author?.participant, t('noAuthor')),
-    formatDate(record.observedAt),
-  ];
-  return parts.join(' · ');
+// ---------- now: goal and plan ----------
+function renderGoals() {
+  const goals = state.goals ?? {};
+  byId('goal-current').textContent = text(goals.currentPhase, text(goals.mediumTerm, text(goals.project, t('noGoal'))));
+  const trail = byId('goal-trail');
+  trail.replaceChildren();
+  for (const [key, label] of [['mediumTerm', t('onTheWay')], ['project', t('bigPicture')]]) {
+    if (typeof goals[key] !== 'string' || !goals[key].trim() || goals[key] === byId('goal-current').textContent) continue;
+    if (trail.childNodes.length) trail.append(' · ');
+    trail.append(`${label}: `, element('b', '', goals[key]));
+  }
+
+  const presentation = planPresentation({ plan: state.plan, conflicts: state.conflicts, sessions: state.sessions, tickets: state.tickets });
+  const badge = byId('plan-status');
+  badge.className = `plan-status ${presentation.state}`;
+  badge.textContent = { agreed: t('planAgreed'), proposed: t('proposed'), conflict: t('planConflict'), none: t('planNone') }[presentation.state] ?? t('unknown');
+  const detail = byId('plan-detail');
+  detail.replaceChildren();
+  state.assignments = Array.isArray(presentation.plan?.assignments) ? presentation.plan.assignments : [];
+  if (!presentation.plan) {
+    if (presentation.state === 'conflict') {
+      detail.append(element('p', 'conflict-copy', t('planConflictNotice')));
+      presentation.conflicts.forEach((conflict) => detail.append(element('p', 'conflict-copy', text(conflict?.message, t('noConflictDetail')))));
+    }
+    return;
+  }
+  const explorer = element('details', 'plan-explorer');
+  explorer.append(element('summary', '', t('planView')));
+  const body = element('div', 'plan-explorer-body');
+  body.append(element('p', '', displayCopy(presentation.plan.body, t('noPlanDetail'))));
+  const assignments = element('div', 'assignment-grid');
+  for (const assignment of state.assignments) {
+    const card = element('article', 'assignment-card');
+    card.append(element('h3', '', personName(assignment?.participant)));
+    const chips = element('div', 'chips');
+    const scopes = Array.isArray(assignment?.scope) ? assignment.scope : [];
+    (scopes.length ? scopes : [t('noAssignments')]).forEach((scope) => chips.append(element('span', `chip${scopes.length ? '' : ' muted'}`, scope)));
+    card.append(chips, element('p', 'assignment-next', `${t('next')} · ${displayCopy(assignment?.next)}`));
+    assignments.append(card);
+  }
+  body.append(assignments);
+  const history = element('details', 'plan-history');
+  history.append(element('summary', '', t('planHistory')));
+  const list = element('div', 'timeline');
+  for (const event of Array.isArray(presentation.plan.history) ? presentation.plan.history : []) list.append(timelineItem(event));
+  if (!list.children.length) list.append(empty(t('noHistory')));
+  const evidence = Array.isArray(presentation.plan.evidence) ? presentation.plan.evidence : [];
+  list.append(element('h3', '', t('evidence')));
+  if (evidence.length) appendEvidenceButtons(list, evidence);
+  else list.append(empty(t('noEvidence')));
+  history.append(list);
+  body.append(history);
+  explorer.append(body);
+  detail.append(explorer);
 }
 
+// ---------- now: two people ----------
+function renderParticipants() {
+  const container = byId('participants');
+  container.replaceChildren();
+  if (!state.participants.length) return container.append(empty(t('noParticipants')));
+  for (const participant of state.participants) {
+    const recent = latestSession(participant);
+    const assignment = state.assignments.find((item) => item?.participant === participant);
+    const card = element('article', 'card person');
+    const who = element('div', 'who');
+    const name = element('div', '');
+    name.append(element('h3', '', personName(participant)), element('p', '', recent ? formatRecordedRange(recent) : t('noRecord')));
+    who.append(face(participant, { size: 'lg' }), name, element('span', `badge ${recent?.status ?? 'none'}`, recent ? labels[recent.status] ?? t('unknown') : t('noRecord')));
+    card.append(who);
+    if (!recent && !assignment) {
+      card.append(empty(t('noRecentWork')));
+      container.append(card);
+      continue;
+    }
+    const scopes = Array.isArray(recent?.scope) && recent.scope.length ? recent.scope : (Array.isArray(assignment?.scope) ? assignment.scope : []);
+    if (recent) {
+      const line = element('div', 'line');
+      line.append(element('label', '', t('workingOn')), element('div', '', displayCopy(recent.title, t('noTitle'))));
+      if (scopes.length) line.append(element('code', '', scopes.join(', ')));
+      card.append(line);
+    }
+    const next = recent?.next ?? assignment?.next;
+    if (typeof next === 'string' && next.trim()) {
+      const line = element('div', 'line');
+      line.append(element('label', '', t('upNext')), element('div', '', displayCopy(next)));
+      card.append(line);
+    }
+    const blockers = Array.isArray(recent?.blockers) ? recent.blockers.filter((item) => typeof item === 'string' && item.trim()) : [];
+    if (blockers.length) {
+      const line = element('div', 'line stuck');
+      line.append(element('label', '', t('stuckOn')), element('div', '', blockers.map((item) => displayCopy(item)).join(' · ')));
+      card.append(line);
+    }
+    container.append(card);
+  }
+}
+
+// ---------- requests as sentences ----------
+const isMine = (ticket) => Boolean(state.viewer) && ticketTurn(ticket) === state.viewer;
+function turnTag(ticket) {
+  const turn = ticketTurn(ticket);
+  if (!turn) return element('span', `status ${ticket.status ?? 'unknown'}`, labels[ticket.status] ?? t('unknown'));
+  if (state.viewer && turn === state.viewer) return element('span', 'turn you', t('yourTurn'));
+  return element('span', 'turn them', format('theirTurn', { person: participantLabel(turn) }));
+}
+function askLine(ticket) {
+  const values = { from: personRef(ticket.requester), to: personRef(ticket.assignee) };
+  const key = { needs_information: 'needsInfoBy', answered: 'answeredBy', resolved: 'resolvedBy', closed: 'closedBy' }[ticket.status] ?? 'askedBy';
+  return format(key, values);
+}
+const lastBody = (ticket, type) => (Array.isArray(ticket.history) ? ticket.history : []).filter((event) => (!type || event?.type === type) && event?.data?.body).at(-1);
+function askCard(ticket, { selectable = false } = {}) {
+  const card = element('button', `card ask${isMine(ticket) ? ' mine' : ''}${selectable && ticket.id === state.selectedTicketId ? ' selected' : ''}`);
+  card.type = 'button';
+  const speaker = ['answered', 'needs_information'].includes(ticket.status) ? ticket.assignee : ticket.requester;
+  const copy = element('div', '');
+  copy.append(element('p', 'ask-line', askLine(ticket)), element('p', 'ask-title', displayCopy(ticket.title, t('noTitle'))));
+  const opened = relativeTime(ticketOpenedAt(ticket));
+  copy.append(element('p', 'ask-meta', [labels[ticket.kind], labels[ticket.status], opened ? format('askedRelative', { time: opened }) : null].filter(Boolean).join(' · ')));
+  if (ticket.status === 'answered') {
+    const answer = lastBody(ticket, 'ticket.responded');
+    if (answer) copy.append(element('p', 'ask-reply', displayCopy(answer.data.body)));
+  }
+  card.append(face(speaker), copy, turnTag(ticket));
+  card.addEventListener('click', () => openTicket(ticket.id));
+  return card;
+}
+function sortedOpenTickets() {
+  const openedAt = (ticket) => Date.parse(ticketOpenedAt(ticket)) || Number.POSITIVE_INFINITY;
+  return filterTickets(state.tickets, { tab: 'inbox' }).sort((left, right) => Number(isMine(right)) - Number(isMine(left)) || openedAt(left) - openedAt(right));
+}
+function renderAttention() {
+  const container = byId('attention-list');
+  container.replaceChildren();
+  const open = sortedOpenTickets();
+  const mine = open.filter(isMine).length;
+  byId('attention-count').textContent = open.length ? format('openCount', { count: open.length }) : '';
+  byId('nav-requests-count').textContent = state.viewer ? (mine ? String(mine) : '') : (open.length ? String(open.length) : '');
+  if (!open.length) container.append(empty(t('noAttention')));
+  open.forEach((ticket) => container.append(askCard(ticket)));
+}
+
+// ---------- requests panel ----------
+function timelineItem(event) {
+  const item = element('article', 'timeline-item');
+  const meta = element('small', '');
+  meta.append(element('b', '', actorLabel(event?.actor)), ` · ${eventLabel(event?.type)} · ${relativeTime(event?.at) ?? formatDate(event?.at)}`);
+  meta.title = formatDate(event?.at);
+  item.append(meta);
+  if (event?.data?.body) item.append(element('p', `timeline-body ${personClass(event?.actor?.participant)}`, displayCopy(event.data.body)));
+  return item;
+}
+function renderTicketDetail(ticket) {
+  const pane = byId('ticket-detail-pane');
+  pane.replaceChildren();
+  if (!ticket) return pane.append(element('p', 'detail-empty', t('noRequest')));
+  const kinds = element('div', 'detail-kind');
+  kinds.append(element('span', 'kind', labels[ticket.kind] ?? t('unknown')), turnTag(ticket));
+  pane.append(kinds, element('h2', '', displayCopy(ticket.title, t('noTitle'))));
+  if (ticket.body) pane.append(element('p', 'detail-body', displayCopy(ticket.body)));
+  const props = element('dl', 'props');
+  const turn = ticketTurn(ticket);
+  for (const [label, value] of [
+    [t('turn'), turn ? personName(turn) : '—'],
+    [t('progress'), t(`peer.${peerConfirmation(ticket.status)}`)],
+    [t('requestFlow'), `${personName(ticket.requester)} → ${personName(ticket.assignee)}`],
+    [t('linkedGoal'), displayCopy(ticket.goal)],
+  ]) props.append(element('dt', '', label), element('dd', '', value));
+  pane.append(props);
+  const timeline = element('section', 'timeline');
+  timeline.append(element('h3', '', t('details')));
+  const history = Array.isArray(ticket.history) ? ticket.history : [];
+  if (!history.length) timeline.append(empty(t('noDetails')));
+  history.forEach((event) => timeline.append(timelineItem(event)));
+  timeline.append(element('h3', '', t('evidencePaths')));
+  const evidence = ticketEvidence(ticket);
+  if (evidence.length) appendEvidenceButtons(timeline, evidence);
+  else timeline.append(empty(t('noEvidencePaths')));
+  pane.append(timeline);
+}
+function visibleTickets() {
+  const matches = filterTickets(state.tickets, state);
+  if (state.tab !== 'inbox') return matches;
+  const openedAt = (ticket) => Date.parse(ticketOpenedAt(ticket)) || Number.POSITIVE_INFINITY;
+  return matches.sort((left, right) => Number(isMine(right)) - Number(isMine(left)) || openedAt(left) - openedAt(right));
+}
+function renderTickets() {
+  const matches = visibleTickets();
+  const container = byId('tickets');
+  container.replaceChildren();
+  byId('ticket-count').textContent = String(matches.length);
+  byId('ticket-context').textContent = state.tab === 'inbox' ? t('inboxContext') : t('historyContext');
+  if (!matches.some((ticket) => ticket.id === state.selectedTicketId)) state.selectedTicketId = matches[0]?.id ?? null;
+  if (!matches.length) container.append(empty(state.tab === 'inbox' ? t('noInbox') : t('noHistoryRequests')));
+  const mine = state.tab === 'inbox' && state.viewer ? matches.filter(isMine) : [];
+  if (mine.length) {
+    const label = element('p', 'group-label', t('yourTurn'));
+    label.append(element('span', 'nav-count', String(mine.length)));
+    container.append(label);
+  }
+  matches.forEach((ticket, index) => {
+    if (mine.length && index === mine.length) container.append(element('p', 'group-label', t('waitingOnOthers')));
+    container.append(askCard(ticket, { selectable: true }));
+  });
+  renderTicketDetail(matches.find((ticket) => ticket.id === state.selectedTicketId));
+}
+function openTicket(id) {
+  const ticket = state.tickets.find((item) => item.id === id);
+  if (!ticket) return;
+  const terminal = ['resolved', 'closed'].includes(ticket.status);
+  if ((state.tab === 'history') !== terminal) selectTab(terminal ? 'history' : 'inbox');
+  state.selectedTicketId = id;
+  renderTickets();
+  selectSection('requests');
+}
+function fillFilters() {
+  const status = byId('status-filter');
+  status.replaceChildren(new Option(t('all'), ''));
+  const statuses = state.tab === 'inbox' ? ['open', 'acknowledged', 'needs_information', 'answered'] : ['resolved', 'closed'];
+  statuses.forEach((value) => status.add(new Option(labels[value], value)));
+  if (!statuses.includes(state.status)) state.status = '';
+  status.value = state.status;
+  const peer = byId('peer-filter');
+  peer.replaceChildren(new Option(t('all'), ''));
+  state.participants.forEach((value) => peer.add(new Option(participantLabel(value), value)));
+  peer.value = state.peer;
+}
+function selectTab(tab) {
+  state.tab = tab;
+  state.status = '';
+  for (const name of ['inbox', 'history']) {
+    const button = byId(`${name}-tab`);
+    button.classList.toggle('active', name === tab);
+    button.setAttribute('aria-selected', String(name === tab));
+  }
+  fillFilters();
+  renderTickets();
+}
+
+// ---------- flow: two lanes ----------
+function laneEvents(projectedSessions) {
+  const events = [];
+  for (const session of projectedSessions) {
+    const who = session.participant;
+    if (session.endedAt) {
+      events.push({ at: session.endedAt, who, kind: 'session', session, label: format('finishedIn', { duration: formatDuration(session.recordedActiveMs ?? session.wallClockMs) }), title: session.title, note: session.summary });
+    } else {
+      events.push({ at: session.startedAt, who, kind: 'session', session, label: labels[state.sessions.find((item) => item?.id === session.id)?.status] ?? t('workingNow'), title: session.title });
+    }
+    for (const blocker of session.blockers ?? []) events.push({ at: session.endedAt ?? session.startedAt, who, kind: 'stuck', label: t('stuck'), title: blocker, offset: 1 });
+  }
+  for (const ticket of state.tickets) {
+    for (const event of Array.isArray(ticket.history) ? ticket.history : []) {
+      events.push({ at: event?.at, who: event?.actor?.participant, kind: 'request', ticket, label: event?.actor?.kind === 'ai' ? `${eventLabel(event?.type)} · AI` : eventLabel(event?.type), title: ticket.title, note: event?.data?.body });
+    }
+  }
+  for (const record of state.wikiRecords) {
+    if (record.observedAt) events.push({ at: record.observedAt, who: record.author?.participant, kind: 'wiki', label: t('wroteWiki'), title: text(record.title, t('noTitle')) });
+  }
+  return events
+    .filter((event) => Number.isFinite(Date.parse(event.at)))
+    .sort((left, right) => Date.parse(right.at) - Date.parse(left.at) || (right.offset ?? 0) - (left.offset ?? 0));
+}
+function laneBubble(event) {
+  const bubble = element(event.kind === 'request' ? 'button' : 'div', `bubble${event.kind === 'request' ? ' request' : ''}${event.kind === 'stuck' ? ' stuck' : ''}`);
+  if (event.kind === 'request') {
+    bubble.type = 'button';
+    bubble.addEventListener('click', () => openTicket(event.ticket.id));
+  }
+  bubble.append(element('small', '', event.label), element('p', '', displayCopy(event.title, t('noTitle'))));
+  if (event.note) bubble.append(element('p', 'bubble-note', displayCopy(event.note)));
+  if (event.kind === 'session' && event.session.endedAt) {
+    const session = event.session;
+    bubble.append(element('span', `time-state ${session.timeStatus}`, session.timeStatus === 'known' ? t('timeKnown') : format('notCountedBecause', { reason: t(`reason.${session.timeReason}`) })));
+    if (session.timeStatus === 'known') {
+      const details = element('details', '');
+      details.append(element('summary', '', t('timeDetails')));
+      const list = element('div', 'metric-list');
+      list.append(metricRow(t('totalInterval'), formatDuration(session.wallClockMs)), metricRow(t('activeInterval'), formatDuration(session.recordedActiveMs)));
+      details.append(list);
+      bubble.append(details);
+    }
+  }
+  if (event.kind === 'request' && ticketTurn(event.ticket) && event === laneEvents.latestFor?.get(event.ticket.id)) bubble.append(turnTag(event.ticket));
+  const time = element('small', '', relativeTime(event.at));
+  time.title = formatDate(event.at);
+  bubble.append(time);
+  return bubble;
+}
+function renderLanes(container, events, { emptyMessage }) {
+  container.replaceChildren();
+  const heads = element('div', 'lane-heads');
+  state.participants.slice(0, 2).forEach((participant, index) => {
+    const recent = latestSession(participant);
+    const head = element('div', `lane-head${index ? ' right' : ''}`);
+    const copy = element('div', '');
+    copy.append(element('b', '', personName(participant)), element('small', '', recent ? [labels[recent.status], recent.next ? `${t('next')}: ${displayCopy(recent.next)}` : null].filter(Boolean).join(' · ') : t('noRecord')));
+    head.append(face(participant), copy);
+    heads.append(head);
+  });
+  if (state.participants.length) container.append(heads);
+  // The newest event of each request carries its turn tag; older ones are history.
+  laneEvents.latestFor = new Map();
+  for (const event of events) if (event.kind === 'request' && !laneEvents.latestFor.has(event.ticket.id)) laneEvents.latestFor.set(event.ticket.id, event);
+  if (!events.length) return container.append(element('p', 'lane-empty', emptyMessage));
+  let lastDay = null;
+  for (const event of events) {
+    const day = dayLabel(event.at);
+    if (day !== lastDay) {
+      const divider = element('div', 'lane-day');
+      divider.append(element('span', '', day));
+      container.append(divider);
+      lastDay = day;
+    }
+    const side = state.participants.indexOf(event.who) === 1 ? 'right' : 'left';
+    const row = element('div', `lane-row ${side}`);
+    row.append(laneBubble(event), element('span', `lane-pin ${personClass(event.who)}`));
+    container.append(row);
+  }
+}
+
+function metricRow(label, value, note) {
+  const row = element('div', 'metric-row');
+  const copy = element('div', '');
+  copy.append(element('strong', '', label));
+  if (note) copy.append(element('p', 'empty', note));
+  row.append(copy, element('span', 'metric-value', value));
+  return row;
+}
+function stat(label, value, note, participant) {
+  const card = element('div', 'card stat');
+  const heading = element('span', '');
+  if (participant) heading.append(face(participant));
+  heading.append(label);
+  card.append(heading, element('strong', '', value));
+  if (note) card.append(element('small', '', note));
+  return card;
+}
+function renderFlow() {
+  const result = aggregateSessions(state.sessions, { conflicts: state.conflicts, ...selectedPeriod() });
+  const overview = byId('time-overview');
+  overview.replaceChildren(
+    stat(t('projectInterval'), formatDuration(result.projectWallClockMs), t('projectIntervalNote')),
+    stat(t('unknownTime'), String(result.unknownSessionCount), t('unknownTimeNote')),
+  );
+  for (const participant of state.participants) {
+    const item = result.participantTotals.find((entry) => entry.participant === participant);
+    const nothingCounted = !item || (item.recordedActiveMs === 0 && item.unknownSessionCount > 0);
+    overview.append(stat(personName(participant), nothingCounted ? '—' : formatDuration(item.recordedActiveMs), item?.unknownSessionCount ? format('notCountedCount', { count: item.unknownSessionCount }) : '', participant));
+  }
+
+  const scopes = byId('scope-time');
+  scopes.replaceChildren();
+  if (!result.scopeTotals.length) scopes.append(empty(t('noScopeRecords')));
+  for (const item of result.scopeTotals) scopes.append(metricRow(`${participantLabel(item.participant)} · ${item.scope ?? t('unknown')}`, formatDuration(item.recordedActiveMs)));
+
+  const blockers = byId('blocker-list');
+  blockers.replaceChildren();
+  if (!result.blockers.length) blockers.append(empty(t('noBlockers')));
+  for (const item of result.blockers) {
+    const row = element('div', 'blocker-row');
+    row.append(element('small', '', `${participantLabel(item.participant)} · ${displayCopy(item.title, t('noTitle'))}`), displayCopy(item.blocker));
+    blockers.append(row);
+  }
+
+  const from = Date.parse(selectedPeriod().from ?? '') || Number.NEGATIVE_INFINITY;
+  renderLanes(byId('session-lanes'), laneEvents(result.sessions).filter((event) => Date.parse(event.at) >= from), { emptyMessage: t('noFlow') });
+}
+function renderLatestLanes() {
+  const all = aggregateSessions(state.sessions, { conflicts: state.conflicts });
+  renderLanes(byId('latest-lanes'), laneEvents(all.sessions).slice(0, 6), { emptyMessage: t('noFlow') });
+}
+
+// ---------- wiki ----------
+function wikiMetadata(record) {
+  return [
+    labels[record.recordType] ?? t('unknown'),
+    labels[record.status] ?? t('unknown'),
+    record.author?.participant ? participantLabel(record.author.participant) : t('noAuthor'),
+    relativeTime(record.observedAt) ?? formatDate(record.observedAt),
+  ].join(' · ');
+}
 async function loadLineage(path, button, content) {
   button.disabled = true;
   content.hidden = false;
-  content.replaceChildren(element('p', 'caption', t('lineageLoading')));
+  content.replaceChildren(element('p', 'empty', t('lineageLoading')));
   try {
     const response = await fetch(`/api/wiki/lineage?root=${encodeURIComponent(path)}`, { headers: { Accept: 'application/json' } });
     const result = await response.json();
     if (!response.ok) {
-      content.replaceChildren(element('strong', 'validation failure', t('lineageFailed')), element('p', 'caption', apiErrorCopy(result)));
+      content.replaceChildren(element('strong', 'validation failure', t('lineageFailed')), element('p', 'empty', apiErrorCopy(result)));
       return;
     }
-    content.replaceChildren(element('p', 'caption', `${result.nodes.length} ${t('countNodes')} · ${result.edges.length} ${t('countLinks')}`));
+    content.replaceChildren(element('p', 'empty', `${result.nodes.length} ${t('countNodes')} · ${result.edges.length} ${t('countLinks')}`));
     for (const edge of result.edges) content.append(element('p', 'lineage-edge', `${edge.from} — ${edge.relation} → ${edge.to}`));
     for (const issue of result.issues) {
       const missing = /^MISSING_/.test(issue?.code ?? '');
@@ -394,16 +638,19 @@ async function loadLineage(path, button, content) {
     button.disabled = false;
   }
 }
-
-function wikiRecordDetail(record) {
-  const card = element('article', 'wiki-card');
-  const heading = element('div', 'wiki-card-heading');
-  heading.append(element('h3', '', text(record.title, record.format === 'legacy' ? t('legacyRecord') : t('noTitle'))));
+function wikiTitle(record) {
+  return text(record.title, record.format === 'legacy' ? t('legacyRecord') : t('noTitle'));
+}
+function renderWikiDetail(record) {
+  const pane = byId('wiki-detail-pane');
+  pane.replaceChildren();
+  if (!record) return pane.append(element('p', 'detail-empty', t('noWiki')));
+  const kinds = element('div', 'detail-kind');
   if (record.validation) {
     const validation = wikiValidationPresentation(record.validation);
-    heading.append(element('span', `validation ${validation.kind}`, t(validation.title)));
+    kinds.append(element('span', `validation ${validation.kind}`, t(validation.title)));
   }
-  card.append(heading, element('p', 'caption', wikiMetadata(record)), element('code', 'wiki-path', record.path));
+  pane.append(kinds, element('h2', '', wikiTitle(record)), element('p', 'wiki-meta', wikiMetadata(record)), element('code', 'wiki-path', record.path));
   const actions = element('div', 'wiki-actions');
   const sourceButton = element('button', 'evidence-link', t('viewSource'));
   const lineageButton = element('button', 'evidence-link', t('viewLineage'));
@@ -416,46 +663,28 @@ function wikiRecordDetail(record) {
   sourceButton.addEventListener('click', () => loadEvidence(record.path, sourceButton, source));
   lineageButton.addEventListener('click', () => loadLineage(record.path, lineageButton, lineage));
   actions.append(sourceButton, lineageButton);
-  card.append(actions, source, lineage);
-  return card;
+  pane.append(actions, source, lineage);
 }
-
-function wikiRecordListItem(record) {
-  const button = element('button', `wiki-list-item${record.path === state.selectedWikiPath ? ' selected' : ''}`);
-  button.type = 'button';
-  button.append(element('h3', '', text(record.title, record.format === 'legacy' ? t('legacyRecord') : t('noTitle'))));
-  button.append(element('p', 'caption', wikiMetadata(record)));
-  button.addEventListener('click', () => {
-    state.selectedWikiPath = record.path;
-    renderWiki();
-    selectCompactView('wiki', 'detail');
-  });
-  return button;
-}
-
 function renderWiki() {
   const container = byId('wiki-records');
   const stateCopy = byId('wiki-state');
   container.replaceChildren();
-  stateCopy.replaceChildren();
+  if (!state.sample) stateCopy.replaceChildren();
   let records = state.wikiTab === 'search' ? state.wikiSearchResults : state.wikiRecords;
   if (state.wikiTab === 'refinement') records = state.wikiRecords.filter((record) => record.dailyRefinement !== null);
   byId('wiki-count').textContent = String(records.length);
   for (const issue of state.wikiIssues) stateCopy.append(element('p', 'validation-issue', `${text(issue?.code, 'UNKNOWN')} · ${text(issue?.message, t('noIssueDetail'))}`));
-  if (!records.length) {
-    const message = state.wikiTab === 'refinement' ? t('noRefinement') : t('noMatchingWiki');
-    container.append(empty(message));
-  } else {
-    if (!records.some((record) => record.path === state.selectedWikiPath)) state.selectedWikiPath = records[0].path;
-    records.forEach((record) => container.append(wikiRecordListItem(record)));
+  if (!records.length) container.append(empty(state.wikiTab === 'refinement' ? t('noRefinement') : t('noMatchingWiki')));
+  else if (!records.some((record) => record.path === state.selectedWikiPath)) state.selectedWikiPath = records[0].path;
+  for (const record of records) {
+    const item = element('button', `card wiki-item${record.path === state.selectedWikiPath ? ' selected' : ''}`);
+    item.type = 'button';
+    item.append(element('h3', '', wikiTitle(record)), element('p', '', wikiMetadata(record)));
+    item.addEventListener('click', () => { state.selectedWikiPath = record.path; renderWiki(); });
+    container.append(item);
   }
-  const detail = byId('wiki-detail-pane');
-  detail.replaceChildren();
-  const selected = records.find((record) => record.path === state.selectedWikiPath);
-  if (selected) detail.append(wikiRecordDetail(selected));
-  else detail.append(element('p', 'detail-empty', t('noWiki')));
+  renderWikiDetail(records.find((record) => record.path === state.selectedWikiPath));
 }
-
 function selectWikiTab(tab) {
   state.wikiTab = tab;
   for (const name of ['all', 'search', 'refinement']) {
@@ -465,17 +694,16 @@ function selectWikiTab(tab) {
   }
   renderWiki();
 }
-
 async function loadWikiList() {
   byId('panel-wiki').classList.toggle('sample-mode', state.sample);
   if (state.sample) {
     state.wikiRecords = [];
     state.wikiIssues = [];
-    renderWiki();
     byId('wiki-state').replaceChildren(element('p', 'sample-wiki', t('wikiSampleNotice')));
+    renderWiki();
     return;
   }
-  byId('wiki-state').replaceChildren(element('p', 'caption', t('wikiLoading')));
+  byId('wiki-state').replaceChildren(element('p', 'empty', t('wikiLoading')));
   try {
     const response = await fetch('/api/wiki/notes', { headers: { Accept: 'application/json' } });
     const result = await response.json();
@@ -488,8 +716,10 @@ async function loadWikiList() {
     renderWiki();
     byId('wiki-state').replaceChildren(element('p', 'validation-issue', t('wikiLoadFailed')));
   }
+  // Wiki notes also appear in the two-lane flow.
+  renderLatestLanes();
+  renderFlow();
 }
-
 async function searchWiki(event) {
   event.preventDefault();
   if (state.sample) return selectWikiTab('search');
@@ -503,7 +733,7 @@ async function searchWiki(event) {
   for (const [key, value] of Object.entries(values)) if (value) params.set(key, value);
   params.set('includeSuperseded', String(byId('wiki-include-superseded').checked));
   selectWikiTab('search');
-  byId('wiki-state').replaceChildren(element('p', 'caption', t('wikiSearching')));
+  byId('wiki-state').replaceChildren(element('p', 'empty', t('wikiSearching')));
   try {
     const response = await fetch(`/api/wiki/search?${params}`, { headers: { Accept: 'application/json' } });
     const result = await response.json();
@@ -519,132 +749,28 @@ async function searchWiki(event) {
   }
 }
 
-function ticketListItem(ticket) {
-  const card = element('button', `ticket-list-item${ticket.id === state.selectedTicketId ? ' selected' : ''}`);
-  card.type = 'button';
-  const meta = element('div', 'ticket-meta');
-  meta.append(element('span', `kind ${ticket.kind ?? 'unknown'}`, labels[ticket.kind] ?? t('unknown')));
-  meta.append(element('span', `status ${ticket.status ?? 'unknown'}`, labels[ticket.status] ?? t('unknown')));
-  card.append(meta, element('h3', '', displayCopy(ticket.title, t('noTitle'))), element('p', 'caption', [`${participantLabel(ticket.requester)} → ${participantLabel(ticket.assignee)}`, ticketAge(ticket), turnCopy(ticket)].filter(Boolean).join(' · ')));
-  card.addEventListener('click', () => { state.selectedTicketId = ticket.id; renderTickets(); selectCompactView('requests', 'detail'); });
-  return card;
+// ---------- render and load ----------
+function renderPeople() {
+  renderSidebarPeople();
+  renderParticipants();
+  renderAttention();
+  renderTickets();
+  renderLatestLanes();
+  renderFlow();
 }
-
-function renderTicketDetail(ticket) {
-  const pane = byId('ticket-detail-pane');
-  pane.replaceChildren();
-  if (!ticket) return pane.append(element('p', 'detail-empty', t('noRequest')));
-  const header = element('header', 'ticket-detail-header');
-  const meta = element('div', 'ticket-meta');
-  meta.append(element('span', `kind ${ticket.kind ?? 'unknown'}`, labels[ticket.kind] ?? t('unknown')));
-  meta.append(element('span', `status ${ticket.status ?? 'unknown'}`, labels[ticket.status] ?? t('unknown')));
-  header.append(meta, element('h3', '', displayCopy(ticket.title, t('noTitle'))), element('p', 'ticket-body', displayCopy(ticket.body, t('unknown'))));
-  const facts = element('div', 'ticket-detail-facts');
-  for (const [label, value] of [[t('requestFlow'), `${participantLabel(ticket.requester)} → ${participantLabel(ticket.assignee)}`], [t('peer'), [t(`peer.${peerConfirmation(ticket.status)}`), turnCopy(ticket)].filter(Boolean).join(' · ')], [t('linkedGoal'), displayCopy(ticket.goal)]]) {
-    const fact = element('div', '');
-    fact.append(element('span', '', label), element('strong', '', value));
-    facts.append(fact);
-  }
-  header.append(facts);
-  pane.append(header, renderTimeline(ticket));
-}
-
-function renderTickets() {
-  const matches = filterTickets(state.tickets, state);
-  const container = byId('tickets');
-  container.replaceChildren();
-  byId('ticket-count').textContent = String(matches.length);
-  byId('ticket-context').textContent = state.tab === 'inbox'
-    ? t('inboxContext') : t('historyContext');
-  if (!matches.some((ticket) => ticket.id === state.selectedTicketId)) state.selectedTicketId = matches[0]?.id ?? null;
-  if (!matches.length) container.append(empty(state.tab === 'inbox' ? t('noInbox') : t('noHistoryRequests')));
-  matches.forEach((ticket) => container.append(ticketListItem(ticket)));
-  renderTicketDetail(matches.find((ticket) => ticket.id === state.selectedTicketId));
-}
-
-function turnCopy(ticket) {
-  const turn = ticketTurn(ticket);
-  if (!turn) return null;
-  return state.viewer && turn === state.viewer ? t('yourTurn') : format('waitingOn', { person: participantLabel(turn) });
-}
-
-function renderViewer() {
-  const select = byId('viewer');
-  if (state.viewer && !state.participants.includes(state.viewer)) state.viewer = '';
-  select.replaceChildren(new Option(t('everyone'), ''));
-  state.participants.forEach((value) => select.add(new Option(participantLabel(value), value)));
-  select.value = state.viewer;
-}
-
-function renderAttention() {
-  const container = byId('attention-list');
-  container.replaceChildren();
-  const openedAt = (ticket) => Date.parse(ticketOpenedAt(ticket)) || Number.POSITIVE_INFINITY;
-  const mine = (ticket) => Boolean(state.viewer) && ticketTurn(ticket) === state.viewer;
-  const openTickets = filterTickets(state.tickets, { tab: 'inbox' })
-    .sort((left, right) => Number(mine(right)) - Number(mine(left)) || openedAt(left) - openedAt(right));
-  const blockers = state.sessions.flatMap((session) => (session?.blockers ?? []).map((blocker) => ({ session, blocker })));
-  const total = openTickets.length + blockers.length;
-  byId('attention-count').textContent = total ? String(total) : '';
-  byId('nav-requests-count').textContent = openTickets.length ? String(openTickets.length) : '';
-  for (const ticket of openTickets) {
-    const button = element('button', `attention-item${mine(ticket) ? ' mine' : ''}`);
-    button.type = 'button';
-    const meta = [turnCopy(ticket), labels[ticket.status] ?? t('unknown'), relativeTime(ticketOpenedAt(ticket))].filter(Boolean).join(' · ');
-    button.append(element('span', '', labels[ticket.kind] ?? t('unknown')), element('strong', '', displayCopy(ticket.title)), element('small', '', meta));
-    button.addEventListener('click', () => { state.selectedTicketId = ticket.id; renderTickets(); selectCompactView('requests', 'detail'); selectSection('requests'); });
-    container.append(button);
-  }
-  for (const { session, blocker } of blockers) {
-    const button = element('button', 'attention-item blocker');
-    button.type = 'button';
-    button.append(element('span', '', t('blockers')), element('strong', '', displayCopy(blocker)), element('small', '', [participantLabel(session?.participant), displayCopy(session?.title, '')].filter(Boolean).join(' · ')));
-    button.addEventListener('click', () => selectSection('records'));
-    container.append(button);
-  }
-  if (!total) container.append(empty(t('noAttention')));
-}
-
-function fillFilters() {
-  const status = byId('status-filter');
-  status.replaceChildren(new Option(t('all'), ''));
-  const statuses = state.tab === 'inbox' ? ['open', 'acknowledged', 'needs_information', 'answered'] : ['resolved', 'closed'];
-  statuses.forEach((value) => status.add(new Option(labels[value], value)));
-  if (!statuses.includes(state.status)) state.status = '';
-  status.value = state.status;
-  const peer = byId('peer-filter');
-  peer.replaceChildren(new Option(t('all'), ''));
-  state.participants.forEach((value) => peer.add(new Option(participantLabel(value), value)));
-  peer.value = state.peer;
-}
-
-function renderSync(sync = {}) {
-  const status = ['synced', 'pending', 'error', 'unknown'].includes(sync.status) ? sync.status : 'unknown';
-  const badge = byId('sync-badge');
-  badge.className = `status ${status}`;
-  badge.textContent = labels[status === 'unknown' ? 'syncUnknown' : status];
-  const copy = { synced: t('syncedCopy'), pending: t('pendingCopy'), error: t('errorCopy'), unknown: t('unknownCopy') };
-  byId('delivery-copy').textContent = copy[status];
-  byId('sync-message').textContent = text(sync.message, sync.lastSyncedAt ? formatDate(sync.lastSyncedAt) : t('unknown'));
-}
-
 function render(snapshot) {
-  const sample = snapshot.sample === true;
-  state.sample = sample;
-  byId('sample-banner').hidden = !sample;
-  byId('source-badge').hidden = sample;
+  state.sample = snapshot.sample === true;
+  byId('sample-banner').hidden = !state.sample;
   state.tickets = Array.isArray(snapshot.tickets) ? snapshot.tickets : [];
   state.sessions = Array.isArray(snapshot.sessions) ? snapshot.sessions : [];
   state.conflicts = Array.isArray(snapshot.conflicts) ? snapshot.conflicts : [];
   state.participants = Array.isArray(snapshot.participants) ? snapshot.participants : [];
-  state.assignments = [];
-  renderGoals(snapshot.goals, snapshot);
-  renderParticipants(state.participants, state.sessions);
-  renderSessionAnalysis();
-  fillFilters();
-  renderTickets();
+  state.goals = snapshot.goals ?? {};
+  state.plan = snapshot.plan;
   renderViewer();
-  renderAttention();
+  renderGoals();
+  fillFilters();
+  renderPeople();
   renderSync(snapshot.sync);
   loadWikiList();
 }
@@ -652,13 +778,9 @@ function render(snapshot) {
 const refreshIntervalMs = 30_000;
 let lastSnapshotBody = null;
 let lastLoadedAt = null;
-
 function renderUpdated() {
-  const button = byId('refresh');
-  button.textContent = lastLoadedAt ? format('updatedRelative', { time: relativeTime(new Date(lastLoadedAt).toISOString()) }) : t('refresh');
-  button.title = t('refresh');
+  byId('refresh-label').textContent = lastLoadedAt ? format('updatedRelative', { time: relativeTime(new Date(lastLoadedAt).toISOString()) }) : t('refresh');
 }
-
 // Re-renders only when the snapshot changed, so open details survive quiet refreshes.
 async function load() {
   try {
@@ -678,75 +800,64 @@ async function load() {
   renderUpdated();
 }
 
-function selectTab(tab) {
-  state.tab = tab;
-  state.status = '';
-  for (const name of ['inbox', 'history']) {
-    const button = byId(`${name}-tab`);
-    button.classList.toggle('active', name === tab);
-    button.setAttribute('aria-selected', String(name === tab));
-  }
-  fillFilters();
-  renderTickets();
-}
-
 function selectSection(section) {
   state.section = section;
-  for (const name of ['current', 'requests', 'records', 'wiki']) {
+  for (const name of sections) {
     const selected = name === section;
     const button = byId(`nav-${name}`);
-    const panel = byId(`panel-${name}`);
     button.classList.toggle('active', selected);
     button.setAttribute('aria-selected', String(selected));
-    panel.hidden = !selected;
+    byId(`panel-${name}`).hidden = !selected;
   }
+  byId('workspace').scrollTop = 0;
   history.replaceState(null, '', `#${section}`);
 }
 
-function selectCompactView(group, view) {
-  state.compactViews[group] = view;
-  const panel = byId(`panel-${group}`);
-  panel.dataset.compactView = view;
-  for (const button of document.querySelectorAll(`[data-compact-group="${group}"]`)) {
-    const selected = button.dataset.compactView === view;
-    button.classList.toggle('active', selected);
-    button.setAttribute('aria-selected', String(selected));
-  }
-}
-
+// ---------- events ----------
 byId('retry').addEventListener('click', load);
 byId('refresh').addEventListener('click', load);
+byId('sidebar-toggle').addEventListener('click', () => setSidebar(byId('app-shell').dataset.sidebar !== 'collapsed'));
+byId('brand-home').addEventListener('click', () => selectSection('current'));
+for (const section of sections) byId(`nav-${section}`).addEventListener('click', () => selectSection(section));
+for (const button of document.querySelectorAll('[data-go]')) button.addEventListener('click', () => selectSection(button.dataset.go === 'requests' ? 'requests' : 'records'));
+for (const button of document.querySelectorAll('[data-locale]')) button.addEventListener('click', () => switchLocale(button.dataset.locale));
 byId('viewer').addEventListener('change', (event) => {
   state.viewer = event.target.value;
-  try { localStorage.setItem(viewerStorageKey, state.viewer); } catch { /* the choice lasts for this page */ }
-  renderAttention();
-  renderTickets();
+  storage.set(keys.viewer, state.viewer);
+  renderGoals();
+  renderPeople();
 });
-setInterval(() => {
-  if (document.visibilityState === 'visible') load();
-}, refreshIntervalMs);
+byId('inbox-tab').addEventListener('click', () => selectTab('inbox'));
+byId('history-tab').addEventListener('click', () => selectTab('history'));
+byId('ticket-search').addEventListener('input', (event) => { state.query = event.target.value; renderTickets(); });
+for (const key of ['status', 'kind', 'peer']) byId(`${key}-filter`).addEventListener('change', (event) => { state[key] = event.target.value; renderTickets(); });
+byId('session-period').addEventListener('change', (event) => { state.period = event.target.value; renderFlow(); });
+byId('wiki-all-tab').addEventListener('click', () => selectWikiTab('all'));
+byId('wiki-search-tab').addEventListener('click', () => selectWikiTab('search'));
+byId('wiki-refinement-tab').addEventListener('click', () => selectWikiTab('refinement'));
+byId('wiki-search-form').addEventListener('submit', searchWiki);
+document.addEventListener('keydown', (event) => {
+  if (state.section !== 'requests' || !['j', 'k'].includes(event.key) || event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.target.closest?.('input, select, textarea')) return;
+  const tickets = visibleTickets();
+  const index = tickets.findIndex((ticket) => ticket.id === state.selectedTicketId);
+  const next = tickets[index + (event.key === 'j' ? 1 : -1)];
+  if (!next) return;
+  state.selectedTicketId = next.id;
+  renderTickets();
+  byId('tickets').querySelector('.ask.selected')?.scrollIntoView({ block: 'nearest' });
+});
+setInterval(() => { if (document.visibilityState === 'visible') load(); }, refreshIntervalMs);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && (!lastLoadedAt || Date.now() - lastLoadedAt > refreshIntervalMs)) load();
 });
 window.addEventListener('hashchange', () => {
   const section = location.hash.slice(1);
-  if (['current', 'requests', 'records', 'wiki'].includes(section) && section !== state.section) selectSection(section);
+  if (sections.includes(section) && section !== state.section) selectSection(section);
 });
-for (const button of document.querySelectorAll('[data-locale]')) button.addEventListener('click', () => switchLocale(button.dataset.locale));
-byId('brand-home').addEventListener('click', () => selectSection('current'));
-for (const section of ['current', 'requests', 'records', 'wiki']) byId(`nav-${section}`).addEventListener('click', () => selectSection(section));
-for (const button of document.querySelectorAll('[data-compact-group]')) button.addEventListener('click', () => selectCompactView(button.dataset.compactGroup, button.dataset.compactView));
-byId('inbox-tab').addEventListener('click', () => selectTab('inbox'));
-byId('history-tab').addEventListener('click', () => selectTab('history'));
-byId('ticket-search').addEventListener('input', (event) => { state.query = event.target.value; renderTickets(); });
-for (const key of ['status', 'kind', 'peer']) byId(`${key}-filter`).addEventListener('change', (event) => { state[key] = event.target.value; renderTickets(); });
-byId('session-period').addEventListener('change', (event) => { state.period = event.target.value; renderSessionAnalysis(); });
-byId('wiki-all-tab').addEventListener('click', () => selectWikiTab('all'));
-byId('wiki-search-tab').addEventListener('click', () => selectWikiTab('search'));
-byId('wiki-refinement-tab').addEventListener('click', () => selectWikiTab('refinement'));
-byId('wiki-search-form').addEventListener('submit', searchWiki);
+
 applyStaticUi();
+setSidebar(storage.get(keys.sidebar) === 'collapsed');
 const initialSection = location.hash.slice(1);
-if (['current', 'requests', 'records', 'wiki'].includes(initialSection)) selectSection(initialSection);
-for (const [group, view] of Object.entries(state.compactViews)) selectCompactView(group, view);
+if (sections.includes(initialSection)) selectSection(initialSection);
 load();
