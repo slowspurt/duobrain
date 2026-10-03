@@ -261,3 +261,11 @@ test('summarizes CLI update reports without paths or remote URLs', async () => {
   assert.doesNotMatch(JSON.stringify(vendored), /example\.com/);
   assert.equal(summarizeUpdate({ mode: 'vendored', current: '0.2.0', latest: '0.1.9' }).available, false);
 });
+
+test('reports the running duobrain version for the settings tab', async (t) => {
+  const server = startDashboard({ getSnapshot: () => ({}), version: '0.1.2', port: 0 });
+  await once(server, 'listening');
+  t.after(() => close(server));
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/meta`);
+  assert.deepEqual(await response.json(), { version: '0.1.2' });
+});

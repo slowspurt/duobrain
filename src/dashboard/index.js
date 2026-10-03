@@ -89,6 +89,7 @@ export function startDashboard({
   traceSharedWiki,
   checkUpdate,
   applyUpdate,
+  version = null,
   port = 0,
 } = {}) {
   if (typeof getSnapshot !== 'function') {
@@ -137,6 +138,11 @@ export function startDashboard({
       pathname = requestUrl.pathname;
     } catch {
       send(response, 400, 'application/json; charset=utf-8', JSON.stringify({ error: 'bad_request' }), method);
+      return;
+    }
+
+    if (pathname === '/api/meta') {
+      send(response, 200, json, JSON.stringify({ version: typeof version === 'string' ? version : null }), method);
       return;
     }
 

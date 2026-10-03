@@ -54,9 +54,10 @@
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 3v9M6.5 8.5 10 12l3.5-3.5M4 14.5v1A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5v-1"/></svg>
           <span class="tab-label" data-i18n="checkUpdates">Check for updates</span><i id="update-dot" class="update-dot" hidden></i>
         </button>
-        <div class="language-switch" role="group" aria-label="Language" data-i18n-aria-label="language">
-          <button type="button" data-locale="en" lang="en">EN</button><button type="button" data-locale="ko" lang="ko">한국어</button>
-        </div>
+        <button id="nav-settings" class="app-tab settings-tab" type="button" aria-selected="false" aria-controls="panel-settings">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="2.6"/><path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M4.7 15.3l1.4-1.4M13.9 6.1l1.4-1.4"/></svg>
+          <span class="tab-label" data-i18n="settings">Settings</span>
+        </button>
         <div id="profile" class="profile">
           <span id="profile-face" class="face px" aria-hidden="true">?</span>
           <span class="profile-copy"><b id="profile-name"></b><small id="profile-detail"></small></span>
@@ -130,6 +131,33 @@
           </div>
           <div id="wiki-state" class="wiki-state"></div>
           <div class="split wiki-split"><div id="wiki-records" class="wiki-list" aria-label="Wiki" data-i18n-aria-label="wikiTitle"></div><aside id="wiki-detail-pane" class="card detail" aria-live="polite"></aside></div>
+        </section>
+        <section id="panel-settings" class="panel" role="tabpanel" aria-labelledby="nav-settings" hidden>
+          <header class="panel-heading"><div><h1 data-i18n="settings">Settings</h1><p data-i18n="settingsDescription">Saved in this browser only. Your project and shared records are not changed.</p></div></header>
+          <div class="settings-list">
+            <section class="card setting">
+              <div class="setting-copy"><h2 data-i18n="languageSetting">Language</h2><p id="language-help"></p></div>
+              <div class="segmented" role="radiogroup" aria-label="Language" data-i18n-aria-label="languageSetting">
+                <button type="button" role="radio" data-locale="auto" data-i18n="automatic">Automatic</button><button type="button" role="radio" data-locale="en" lang="en">English</button><button type="button" role="radio" data-locale="ko" lang="ko">한국어</button>
+              </div>
+            </section>
+            <section class="card setting">
+              <div class="setting-copy"><h2 data-i18n="refreshSetting">Auto refresh</h2><p data-i18n="refreshHelp">How often the dashboard re-reads the records while it is open.</p></div>
+              <div id="setting-refresh" class="segmented" role="radiogroup" aria-label="Auto refresh" data-i18n-aria-label="refreshSetting">
+                <button type="button" role="radio" data-refresh="0" data-i18n="off">Off</button><button type="button" role="radio" data-refresh="30" data-i18n="seconds30">30s</button><button type="button" role="radio" data-refresh="60" data-i18n="minute1">1 min</button><button type="button" role="radio" data-refresh="300" data-i18n="minutes5">5 min</button>
+              </div>
+            </section>
+            <section class="card setting">
+              <div class="setting-copy"><h2 data-i18n="sidebarSetting">Sidebar</h2><p data-i18n="sidebarHelp">Show labels, or keep only icons for more room.</p></div>
+              <div id="setting-sidebar" class="segmented" role="radiogroup" aria-label="Sidebar" data-i18n-aria-label="sidebarSetting">
+                <button type="button" role="radio" data-sidebar-mode="open" data-i18n="sidebarOpen">Labels</button><button type="button" role="radio" data-sidebar-mode="collapsed" data-i18n="sidebarIcons">Icons only</button>
+              </div>
+            </section>
+            <section class="card setting">
+              <div class="setting-copy"><h2 data-i18n="updatesSetting">duobrain version</h2><p id="app-version"></p></div>
+              <button id="settings-update" class="primary-button" type="button" data-i18n="checkUpdates">Check for updates</button>
+            </section>
+          </div>
         </section>
       </main>
     </div>

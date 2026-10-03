@@ -15,12 +15,12 @@ const storage = {
   get(key, fallback = null) { try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; } },
   set(key, value) { try { localStorage.setItem(key, value); } catch { /* the choice lasts for this page */ } },
 };
-const keys = { locale: 'duobrain.dashboard.locale', viewer: 'duobrain.dashboard.viewer', sidebar: 'duobrain.dashboard.sidebar' };
+const keys = { locale: 'duobrain.dashboard.locale', viewer: 'duobrain.dashboard.viewer', sidebar: 'duobrain.dashboard.sidebar', refresh: 'duobrain.dashboard.refresh' };
 const locale = resolveLocale({ search: location.search, stored: storage.get(keys.locale), languages: navigator.languages });
 const t = translator(locale);
 document.documentElement.lang = locale;
 document.title = `duobrain ${t('dashboardTitle')}`;
-const sections = ['current', 'requests', 'records', 'wiki'];
+const sections = ['current', 'requests', 'records', 'wiki', 'settings'];
 
 const state = {
   tickets: [], sessions: [], conflicts: [], participants: [], profiles: [], goals: {}, sample: false, identity: null,
@@ -139,16 +139,22 @@ function applyStaticUi() {
   for (const node of document.querySelectorAll('[data-i18n-aria-label]')) node.setAttribute('aria-label', t(node.dataset.i18nAriaLabel));
   for (const section of sections) byId(`nav-${section}`).title = t(section);
   byId('update-button').title = t('checkUpdates');
-  for (const button of document.querySelectorAll('[data-locale]')) {
-    const selected = button.dataset.locale === locale;
-    button.classList.toggle('active', selected);
-    button.setAttribute('aria-pressed', String(selected));
-  }
+  const chosen = new URLSearchParams(location.search).get('lang') ?? storage.get(keys.locale) ?? 'auto';
+  for (const button of document.querySelectorAll('[data-locale]')) button.setAttribute('aria-checked', String(button.dataset.locale === chosen));
+  const browserLocale = resolveLocale({ languages: navigator.languages });
+  const languageName = new Intl.DisplayNames([browserLocale], { type: 'language' }).of(browserLocale);
+  byId('language-help').textContent = format('languageHelp', { language: languageName });
 }
+// "auto" forgets the saved choice so the browser's first language decides again.
 function switchLocale(next) {
-  storage.set(keys.locale, next);
   const url = new URL(location.href);
-  url.searchParams.set('lang', next);
+  url.searchParams.delete('lang');
+  if (next === 'auto') {
+    try { localStorage.removeItem(keys.locale); } catch { /* nothing saved */ }
+  } else {
+    storage.set(keys.locale, next);
+    url.searchParams.set('lang', next);
+  }
   location.replace(url);
 }
 function setSidebar(collapsed) {
@@ -158,6 +164,9 @@ function setSidebar(collapsed) {
   toggle.setAttribute('aria-label', t(collapsed ? 'expandSidebar' : 'collapseSidebar'));
   toggle.title = t(collapsed ? 'expandSidebar' : 'collapseSidebar');
   storage.set(keys.sidebar, collapsed ? 'collapsed' : 'open');
+  for (const button of document.querySelectorAll('[data-sidebar-mode]')) {
+    button.setAttribute('aria-checked', String((button.dataset.sidebarMode === 'collapsed') === collapsed));
+  }
 }
 
 function renderSidebarPeople() {
@@ -883,7 +892,22 @@ function render(snapshot) {
   loadWikiList();
 }
 
-const refreshIntervalMs = 30_000;
+const refreshChoices = ['0', '30', '60', '300'];
+let refreshSeconds = Number(refreshChoices.includes(storage.get(keys.refresh)) ? storage.get(keys.refresh) : '30');
+let refreshTimer = null;
+function scheduleRefresh() {
+  clearInterval(refreshTimer);
+  refreshTimer = refreshSeconds > 0 ? setInterval(() => { if (document.visibilityState === 'visible') load(); }, refreshSeconds * 1000) : null;
+  for (const button of document.querySelectorAll('[data-refresh]')) button.setAttribute('aria-checked', String(Number(button.dataset.refresh) === refreshSeconds));
+}
+async function loadVersion() {
+  try {
+    const { version } = await (await fetch('/api/meta', { headers: { Accept: 'application/json' } })).json();
+    byId('app-version').textContent = version ? format('versionLine', { version }) : t('versionUnknown');
+  } catch {
+    byId('app-version').textContent = t('versionUnknown');
+  }
+}
 let lastSnapshotBody = null;
 let lastLoadedAt = null;
 function renderUpdated() {
@@ -957,10 +981,16 @@ document.addEventListener('keydown', (event) => {
   renderTickets();
   byId('tickets').querySelector('.ask.selected')?.scrollIntoView({ block: 'nearest' });
 });
-setInterval(() => { if (document.visibilityState === 'visible') load(); }, refreshIntervalMs);
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && (!lastLoadedAt || Date.now() - lastLoadedAt > refreshIntervalMs)) load();
+  if (refreshSeconds > 0 && document.visibilityState === 'visible' && (!lastLoadedAt || Date.now() - lastLoadedAt > refreshSeconds * 1000)) load();
 });
+for (const button of document.querySelectorAll('[data-refresh]')) button.addEventListener('click', () => {
+  refreshSeconds = Number(button.dataset.refresh);
+  storage.set(keys.refresh, button.dataset.refresh);
+  scheduleRefresh();
+});
+for (const button of document.querySelectorAll('[data-sidebar-mode]')) button.addEventListener('click', () => setSidebar(button.dataset.sidebarMode === 'collapsed'));
+byId('settings-update').addEventListener('click', checkForUpdates);
 window.addEventListener('hashchange', () => {
   const section = location.hash.slice(1);
   if (sections.includes(section) && section !== state.section) selectSection(section);
@@ -968,6 +998,8 @@ window.addEventListener('hashchange', () => {
 
 applyStaticUi();
 setSidebar(storage.get(keys.sidebar) === 'collapsed');
+scheduleRefresh();
+loadVersion();
 const initialSection = location.hash.slice(1);
 if (sections.includes(initialSection)) selectSection(initialSection);
 load();

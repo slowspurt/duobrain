@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { startDashboard } from './index.js';
 import { createSnapshotGetter, createUpdateTools, createWikiNoteGetter, createWikiToolGetters, sampleSnapshotUrl } from './source.js';
 
@@ -48,6 +49,7 @@ if (options?.help) {
       getWikiNote: createWikiNoteGetter(options),
       ...createWikiToolGetters(options),
       ...createUpdateTools(options),
+      version: JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version,
     });
 
     server.once('listening', () => {

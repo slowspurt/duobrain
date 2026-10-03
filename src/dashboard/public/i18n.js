@@ -67,6 +67,12 @@ const en = {
   noWiki: 'No shared records to show.', noMatchingWiki: 'No wiki records match these filters.', noRefinement: 'No refined summaries yet.',
   wikiLoading: 'Loading shared wiki…', wikiLoadFailed: 'Could not load the shared wiki.', wikiSearching: 'Searching…', wikiSearchFailed: 'Could not search the shared wiki.',
   lineageLoading: 'Loading linked records…', lineageFailed: 'Could not load linked records', countNodes: 'records', countLinks: 'links', noAuthor: 'Unknown author',
+  // settings
+  settings: 'Settings', settingsDescription: 'Saved in this browser only. Your project and shared records are not changed.',
+  languageSetting: 'Language', languageHelp: 'Automatic follows your browser’s first language (now {language}).', automatic: 'Automatic',
+  refreshSetting: 'Auto refresh', refreshHelp: 'How often the dashboard re-reads the records while it is open.', off: 'Off', seconds30: '30s', minute1: '1 min', minutes5: '5 min',
+  sidebarSetting: 'Sidebar', sidebarHelp: 'Show labels, or keep only icons for more room.', sidebarOpen: 'Labels', sidebarIcons: 'Icons only',
+  updatesSetting: 'duobrain version', versionLine: 'You’re running v{version}.', versionUnknown: 'Version unknown.',
   // update
   checkUpdates: 'Check for updates', updateTitle: 'duobrain update', updateChecking: 'Checking for updates…', upToDate: 'You’re up to date',
   upToDateDetail: '{version} is the latest version.', updateAvailable: 'A new version is available', updateChanges: 'What’s new',
@@ -151,6 +157,12 @@ const ko = {
   noWiki: '표시할 공유 기록이 없습니다.', noMatchingWiki: '조건에 맞는 위키 기록이 없습니다.', noRefinement: '아직 정리본이 없습니다.',
   wikiLoading: '공유 위키를 불러오는 중…', wikiLoadFailed: '공유 위키를 불러오지 못했습니다.', wikiSearching: '검색 중…', wikiSearchFailed: '공유 위키를 검색하지 못했습니다.',
   lineageLoading: '연결된 기록을 불러오는 중…', lineageFailed: '연결된 기록을 불러오지 못했습니다', countNodes: '개 기록', countLinks: '개 연결', noAuthor: '작성자 미확인',
+  // settings
+  settings: '설정', settingsDescription: '이 브라우저에만 저장됩니다. 프로젝트와 공유 기록은 바뀌지 않습니다.',
+  languageSetting: '언어', languageHelp: '자동은 브라우저의 첫 번째 언어를 따릅니다(지금 {language}).', automatic: '자동',
+  refreshSetting: '자동 새로고침', refreshHelp: '대시보드를 열어 둔 동안 기록을 다시 읽는 간격입니다.', off: '끄기', seconds30: '30초', minute1: '1분', minutes5: '5분',
+  sidebarSetting: '사이드바', sidebarHelp: '이름을 함께 보이거나, 공간을 위해 아이콘만 남깁니다.', sidebarOpen: '이름 표시', sidebarIcons: '아이콘만',
+  updatesSetting: 'duobrain 버전', versionLine: '지금 v{version}을 쓰고 있습니다.', versionUnknown: '버전을 알 수 없습니다.',
   // update
   checkUpdates: '업데이트 확인', updateTitle: 'duobrain 업데이트', updateChecking: '업데이트를 확인하는 중…', upToDate: '최신 버전입니다',
   upToDateDetail: '{version}이 최신 버전입니다.', updateAvailable: '새 버전이 있습니다', updateChanges: '바뀐 점',
