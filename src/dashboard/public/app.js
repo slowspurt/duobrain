@@ -15,7 +15,7 @@ const storage = {
   get(key, fallback = null) { try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; } },
   set(key, value) { try { localStorage.setItem(key, value); } catch { /* the choice lasts for this page */ } },
 };
-const keys = { locale: 'duobrain.dashboard.locale', viewer: 'duobrain.dashboard.viewer', sidebar: 'duobrain.dashboard.sidebar', refresh: 'duobrain.dashboard.refresh' };
+const keys = { locale: 'duobrain.dashboard.locale', viewer: 'duobrain.dashboard.viewer', sidebar: 'duobrain.dashboard.sidebar', refresh: 'duobrain.dashboard.refresh', updateCheck: 'duobrain.dashboard.updateCheck', autoUpdate: 'duobrain.dashboard.autoUpdateCheck' };
 const locale = resolveLocale({ search: location.search, stored: storage.get(keys.locale), languages: navigator.languages });
 const t = translator(locale);
 document.documentElement.lang = locale;
@@ -832,6 +832,53 @@ function showUpdate(view, result) {
   body.append(element('h3', '', t(view === 'check-error' ? 'updateCheckFailed' : 'updateFailed')), element('p', 'update-error', updateErrorCopy(result)));
   actions.append(updateButton(t('close'), close), updateButton(t('retry'), view === 'check-error' ? checkForUpdates : runUpdate, true));
 }
+// ---------- daily update check ----------
+const dayMs = 86_400_000;
+let runningVersion = null;
+let dailyCheckRunning = false;
+function newerVersion(latest, current) {
+  const left = String(latest).split('.').map(Number);
+  const right = String(current).split('.').map(Number);
+  for (let index = 0; index < 3; index += 1) if ((left[index] ?? 0) !== (right[index] ?? 0)) return (left[index] ?? 0) > (right[index] ?? 0);
+  return false;
+}
+function readUpdateCheck() {
+  try { return JSON.parse(storage.get(keys.updateCheck)) ?? null; } catch { return null; }
+}
+function rememberUpdateCheck(result) {
+  storage.set(keys.updateCheck, JSON.stringify({ at: Date.now(), available: result?.available === true, latest: result?.latest ?? null }));
+  renderUpdateBadge();
+}
+// A remembered "available" is ignored once the running version has caught up (for example after a CLI update).
+function renderUpdateBadge() {
+  const last = readUpdateCheck();
+  const available = Boolean(last?.available) && !(runningVersion && last.latest && !newerVersion(last.latest, runningVersion));
+  byId('update-dot').hidden = !available;
+  byId('update-button').classList.toggle('available', available);
+  byId('update-label').textContent = available ? (last.latest ? format('updateTo', { version: `v${last.latest}` }) : t('updateAvailableShort')) : t('checkUpdates');
+  byId('update-button').title = available && last.latest ? `${t('updateAvailableShort')} · v${last.latest}` : t('checkUpdates');
+  const checked = last?.at ? relativeTime(new Date(last.at).toISOString()) : null;
+  const versionCopy = runningVersion ? format('versionLine', { version: runningVersion }) : t('versionUnknown');
+  byId('app-version').textContent = checked ? `${versionCopy} ${format('lastChecked', { time: checked })}` : versionCopy;
+  const auto = storage.get(keys.autoUpdate, 'on');
+  for (const button of document.querySelectorAll('[data-auto-update]')) button.setAttribute('aria-checked', String(button.dataset.autoUpdate === auto));
+}
+async function dailyUpdateCheck() {
+  if (storage.get(keys.autoUpdate, 'on') === 'off' || dailyCheckRunning) return;
+  const last = readUpdateCheck();
+  if (last?.at && Date.now() - last.at < dayMs) return;
+  dailyCheckRunning = true;
+  try {
+    const response = await fetch('/api/update', { headers: { Accept: 'application/json' } });
+    // A failed check still counts for today so an offline dashboard does not retry every refresh.
+    rememberUpdateCheck(response.ok ? await response.json() : { available: last?.available, latest: last?.latest });
+  } catch {
+    rememberUpdateCheck({ available: last?.available, latest: last?.latest });
+  } finally {
+    dailyCheckRunning = false;
+  }
+}
+
 async function checkForUpdates() {
   if (!updateDialog.open) updateDialog.showModal();
   showUpdate('checking');
@@ -839,7 +886,7 @@ async function checkForUpdates() {
     const response = await fetch('/api/update', { headers: { Accept: 'application/json' } });
     const result = await response.json();
     if (!response.ok) return showUpdate('check-error', result);
-    byId('update-dot').hidden = !result.available;
+    rememberUpdateCheck(result);
     showUpdate(result.available ? 'available' : 'current', result);
   } catch {
     showUpdate('check-error', {});
@@ -852,7 +899,7 @@ async function runUpdate() {
     const response = await fetch('/api/update', { method: 'POST', headers: { Accept: 'application/json', 'X-Duobrain-Action': 'update' } });
     const result = await response.json();
     if (!response.ok) return showUpdate('update-error', result);
-    byId('update-dot').hidden = true;
+    rememberUpdateCheck({ available: false, latest: result.latest });
     showUpdate('done', result);
   } catch {
     showUpdate('update-error', {});
@@ -903,10 +950,12 @@ function scheduleRefresh() {
 async function loadVersion() {
   try {
     const { version } = await (await fetch('/api/meta', { headers: { Accept: 'application/json' } })).json();
-    byId('app-version').textContent = version ? format('versionLine', { version }) : t('versionUnknown');
+    runningVersion = typeof version === 'string' ? version : null;
   } catch {
-    byId('app-version').textContent = t('versionUnknown');
+    runningVersion = null;
   }
+  renderUpdateBadge();
+  dailyUpdateCheck();
 }
 let lastSnapshotBody = null;
 let lastLoadedAt = null;
@@ -925,6 +974,7 @@ async function load() {
       render(JSON.parse(body));
     }
     lastLoadedAt = Date.now();
+    dailyUpdateCheck();
   } catch {
     byId('error-panel').hidden = false;
     if (lastSnapshotBody === null) render({ sample: false, participants: [], goals: {}, sessions: [], tickets: [], sync: { status: 'error', message: t('loadFailed') } });
@@ -991,6 +1041,11 @@ for (const button of document.querySelectorAll('[data-refresh]')) button.addEven
 });
 for (const button of document.querySelectorAll('[data-sidebar-mode]')) button.addEventListener('click', () => setSidebar(button.dataset.sidebarMode === 'collapsed'));
 byId('settings-update').addEventListener('click', checkForUpdates);
+for (const button of document.querySelectorAll('[data-auto-update]')) button.addEventListener('click', () => {
+  storage.set(keys.autoUpdate, button.dataset.autoUpdate);
+  renderUpdateBadge();
+  dailyUpdateCheck();
+});
 window.addEventListener('hashchange', () => {
   const section = location.hash.slice(1);
   if (sections.includes(section) && section !== state.section) selectSection(section);

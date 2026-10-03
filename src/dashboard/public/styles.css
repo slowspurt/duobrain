@@ -62,6 +62,10 @@ h1, h2, h3, h4, p { margin:0; }
 .update-button { position:relative; display:flex; align-items:center; gap:11px; min-height:38px; padding:0 11px; color:var(--side-soft); background:none; border:1px solid var(--side-line); border-radius:10px; font-size:.86rem; font-weight:650; text-align:left; }
 .update-button svg { width:18px; height:18px; flex:none; }
 .update-button:hover { color:var(--side-ink); background:var(--side-hover); }
+.update-button.available { color:var(--lime-ink); background:var(--lime); border-color:var(--lime); font-weight:800; }
+.update-button.available:hover { color:var(--lime-ink); background:#d6ff6b; }
+.update-button.available .update-dot { background:var(--lime-ink); box-shadow:0 0 0 2px var(--lime); }
+.app-shell[data-sidebar="collapsed"] .update-button.available { border-color:var(--lime); }
 .update-dot { position:absolute; top:7px; left:24px; width:8px; height:8px; border-radius:50%; background:var(--lime); box-shadow:0 0 0 2px var(--side); }
 
 /* update modal */

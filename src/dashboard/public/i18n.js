@@ -72,6 +72,8 @@ const en = {
   languageSetting: 'Language', languageHelp: 'Automatic follows your browser’s first language (now {language}).', automatic: 'Automatic',
   refreshSetting: 'Auto refresh', refreshHelp: 'How often the dashboard re-reads the records while it is open.', off: 'Off', seconds30: '30s', minute1: '1 min', minutes5: '5 min',
   sidebarSetting: 'Sidebar', sidebarHelp: 'Show labels, or keep only icons for more room.', sidebarOpen: 'Labels', sidebarIcons: 'Icons only',
+  autoUpdateSetting: 'Automatic update check', autoUpdateHelp: 'Looks for a new duobrain version once a day and marks the sidebar button. Nothing is installed without asking.', onceADay: 'Once a day',
+  updateAvailableShort: 'Update available', updateTo: 'Update to {version}', lastChecked: 'Checked {time}.',
   updatesSetting: 'duobrain version', versionLine: 'You’re running v{version}.', versionUnknown: 'Version unknown.',
   // update
   checkUpdates: 'Check for updates', updateTitle: 'duobrain update', updateChecking: 'Checking for updates…', upToDate: 'You’re up to date',
@@ -162,6 +164,8 @@ const ko = {
   languageSetting: '언어', languageHelp: '자동은 브라우저의 첫 번째 언어를 따릅니다(지금 {language}).', automatic: '자동',
   refreshSetting: '자동 새로고침', refreshHelp: '대시보드를 열어 둔 동안 기록을 다시 읽는 간격입니다.', off: '끄기', seconds30: '30초', minute1: '1분', minutes5: '5분',
   sidebarSetting: '사이드바', sidebarHelp: '이름을 함께 보이거나, 공간을 위해 아이콘만 남깁니다.', sidebarOpen: '이름 표시', sidebarIcons: '아이콘만',
+  autoUpdateSetting: '업데이트 자동 확인', autoUpdateHelp: '하루에 한 번 새 duobrain 버전이 있는지 확인해 사이드바 버튼에 표시합니다. 묻기 전에는 아무것도 설치하지 않습니다.', onceADay: '하루 한 번',
+  updateAvailableShort: '업데이트 있음', updateTo: '{version}으로 업데이트', lastChecked: '{time} 확인함.',
   updatesSetting: 'duobrain 버전', versionLine: '지금 v{version}을 쓰고 있습니다.', versionUnknown: '버전을 알 수 없습니다.',
   // update
   checkUpdates: '업데이트 확인', updateTitle: 'duobrain 업데이트', updateChecking: '업데이트를 확인하는 중…', upToDate: '최신 버전입니다',
