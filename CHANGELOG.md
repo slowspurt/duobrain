@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.3
+
+The dashboard becomes a two-person board, and duobrain can be updated from it.
+
+- New layout: a collapsible Ink & Lime sidebar with `Now`, `Requests`, `Flow` and `Wiki`, both people's current state, and a profile.
+- `Now` shows the shared goal, a card per person, and open requests as sentences with whose turn it is; `Requests` pairs cards with a detail pane and `J`/`K`; `Flow` is a two-lane timeline of sessions, request events and wiki notes.
+- With `--repository`, the local identity marks your requests as `Your turn` and shows your profile nickname and GitHub login; snapshots include `viewer`.
+- Sharing status sits under the logo; a `Settings` tab holds language, auto-refresh, sidebar and version.
+- `Check for updates` asks before running the copy's own `update`; a daily check (can be turned off) lights the button when a release is ready. Only the dashboard page can trigger the update.
+- English by default, Korean only when the browser's first language is Korean.
+
 ## 0.1.2
 
 Safety fix for duobrain copies placed inside a project.

@@ -45,7 +45,7 @@ You'll need **Node.js 22+**, **Git**, and one clone per person of the same produ
 The first person downloads duobrain once, anywhere, and installs it **into the product repository**:
 
 ```sh
-git clone --depth 1 --branch v0.1.1 https://github.com/slowspurt/duobrain.git /tmp/duobrain
+git clone --depth 1 --branch v0.1.3 https://github.com/slowspurt/duobrain.git /tmp/duobrain
 cd /path/to/product
 node /tmp/duobrain/bin/duobrain.js install
 node .duobrain/bin/duobrain.js init --participants member-a,member-b --participant member-a
