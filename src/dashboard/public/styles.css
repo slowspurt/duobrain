@@ -30,7 +30,8 @@ h1, h2, h3, h4, p { margin:0; }
 .app-tab { position:relative; display:flex; align-items:center; gap:11px; min-height:40px; padding:0 11px; color:var(--side-soft); background:none; border:0; border-radius:10px; font-weight:650; text-align:left; white-space:nowrap; }
 .app-tab svg { width:19px; height:19px; flex:none; }
 .app-tab:hover { color:var(--side-ink); background:var(--side-hover); }
-.app-tab.active { color:var(--side-ink); background:var(--side-on); box-shadow:inset 3px 0 0 var(--lime); }
+.app-tab.active { color:var(--side-ink); background:var(--side-on); }
+.app-tab.active svg { color:var(--lime); }
 .nav-count { display:grid; place-items:center; min-width:20px; height:20px; margin-left:auto; padding:0 6px; color:var(--lime-ink); background:var(--lime); border-radius:999px; font-size:.75rem; font-weight:800; }
 .nav-count:empty { display:none; }
 .sidebar-label { margin:0 10px 6px; color:var(--side-faint); font-size:.72rem; font-weight:750; letter-spacing:.07em; text-transform:uppercase; }
@@ -185,7 +186,8 @@ details > summary { color:var(--soft); font-size:.86rem; font-weight:750; cursor
 .ask { display:grid; grid-template-columns:32px minmax(0,1fr) auto; gap:14px; align-items:start; width:100%; padding:15px 18px; text-align:left; }
 .ask:hover { border-color:var(--line-strong); }
 .ask.selected { box-shadow:0 0 0 2px var(--ink); }
-.ask.mine { border-left:4px solid var(--lime); }
+.ask.mine { border-color:#a8d92b; box-shadow:0 0 0 1px #a8d92b, var(--shadow); }
+.ask.mine.selected { border-color:var(--line); box-shadow:0 0 0 2px var(--ink); }
 .ask-line { color:var(--soft); font-size:.84rem; }
 .ask-title { margin-top:2px; font-size:1.02rem; font-weight:700; line-height:1.4; }
 .ask-meta { margin-top:4px; color:var(--faint); font-size:.8rem; }
@@ -329,7 +331,6 @@ details > summary { color:var(--soft); font-size:.86rem; font-weight:750; cursor
   .sidebar-head { flex-direction:row; padding:0; }
   .app-nav { flex-direction:row; margin-left:auto; }
   .app-tab { width:44px; min-height:40px; }
-  .app-tab.active { box-shadow:inset 0 -3px 0 var(--lime); }
   .sidebar-people, .profile { display:none; }
   .sync-card { order:2; margin:0; padding:8px; background:none; border:0; }
   .sidebar-foot { display:flex; align-items:center; margin:0; padding:0; border:0; }
