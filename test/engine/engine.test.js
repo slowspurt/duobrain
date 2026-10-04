@@ -511,6 +511,7 @@ test('two clones complete an information ticket with immutable wiki evidence', a
   });
   assert.equal(note.path, `wiki/${noteId}.md`);
   assert.equal(note.validation.valid, true);
+  assert.deepEqual(note.searchMetadata.missing, ['abstract', 'keywords']);
   const responded = await respondToTicket({
     repository: setup.bob,
     ticketId,

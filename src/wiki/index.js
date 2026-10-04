@@ -6,6 +6,9 @@ const RECORD_TYPES = new Set(["source-note", "summary"]);
 const STATUSES = new Set(["proposed", "personal", "agreed", "superseded"]);
 const ACTOR_KINDS = new Set(["human", "ai"]);
 const SOURCE_KINDS = new Set(["wiki", "file", "url", "ticket", "observation"]);
+const ABSTRACT_MAX_LENGTH = 300;
+const KEYWORDS_MAX_COUNT = 12;
+const KEYWORD_MAX_LENGTH = 60;
 
 export class WikiParseError extends Error {
   constructor(message, cause) {
@@ -101,6 +104,7 @@ export function validateWikiNote(noteOrMarkdown, options = {}) {
   requireIsoDate(errors, metadata.observedAt, "observedAt");
   validateAuthor(errors, metadata.author);
   validateWorkContext(errors, metadata.workContext);
+  validateSearchMetadata(errors, metadata);
 
   if (!Array.isArray(metadata.sources) || metadata.sources.length === 0) {
     errors.push({
@@ -150,6 +154,15 @@ export function validateWikiNote(noteOrMarkdown, options = {}) {
   }
 
   return result(note, errors, warnings);
+}
+
+/**
+ * Name the optional search fields a structured note leaves out. Older notes
+ * without them stay valid; callers use this only to remind the writer.
+ */
+export function missingSearchMetadata(note) {
+  if (!isObject(note) || note.format !== "structured" || !isObject(note.metadata)) return [];
+  return ["abstract", "keywords"].filter((field) => note.metadata[field] === undefined);
 }
 
 /** Render a structured record candidate without writing it anywhere. */
@@ -1775,6 +1788,42 @@ function validateWorkContext(errors, context) {
   }
   requireNullableString(errors, context.promptRef, "workContext.promptRef");
   requireNullableString(errors, context.harnessRef, "workContext.harnessRef");
+}
+
+function validateSearchMetadata(errors, metadata) {
+  if (metadata.abstract !== undefined) {
+    if (typeof metadata.abstract !== "string" || metadata.abstract.trim() === "") {
+      errors.push({code: "INVALID_ABSTRACT", field: "abstract", message: "abstract must be a non-empty string."});
+    } else if (metadata.abstract.length > ABSTRACT_MAX_LENGTH) {
+      errors.push({
+        code: "ABSTRACT_TOO_LONG",
+        field: "abstract",
+        message: `abstract must be at most ${ABSTRACT_MAX_LENGTH} characters.`,
+      });
+    }
+  }
+  if (metadata.keywords === undefined) return;
+  if (!Array.isArray(metadata.keywords)
+    || metadata.keywords.some((keyword) => typeof keyword !== "string" || keyword.trim() === "")) {
+    errors.push({code: "INVALID_KEYWORDS", field: "keywords", message: "keywords must be an array of non-empty strings."});
+    return;
+  }
+  if (metadata.keywords.length > KEYWORDS_MAX_COUNT) {
+    errors.push({
+      code: "TOO_MANY_KEYWORDS",
+      field: "keywords",
+      message: `keywords may hold at most ${KEYWORDS_MAX_COUNT} entries.`,
+    });
+  }
+  metadata.keywords.forEach((keyword, index) => {
+    if (keyword.length > KEYWORD_MAX_LENGTH) {
+      errors.push({
+        code: "KEYWORD_TOO_LONG",
+        field: `keywords[${index}]`,
+        message: `Each keyword must be at most ${KEYWORD_MAX_LENGTH} characters.`,
+      });
+    }
+  });
 }
 
 function validateSource(errors, source, index) {

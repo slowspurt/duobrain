@@ -8,6 +8,7 @@ import { promisify } from 'node:util';
 
 import {
   compareKnowledgeMethods,
+  missingSearchMetadata,
   parseWikiNote,
   planDailyWikiRefinement,
   renderWikiNote,
@@ -1237,7 +1238,14 @@ export async function addWikiNote({
         ? 'Local wiki note is committed but has not been pushed.'
         : 'Existing note has not been synchronized.',
     );
-  return { ...local, sync: syncResult };
+  const missing = local.created ? missingSearchMetadata(local.validation.note) : [];
+  const searchMetadata = missing.length === 0 ? {} : {
+    searchMetadata: {
+      missing,
+      hint: 'Add abstract and keywords to the next note so it can be found; this note stays valid without them.',
+    },
+  };
+  return { ...local, ...searchMetadata, sync: syncResult };
 }
 
 async function stagedProductState(layout) {

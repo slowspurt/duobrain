@@ -17,6 +17,13 @@ Required metadata:
 - `sources`: at least one `{kind, ref, observedAt?}`. Kinds are `wiki`, `file`, `url`, `ticket`, and `observation`. A direct human observation uses a stable `observation` reference rather than pretending to be a file or URL.
 - `summarizes`, `decisionEvidence`, and `supersedes`: arrays of `wiki/<uuid>.md` references. `previousSummary` is one such reference or `null`.
 
+Optional search metadata:
+
+- `abstract`: one or two sentences, conclusion first, at most 300 characters.
+- `keywords`: at most 12 strings of at most 60 characters each. Use the terms someone would search for, in every language the team uses, plus entities such as file paths and ticket ids and the questions this note answers.
+
+Both fields are additive. Notes without them stay valid with no warning, and engines that do not know them ignore them. `note-add` names the missing fields in `searchMetadata.missing` so the writer can add them next time.
+
 An `agreed` record must have `decisionEvidence`; merely having a source does not demonstrate joint agreement. A `superseded` record must identify what it supersedes. Validation reports these cases as `AGREED_WITHOUT_DECISION_EVIDENCE` and `SUPERSESSION_WITHOUT_TARGET`. Missing sources are independently reported as `MISSING_SOURCES`, so callers do not conflate absent evidence with an unsupported decision-state promotion.
 
 The statuses mean:
@@ -42,6 +49,7 @@ Legacy text has unknown knowledge status and cannot establish or promote an `agr
 
 - `parseWikiNote(markdown)` returns `{format, metadata, body}` and throws `WikiParseError` for a malformed structured JSON block.
 - `validateWikiNote(markdownOrParsed, {path?})` returns `{valid, errors, warnings, note}`. If `path` is provided, it checks the `wiki/<uuid>.md` shape and UUID match.
+- `missingSearchMetadata(note)` lists `abstract` and `keywords` when a parsed structured note leaves them out.
 - `renderWikiNote(metadata, body)` renders a structured candidate and performs no I/O.
 - `prepareTicketSupplement({ticket, context, notes})` validates and prepares an immutable source note, refreshed summary, and protocol-shaped ticket response candidate. It never writes files or invokes Git.
 - `searchWikiNotes({notes, query, filters})` searches only the supplied note text and metadata.

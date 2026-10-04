@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 import test from "node:test";
 
-import {parseWikiNote, validateWikiNote, WikiParseError} from "../../src/wiki/index.js";
+import {missingSearchMetadata, parseWikiNote, validateWikiNote, WikiParseError} from "../../src/wiki/index.js";
 
 const EXAMPLE_ROOT = new URL("../../examples/wiki/", import.meta.url);
 
@@ -86,6 +86,36 @@ test("checks the path UUID against the immutable record UUID", () => {
     path: "wiki/30000000-0000-4000-8000-000000000099.md",
   });
   assert.equal(validation.errors.some(({code}) => code === "PATH_ID_MISMATCH"), true);
+});
+
+test("accepts optional abstract and keywords for search", () => {
+  const validation = validateWikiNote(structured({
+    abstract: "CSV export passes; the SRT multiline fixture still fails.",
+    keywords: ["export", "내보내기", "srt multiline", "src/export.js", "왜 SRT가 실패하지?"],
+  }));
+
+  assert.equal(validation.valid, true);
+  assert.deepEqual(missingSearchMetadata(validation.note), []);
+});
+
+test("keeps notes without search metadata valid and names what is missing", () => {
+  const validation = validateWikiNote(structured());
+
+  assert.equal(validation.valid, true);
+  assert.deepEqual(validation.warnings, []);
+  assert.deepEqual(missingSearchMetadata(validation.note), ["abstract", "keywords"]);
+  assert.deepEqual(missingSearchMetadata(parseWikiNote("Plain legacy text.\n")), []);
+});
+
+test("rejects malformed search metadata", () => {
+  const codes = (overrides) => validateWikiNote(structured(overrides)).errors.map(({code}) => code);
+
+  assert.deepEqual(codes({abstract: ""}), ["INVALID_ABSTRACT"]);
+  assert.deepEqual(codes({abstract: "a".repeat(301)}), ["ABSTRACT_TOO_LONG"]);
+  assert.deepEqual(codes({keywords: "export"}), ["INVALID_KEYWORDS"]);
+  assert.deepEqual(codes({keywords: ["ok", " "]}), ["INVALID_KEYWORDS"]);
+  assert.deepEqual(codes({keywords: Array.from({length: 13}, (_, index) => `k${index}`)}), ["TOO_MANY_KEYWORDS"]);
+  assert.deepEqual(codes({keywords: ["k".repeat(61)]}), ["KEYWORD_TOO_LONG"]);
 });
 
 function structured(overrides = {}) {
