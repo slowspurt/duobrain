@@ -14,7 +14,7 @@
     <text x="139" y="71" fill="#f4f7f8" font-size="33" font-weight="700" letter-spacing="-2">brain</text>
     <rect x="1075" y="43" width="149" height="32" rx="16" fill="#222a33"/>
     <circle cx="1092" cy="59" r="4" fill="#b5a2ff"/>
-    <text x="1106" y="64" fill="#d1d9e0" font-size="13" letter-spacing="1">LOCAL ALPHA</text>
+    <text x="1106" y="64" fill="#d1d9e0" font-size="13" letter-spacing="1">OPEN SOURCE</text>
 
     <text x="53" y="180" fill="#f4f7f8" font-size="66" font-weight="700" letter-spacing="-2.8">You work together.</text>
     <text x="53" y="257" fill="#c8ff3d" font-size="66" font-weight="700" letter-spacing="-2.8">Your AI should, too.</text>

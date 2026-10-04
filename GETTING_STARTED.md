@@ -1,6 +1,6 @@
 # duobrain 시작하기
 
-두 사람의 기존 Git 프로젝트에 작업 기록, 정보 요청, 위키와 로컬 대시보드를 연결하는 알파 버전이다. Node.js 22 이상과 Git이 필요하며 별도 런타임 패키지 설치는 필요하지 않다. 현재 검증 범위와 남은 배포 항목은 [구현 현황](docs/implementation-status.md)을 참고한다.
+두 사람의 기존 Git 프로젝트에 작업 기록, 정보 요청, 위키와 로컬 대시보드를 연결하는 도구다. Node.js 22 이상과 Git이 필요하며 전역 설치는 필요하지 않다. npm 패키지로 배포되며 런타임 의존성은 없다.
 
 ## 먼저 화면 보기
 
@@ -18,9 +18,8 @@ node src/dashboard/run.js
 
 ```sh
 # 먼저 도입하는 사람 (예: Alice)
-git clone --depth 1 --branch v0.1.4 https://github.com/slowspurt/duobrain.git /tmp/duobrain
 cd /path/to/product
-node /tmp/duobrain/bin/duobrain.js install
+npx duobrain@0.1.5 install
 node .duobrain/bin/duobrain.js init --participants alice,bob --participant alice
 git add .duobrain AGENTS.md CLAUDE.md .gitattributes
 git commit -m "chore: add duobrain"
@@ -33,7 +32,7 @@ git pull
 node .duobrain/bin/duobrain.js init --participant bob
 ```
 
-`install`은 실행에 필요한 파일(약 400KB, 의존성 없음)을 `.duobrain/`에 복사하고 버전을 `.duobrain/VENDOR.json`에 고정한다. 함께 `AGENTS.md`에 duobrain 블록을, `CLAUDE.md`에 `@AGENTS.md` 줄을, `.gitattributes`에 vendored 표시를 추가한다. Codex·Cursor는 `AGENTS.md`를, Claude Code는 `CLAUDE.md`를 통해 같은 지침을 읽는다. 합류하는 사람은 공유 기록에서 참여자 쌍을 읽으므로 자기 ID만 넘긴다.
+`npx`는 이번 실행에만 패키지를 받아 오고 전역에 설치하지 않는다. npm 없이 쓰려면 `git clone --depth 1 --branch v0.1.5 https://github.com/slowspurt/duobrain.git /tmp/duobrain` 후 제품 저장소에서 `node /tmp/duobrain/bin/duobrain.js install`을 실행한다. `install`은 실행에 필요한 파일(약 400KB, 의존성 없음)을 `.duobrain/`에 복사하고 버전을 `.duobrain/VENDOR.json`에 고정한다. 함께 `AGENTS.md`에 duobrain 블록을, `CLAUDE.md`에 `@AGENTS.md` 줄을, `.gitattributes`에 vendored 표시를 추가한다. Codex·Cursor는 `AGENTS.md`를, Claude Code는 `CLAUDE.md`를 통해 같은 지침을 읽는다. 합류하는 사람은 공유 기록에서 참여자 쌍을 읽으므로 자기 ID만 넘긴다.
 
 제품 저장소의 `origin`에 두 사람 모두 읽기·쓰기 권한이 있어야 한다. 공유 기록은 그 원격의 `duobrain/state` 브랜치와 로컬 Git 내부의 격리 저장소에 저장된다. 코드 변경과 공유 기록은 별도 커밋이다. 명령 결과가 `pending`이거나 종료 코드가 2이면 전달 완료가 아니므로 같은 제품 저장소에서 `sync`로 재시도한다.
 

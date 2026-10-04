@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-local_alpha-c8ff3d?style=flat-square&amp;labelColor=10151b" alt="Status: local alpha" />
+  <a href="https://www.npmjs.com/package/duobrain"><img src="https://img.shields.io/npm/v/duobrain?style=flat-square&amp;color=c8ff3d&amp;labelColor=10151b" alt="npm version" /></a>
   <img src="https://img.shields.io/badge/Node.js-22%2B-c8ff3d?style=flat-square&amp;labelColor=10151b" alt="Requires Node.js 22 or newer" />
   <img src="https://img.shields.io/badge/participants-exactly_2-b5a2ff?style=flat-square&amp;labelColor=10151b" alt="Built for exactly two participants" />
 </p>
@@ -38,23 +38,22 @@ Keep the bigger picture in the **local dashboard**: goals, assignments, recent w
 
 ## Get started
 
-You'll need **Node.js 22+**, **Git**, and one clone per person of the same product repository. Both clones need the same `origin` remote and permission to push collaboration records to it. **No `npm install` needed.**
+You'll need **Node.js 22+**, **Git**, and one clone per person of the same product repository. Both clones need the same `origin` remote and permission to push collaboration records to it. **No global install needed.**
 
 ### 1. One person adds duobrain to the project
 
-The first person downloads duobrain once, anywhere, and installs it **into the product repository**:
+The first person installs duobrain **into the product repository** with one `npx` command:
 
 ```sh
-git clone --depth 1 --branch v0.1.4 https://github.com/slowspurt/duobrain.git /tmp/duobrain
 cd /path/to/product
-node /tmp/duobrain/bin/duobrain.js install
+npx duobrain@0.1.5 install
 node .duobrain/bin/duobrain.js init --participants member-a,member-b --participant member-a
 git add .duobrain AGENTS.md CLAUDE.md .gitattributes
 git commit -m "chore: add duobrain"
 git push
 ```
 
-`install` copies duobrain's runtime files (about 400KB, no dependencies) into `.duobrain/` and pins the version in `.duobrain/VENDOR.json`. It also writes a short duobrain block into `AGENTS.md`, an `@AGENTS.md` import into `CLAUDE.md`, and a `.gitattributes` line that marks `.duobrain/` as vendored. The downloaded folder is no longer needed. This is called **vendoring**; see [why duobrain is vendored](docs/vendoring.md).
+`install` copies duobrain's runtime files (about 400KB, no dependencies) into `.duobrain/` and pins the version in `.duobrain/VENDOR.json`. It also writes a short duobrain block into `AGENTS.md`, an `@AGENTS.md` import into `CLAUDE.md`, and a `.gitattributes` line that marks `.duobrain/` as vendored. `npx` only fetches it for this one run; nothing is installed globally. This is called **vendoring**; see [why duobrain is vendored](docs/vendoring.md).
 
 ### 2. The other person just joins
 
@@ -79,7 +78,9 @@ Try asking: **“Where did my partner leave off, and what can I pick up?”** On
 Your existing AI follows the block when you use it. Setup does not start a background AI service.
 
 <details>
-<summary><strong>Prefer one global install instead?</strong></summary>
+<summary><strong>Prefer Git, or one global install?</strong></summary>
+
+Without npm, download the release with Git and run its `install` instead: `git clone --depth 1 --branch v0.1.5 https://github.com/slowspurt/duobrain.git /tmp/duobrain`, then `node /tmp/duobrain/bin/duobrain.js install` in the product repository.
 
 Clone duobrain outside the product, run `npm link` there, and use `duobrain init --participants … --participant …` in each product clone. Both people then install duobrain themselves; the `AGENTS.md` block tells each AI to find the guide with `duobrain guide`.
 
@@ -191,7 +192,7 @@ For all commands, run `node bin/duobrain.js --help` or read the [CLI reference](
 
 ## AI-led first run
 
-> **Current alpha.** The CLI provides resumable onboarding state, authenticated GitHub CLI account lookup and editable nickname profiles. Your existing AI performs the project reading and asks for missing facts. The locale preference is stored locally; dashboard language controls and translated UI text are not included in this integration.
+> **Note.** The CLI provides resumable onboarding state, authenticated GitHub CLI account lookup and editable nickname profiles. Your existing AI performs the project reading and asks for missing facts. The locale preference is stored locally; dashboard language controls and translated UI text are not included in this integration.
 
 After downloading duobrain, tell your existing AI:
 
@@ -213,13 +214,13 @@ From there, your AI guides you through four steps:
 
 The dashboard locale setting is a per-clone preference, stored as `system` by default. It does not add a language question to onboarding or translate shared source text.
 
-## Help shape the alpha
+## Help shape duobrain
 
-The local alpha has passed **87 tests**, including onboarding and two-clone collaboration flows, plus a clean local-clone check. Acceptance testing with two people on separate machines and their existing AI tools is **still pending**. See [verification details](docs/implementation-status.md).
+Each release runs the full test suite, including onboarding, two-clone collaboration and vendored install-and-update flows, on Linux and macOS with Node.js 22 and 24.
 
-Try a small shared project and [tell us what happened](https://github.com/slowspurt/duobrain/issues): what you asked, what you expected and where the handoff fell short. Include a shareable example.
+Use it on a shared project and [tell us what happened](https://github.com/slowspurt/duobrain/issues): what you asked, what you expected and where the handoff fell short. Include a shareable example.
 
-**License:** [MIT](LICENSE). See the [v0.1.0 release notes](docs/releases/v0.1.0.md) for distribution and current limits.
+**License:** [MIT](LICENSE). See the [release notes](docs/releases/README.md) and [changelog](CHANGELOG.md).
 
 ---
 

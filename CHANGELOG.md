@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.5
+
+duobrain is published on npm.
+
+- The first person runs `npx duobrain@0.1.5 install` in the product repository; no clone of duobrain is needed. Installing from a Git download still works.
+- `update` keeps installing from the Git release tags, so npm and Git installs update the same way.
+- The npm package holds only the runtime files that `install` vendors; `release:check` enforces it.
+- The README and Getting started guide drop the "local alpha" label.
+
 ## 0.1.4
 
 Updating duobrain takes one step for the updater and a pull for the partner.
