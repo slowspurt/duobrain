@@ -8,6 +8,8 @@ import { promisify } from 'node:util';
 
 import {
   compareKnowledgeMethods,
+  findRecords,
+  listWikiCards,
   missingSearchMetadata,
   parseWikiNote,
   planDailyWikiRefinement,
@@ -1624,6 +1626,36 @@ export async function listWikiNotes({ repository = '.' } = {}) {
     repository: layout.repositoryPath,
     path: wikiPath,
   })));
+}
+
+/** Wiki notes as cards without bodies; open one with getWikiNote. */
+export async function listSharedWikiCards({ repository = '.' } = {}) {
+  const notes = await listWikiNotes({ repository });
+  const snapshot = await getSnapshot({ repository });
+  return listWikiCards({ notes, tickets: snapshot.tickets });
+}
+
+/**
+ * Search wiki notes, tickets and session handoffs with one structured query.
+ * Reads the local clone only; the result holds a few cards and never bodies.
+ */
+export async function findSharedRecords({ repository = '.', query } = {}) {
+  const notes = await listWikiNotes({ repository });
+  const snapshot = await getSnapshot({ repository });
+  try {
+    return findRecords({ notes, tickets: snapshot.tickets, sessions: snapshot.sessions, query });
+  } catch (error) {
+    if (error instanceof TypeError) throw new EngineError(error.message, { code: 'INVALID_QUERY' });
+    throw error;
+  }
+}
+
+/** One ticket with its full event history. */
+export async function getTicket({ repository = '.', ticketId } = {}) {
+  const snapshot = await getSnapshot({ repository });
+  const ticket = snapshot.tickets.find((item) => item.id === ticketId);
+  if (!ticket) throw new EngineError(`Ticket ${ticketId} was not found.`, { code: 'TICKET_NOT_FOUND' });
+  return ticket;
 }
 
 export async function searchSharedWiki({ repository = '.', query = '', filters = {} } = {}) {

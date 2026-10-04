@@ -21,6 +21,10 @@ import {
   getEngineStatus,
   initSharedStore,
   inspectOnboarding,
+  findSharedRecords,
+  getTicket,
+  getWikiNote,
+  listSharedWikiCards,
   listWikiNotes,
   pauseSession,
   prepareProductWorktree,
@@ -89,7 +93,12 @@ Usage:
   duobrain ticket-close --ticket <uuid> --reason <cancelled|duplicate> --body <text>
   duobrain ticket-reopen --ticket <uuid> --body <text> [--actor <human|ai>]
   duobrain note-add --file <markdown-path> [--id <uuid>]
-  duobrain wiki-list
+  duobrain find --query <text> [--intent <text>] [--expand <a,b>] [--entities <a,b>]
+                [--exclude <a,b>] [--kinds <wiki,ticket,session>] [--limit <n>]
+  duobrain find --file <query-json>
+  duobrain wiki-get --path <wiki/path>
+  duobrain ticket-get --ticket <uuid>
+  duobrain wiki-list [--full]
   duobrain wiki-search --query <text> [--filters <json-path>]
   duobrain wiki-trace --roots <wiki/path,...>
   duobrain method-compare --file <json-path> [--request-missing] [--actor <human|ai>]
@@ -134,7 +143,10 @@ const COMMAND_HELP = {
   'ticket-close': 'Usage: duobrain ticket-close --ticket <uuid> --reason <cancelled|duplicate> --body <text> [--actor <human|ai>] [--repository <path>]',
   'ticket-reopen': 'Usage: duobrain ticket-reopen --ticket <uuid> --body <text> [--actor <human|ai>] [--repository <path>]',
   'note-add': 'Usage: duobrain note-add --file <markdown-path> [--id <uuid>] [--repository <path>]',
-  'wiki-list': 'Usage: duobrain wiki-list [--repository <path>]',
+  find: 'Usage: duobrain find --query <text> [--intent <text>] [--expand <a,b>] [--entities <a,b>] [--exclude <a,b>] [--kinds <wiki,ticket,session>] [--limit <1-10>] [--repository <path>], or duobrain find --file <query-json> (returns a few cards without bodies; open one with wiki-get or ticket-get)',
+  'wiki-get': 'Usage: duobrain wiki-get --path <wiki/path> [--repository <path>]',
+  'ticket-get': 'Usage: duobrain ticket-get --ticket <uuid> [--repository <path>]',
+  'wiki-list': 'Usage: duobrain wiki-list [--full] [--repository <path>] (cards without bodies; --full returns every note in full)',
   'wiki-search': 'Usage: duobrain wiki-search --query <text> [--filters <json-path>] [--repository <path>]',
   'wiki-trace': 'Usage: duobrain wiki-trace --roots <wiki/path,...> [--repository <path>]',
   'method-compare': 'Usage: duobrain method-compare --file <json-path> [--request-missing] [--actor <human|ai>] [--repository <path>]',
@@ -150,7 +162,7 @@ const COMMAND_HELP = {
 
 function parseOptions(tokens) {
   const options = {};
-  const booleanOptions = new Set(['help', 'request-missing', 'brief', 'dry-run', 'bundle', 'check', 'no-agents', 'no-commit']);
+  const booleanOptions = new Set(['help', 'full', 'request-missing', 'brief', 'dry-run', 'bundle', 'check', 'no-agents', 'no-commit']);
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
     if (!token.startsWith('--')) throw new Error(`Unexpected argument: ${token}`);
@@ -425,8 +437,28 @@ async function main() {
       markdown: await readFile(requireOption(options, 'file'), 'utf8'),
       id: options.id,
     });
+  } else if (command === 'find') {
+    const limit = options.limit === undefined ? undefined : Number(options.limit);
+    const query = options.file
+      ? JSON.parse(await readFile(options.file, 'utf8'))
+      : {
+        question: requireOption(options, 'query'),
+        ...(options.intent ? { intent: options.intent } : {}),
+        ...(options.expand ? { expand: list(options.expand) } : {}),
+        ...(options.entities ? { entities: list(options.entities) } : {}),
+        ...(options.exclude ? { exclude: list(options.exclude) } : {}),
+        ...(options.kinds ? { kinds: list(options.kinds) } : {}),
+        ...(limit === undefined ? {} : { limit }),
+      };
+    result = await findSharedRecords({ repository, query });
+  } else if (command === 'wiki-get') {
+    result = await getWikiNote({ repository, path: requireOption(options, 'path') });
+  } else if (command === 'ticket-get') {
+    result = await getTicket({ repository, ticketId: requireOption(options, 'ticket') });
   } else if (command === 'wiki-list') {
-    result = await listWikiNotes({ repository });
+    result = options.full
+      ? await listWikiNotes({ repository })
+      : await listSharedWikiCards({ repository });
   } else if (command === 'wiki-search') {
     result = await searchSharedWiki({
       repository,

@@ -124,7 +124,7 @@ test("matches an exact entity and links tickets to their evidence notes", () => 
   assert.equal(result.results[0].ref, `ticket:${ticket.id}`);
   assert.deepEqual(ticketCard.hit.entities, [`ticket:${ticket.id}`]);
   assert.deepEqual(ticketCard.links.evidence, [evidence.path]);
-  assert.equal(ticketCard.open, `ticket --id ${ticket.id}`);
+  assert.equal(ticketCard.open, `ticket-get --ticket ${ticket.id}`);
   assert.deepEqual(noteCard.links.evidenceFor, [`ticket:${ticket.id}`]);
   assert.ok(noteCard.hit.reasons.includes("evidence for an open ticket"));
 });

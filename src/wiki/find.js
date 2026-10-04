@@ -188,6 +188,16 @@ function sessionDocument(session) {
   };
 }
 
+/** Every wiki note as a card (no body), newest first, with backlinks and supersession. */
+export function listWikiCards({notes = [], tickets = []} = {}) {
+  const documents = notes.map(wikiDocument).filter(Boolean);
+  linkRecords(documents, notes, tickets);
+  return documents
+    .map((document) => card({document, hitFields: [], hitTerms: [], exactEntities: [], reasons: []}))
+    .map(({hit, open, ...rest}) => ({...rest, open}))
+    .sort((left, right) => (right.at ?? "").localeCompare(left.at ?? "") || left.ref.localeCompare(right.ref));
+}
+
 function isExcluded(document, exclude) {
   if (exclude.length === 0) return false;
   const text = fold(`${document.fields.title} ${document.fields.keywords ?? ""}`);
@@ -413,7 +423,7 @@ function card(entry) {
       abstract: excerpt(ticket.body ?? ""),
       hit,
       links: compactLinks({evidence: document.links.evidence}),
-      open: `ticket --id ${ticket.id}`,
+      open: `ticket-get --ticket ${ticket.id}`,
     };
   }
 

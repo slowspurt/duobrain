@@ -10,6 +10,8 @@ import { promisify } from 'node:util';
 import {
   addWikiNote,
   compareSharedMethods,
+  createTicket,
+  respondToTicket,
   getSnapshot,
   initSharedStore,
   listWikiNotes,
@@ -125,6 +127,85 @@ test('shared wiki list/search/trace use only safe store notes through API and CL
   assert.equal(cliTrace.edges.some(({ from, to, relation }) => (
     from === currentPath && to === oldPath && relation === 'supersedes[0]'
   )), true);
+});
+
+test('find, wiki-get, ticket-get and wiki-list cards read the shared record through the CLI', async (t) => {
+  const setup = await fixture();
+  t.after(() => rm(setup.root, { recursive: true, force: true }));
+  const created = await createTicket({
+    repository: setup.bob,
+    kind: 'information',
+    title: 'Why did the review prompt change?',
+    body: 'Record the reason for the shorter review prompt.',
+    assignee: 'alice',
+    actorKind: 'ai',
+  });
+  const ticketId = created.event.entityId;
+  await syncStore({ repository: setup.alice });
+
+  const noteId = randomUUID();
+  const notePath = `wiki/${noteId}.md`;
+  const added = await addWikiNote({
+    repository: setup.alice,
+    markdown: renderWikiNote({
+      schemaVersion: 1,
+      id: noteId,
+      recordType: 'source-note',
+      title: 'Review prompt shortened',
+      abstract: 'The review prompt now lists three checks because the long checklist produced noise.',
+      keywords: ['프롬프트 변경 이유', 'review prompt', 'prompts/review.md'],
+      author: { participant: 'alice', kind: 'ai' },
+      observedAt: '2026-10-05T01:00:00.000Z',
+      workContext: { promptRef: 'prompts/review.md', harnessRef: null },
+      status: 'personal',
+      sources: [{ kind: 'file', ref: 'prompts/review.md' }],
+      summarizes: [],
+      previousSummary: null,
+      decisionEvidence: [],
+      supersedes: [],
+    }, '# Review prompt shortened\n\nThe long checklist produced noise, so it was cut to three checks.'),
+  });
+  assert.equal(added.searchMetadata, undefined);
+  await respondToTicket({
+    repository: setup.alice,
+    ticketId,
+    body: 'Recorded.',
+    evidence: [notePath],
+    actorKind: 'ai',
+  });
+  await syncStore({ repository: setup.bob });
+
+  const found = await duobrain(
+    setup.bob,
+    'find',
+    '--query', '프롬프트를 왜 바꿨지?',
+    '--expand', '변경 이유,review prompt',
+  );
+  assert.equal(found.match, 'strong');
+  assert.equal(found.results[0].ref, notePath);
+  assert.deepEqual(found.results[0].links.evidenceFor, [`ticket:${ticketId}`]);
+  assert.equal(JSON.stringify(found).includes('so it was cut to three checks'), false);
+
+  const byTicket = await duobrain(setup.bob, 'find', '--query', 'review prompt', '--entities', `ticket:${ticketId}`);
+  assert.deepEqual(byTicket.results.map(({ ref }) => ref).sort(), [notePath, `ticket:${ticketId}`].sort());
+
+  const note = await duobrain(setup.bob, 'wiki-get', '--path', notePath);
+  assert.match(note.markdown, /cut to three checks/);
+  const ticket = await duobrain(setup.bob, 'ticket-get', '--ticket', ticketId);
+  assert.equal(ticket.status, 'answered');
+  assert.deepEqual(ticket.evidence, [notePath]);
+
+  const cards = await duobrain(setup.bob, 'wiki-list');
+  assert.deepEqual(cards.map(({ ref }) => ref), [notePath]);
+  assert.equal(cards[0].abstract.startsWith('The review prompt now lists'), true);
+  assert.equal(Object.hasOwn(cards[0], 'markdown'), false);
+  const full = await duobrain(setup.bob, 'wiki-list', '--full');
+  assert.match(full[0].markdown, /cut to three checks/);
+
+  await assert.rejects(
+    duobrain(setup.bob, 'find', '--query', 'x', '--limit', '50'),
+    (error) => /INVALID_QUERY/.test(error.stdout + error.stderr),
+  );
 });
 
 test('method comparison defaults to a proposal and explicitly creates or reuses one request', async (t) => {
