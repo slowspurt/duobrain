@@ -207,6 +207,14 @@ async function pathExists(filePath) {
   }
 }
 
+/**
+ * A Git URL from package.json `repository.url`. npm publishes it as `git+https://…`, which Git
+ * itself cannot fetch, so the `git+` prefix is dropped.
+ */
+export function gitSource(url) {
+  return url ? url.replace(/^git\+/, '') : null;
+}
+
 /** Whether a directory is a vendored copy (it carries VENDOR.json) rather than a Git checkout. */
 export async function isVendored(toolRoot) {
   return pathExists(path.join(toolRoot, 'VENDOR.json'));
@@ -303,7 +311,7 @@ export async function installVendored({ sourceRoot = TOOL_ROOT, productRoot }) {
     schemaVersion: 1,
     name: 'duobrain',
     version: pkg.version,
-    source: pkg.repository?.url ?? null,
+    source: gitSource(pkg.repository?.url),
     ref: identity.ref,
     commit: identity.commit,
   };
@@ -367,11 +375,12 @@ export async function updateVendored({ vendorRoot, check = false, ref } = {}) {
   if (!current.source) {
     throw new ToolError('VENDOR.json has no source to update from.', { code: 'UPDATE_NO_UPSTREAM' });
   }
-  const tags = await releaseTags(current.source);
+  const source = gitSource(current.source);
+  const tags = await releaseTags(source);
   const target = ref ?? tags[0];
   if (!target) throw new ToolError('No release tags were found at the source.', { code: 'UPDATE_NO_RELEASE' });
   if (ref && !tags.includes(ref)) throw new ToolError(`Release ${ref} was not found at the source.`, { code: 'UPDATE_NO_RELEASE' });
-  const report = { mode: 'vendored', source: current.source, current: current.version, latest: target.slice(1), releases: tags.slice(0, 5) };
+  const report = { mode: 'vendored', source, current: current.version, latest: target.slice(1), releases: tags.slice(0, 5) };
   const newer = compareVersions(target.slice(1), current.version) > 0;
   // Without an explicit --ref, only move forward: a copy installed from a commit ahead of
   // the newest tag must not be replaced by that older release.
@@ -379,7 +388,7 @@ export async function updateVendored({ vendorRoot, check = false, ref } = {}) {
   const productRoot = path.dirname(vendorRoot);
   const temporary = await mkdtemp(path.join(os.tmpdir(), 'duobrain-release-'));
   try {
-    await execFileAsync('git', ['clone', '--quiet', '--depth', '1', '--branch', target, current.source, temporary]);
+    await execFileAsync('git', ['clone', '--quiet', '--depth', '1', '--branch', target, source, temporary]);
     const installed = await installVendored({ sourceRoot: temporary, productRoot });
     return { ...report, updated: installed.action !== 'unchanged', from: installed.from, to: installed.to };
   } finally {

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.6
+
+First version published on npm.
+
+- `install` and `update` drop the `git+` prefix npm adds to the repository URL. A copy installed from the npm package of 0.1.5 would have recorded `git+https://…` as its source, which Git cannot fetch, so `update` would have failed. 0.1.5 was not published to npm.
+- `npx duobrain@0.1.6 install` is the documented install.
+
 ## 0.1.5
 
 duobrain is published on npm.

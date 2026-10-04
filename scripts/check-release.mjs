@@ -15,7 +15,7 @@ assert.equal(pkg.private, undefined, 'The release is published to npm; package.j
 // npm always packs package.json and LICENSE; `files` must cover the rest of what `install` vendors.
 assert.deepEqual([...pkg.files].sort(), RUNTIME_ENTRIES.filter((entry) => !['package.json', 'LICENSE'].includes(entry)).sort(),
   'package.json `files` must match the runtime files that `install` copies.');
-assert.equal(pkg.repository.url, 'https://github.com/slowspurt/duobrain.git');
+assert.equal(pkg.repository.url, 'git+https://github.com/slowspurt/duobrain.git');
 const tag = process.env.RELEASE_TAG;
 if (tag) assert.equal(tag, `v${pkg.version}`, 'Tag and package version differ.');
 assert.match(await read('LICENSE'), /^MIT License\n/);

@@ -6,7 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
 
-import { RUNTIME_ENTRIES, ensureGitattributes } from '../../src/tool/index.js';
+import { RUNTIME_ENTRIES, ensureGitattributes, gitSource } from '../../src/tool/index.js';
 
 const execFileAsync = promisify(execFile);
 const toolRoot = path.resolve('.');
@@ -209,4 +209,35 @@ test('a copy inside another repository never updates that repository and can mig
     version,
   );
   assert.equal((await run(product, copied, 'install')).action, 'unchanged');
+});
+
+test('npm-style git+ repository URLs become plain Git sources', () => {
+  assert.equal(gitSource('git+https://github.com/slowspurt/duobrain.git'), 'https://github.com/slowspurt/duobrain.git');
+  assert.equal(gitSource('https://github.com/slowspurt/duobrain.git'), 'https://github.com/slowspurt/duobrain.git');
+  assert.equal(gitSource(undefined), null);
+});
+
+test('a copy unpacked from npm installs and can still check for releases', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'duobrain-npm-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const upstream = await upstreamRelease(root);
+  // npm unpacks the package without .git and publishes repository.url with a git+ prefix.
+  const unpacked = path.join(root, 'npm', 'duobrain');
+  const files = (await git(toolRoot, 'ls-files', '--', ...RUNTIME_ENTRIES)).split('\n');
+  for (const file of files) {
+    await mkdir(path.dirname(path.join(unpacked, file)), { recursive: true });
+    await cp(path.join(toolRoot, file), path.join(unpacked, file));
+  }
+  const pkg = JSON.parse(await readFile(path.join(unpacked, 'package.json'), 'utf8'));
+  await writeFile(path.join(unpacked, 'package.json'), `${JSON.stringify({
+    ...pkg, version: '0.1.3', repository: { type: 'git', url: `git+file://${upstream}` },
+  }, null, 2)}\n`);
+  const product = path.join(root, 'product');
+  await execFileAsync('git', ['init', '-q', '-b', 'main', product]);
+  await identify(product);
+
+  const installed = await run(product, path.join(unpacked, 'bin', 'duobrain.js'), 'install', '--no-agents');
+  assert.deepEqual([installed.manifest.source, installed.manifest.ref], [`file://${upstream}`, 'v0.1.3']);
+  const check = await run(product, path.join(product, '.duobrain', 'bin', 'duobrain.js'), 'update', '--check');
+  assert.deepEqual([check.latest, check.updated], ['0.1.4', false]);
 });
