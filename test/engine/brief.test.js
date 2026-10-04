@@ -140,8 +140,22 @@ test('status --brief keeps open work, latest handoffs and actionable tickets onl
     [fromAlice.event.entityId, 'feedback', 'open'],
   ]);
 
+  assert.deepEqual(brief.wiki.evidence.map(({ ref, title, status }) => [ref, title, status]), [
+    [`wiki/${noteId}.md`, 'Delimiter decision', 'proposed'],
+  ], 'evidence of a ticket I answered stays in view until it is resolved');
+  assert.equal(brief.wiki.evidence[0].abstract, 'Semicolon keeps spreadsheet locales working.');
+  assert.equal(Object.hasOwn(brief.wiki, 'recent'), false, 'my own notes are not news to me');
+  assert.equal(Object.hasOwn(brief.wiki.evidence[0], 'markdown'), false);
+
+  const otherId = randomUUID();
+  await addWikiNote({ repository: setup.alice, markdown: sourceNote(otherId)
+    .replace('Delimiter decision', 'Locale notes')
+    .replace('2026-09-20T02:00:00.000Z', new Date().toISOString()) });
   await syncStore({ repository: setup.bob });
   const bobBrief = JSON.parse(await duobrainRaw(setup.bob, 'status', '--brief'));
+  assert.equal(bobBrief.wiki.total, 2);
+  assert.deepEqual(bobBrief.wiki.evidence.map(({ ref }) => ref), [`wiki/${noteId}.md`]);
+  assert.deepEqual(bobBrief.wiki.recent.map(({ ref, author }) => [ref, author]), [[`wiki/${otherId}.md`, 'alice']]);
   assert.deepEqual(bobBrief.tickets.forMe.map(({ title, requester, body }) => [title, requester, body]), [
     ['Button copy', 'alice', 'Pick a label.'],
   ]);

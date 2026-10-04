@@ -2993,7 +2993,7 @@ function compact(value) {
  * each participant's latest handoff, actionable tickets, sync state and
  * conflicts. Event histories are omitted; run status without --brief for them.
  */
-export function briefStatus({ participant, toolVersion = null, snapshot }) {
+export function briefStatus({ participant, toolVersion = null, snapshot, notes = [] }) {
   const partner = snapshot.participants.find((id) => id !== participant) ?? null;
   const lastEventAt = (session) => session.history.at(-1)?.at ?? session.startedAt;
   const latestEnded = snapshot.participants.map((id) => snapshot.sessions
@@ -3048,8 +3048,57 @@ export function briefStatus({ participant, toolVersion = null, snapshot }) {
         .map((item) => ticket(item, { evidence: item.evidence })),
     },
     conflicts: snapshot.conflicts.map(({ entityId, message }) => ({ entityId, message })),
-    ...compact({ duobrainUpdate: duobrainUpdateNotice({ participant, toolVersion, tools: snapshot.tools }) }),
+    ...compact({
+      wiki: briefWiki({ participant, snapshot, notes }),
+      duobrainUpdate: duobrainUpdateNotice({ participant, toolVersion, tools: snapshot.tools }),
+    }),
   };
+}
+
+const BRIEF_EVIDENCE_LIMIT = 5;
+const BRIEF_RECENT_LIMIT = 3;
+
+/**
+ * The wiki slice of a briefing: evidence notes of the open tickets I am part
+ * of, and notes others recorded since my last handoff. Capped so a briefing
+ * stays small; find and wiki-get reach the rest.
+ */
+function briefWiki({ participant, snapshot, notes }) {
+  if (notes.length === 0) return null;
+  const cards = listWikiCards({ notes, tickets: snapshot.tickets });
+  const byRef = new Map(cards.map((card) => [card.ref, card]));
+  const brief = ({ ref, title, status, author, at, abstract, links }) => compact({
+    ref,
+    title,
+    status,
+    author,
+    at,
+    abstract,
+    supersededBy: links.supersededBy,
+  });
+
+  const terminal = new Set(['resolved', 'closed']);
+  const evidenceRefs = [...new Set(snapshot.tickets
+    .filter((item) => !terminal.has(item.status)
+      && (item.assignee === participant || item.requester === participant))
+    .flatMap((item) => item.evidence ?? []))];
+  const evidence = evidenceRefs.map((ref) => byRef.get(ref)).filter(Boolean);
+
+  const lastHandoff = snapshot.sessions
+    .filter((session) => session.participant === participant && session.status === 'ended')
+    .map((session) => session.endedAt)
+    .sort()
+    .at(-1) ?? null;
+  const recent = cards.filter((card) => card.author !== participant
+    && !evidenceRefs.includes(card.ref)
+    && (lastHandoff === null || (card.at ?? '') > lastHandoff));
+
+  return compact({
+    total: cards.length,
+    evidence: evidence.slice(0, BRIEF_EVIDENCE_LIMIT).map(brief),
+    recent: recent.slice(0, BRIEF_RECENT_LIMIT).map(brief),
+    more: Math.max(0, evidence.length - BRIEF_EVIDENCE_LIMIT) + Math.max(0, recent.length - BRIEF_RECENT_LIMIT) || null,
+  });
 }
 
 /** Reduce an overlap assessment to a verdict, the overlapping paths and the unknowns. */

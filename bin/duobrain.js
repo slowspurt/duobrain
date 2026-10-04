@@ -531,7 +531,7 @@ async function main() {
     result = await syncStore({ repository });
   } else {
     result = await getEngineStatus({ repository });
-    if (options.brief) result = briefStatus(result);
+    if (options.brief) result = briefStatus({ ...result, notes: await listWikiNotes({ repository }) });
   }
   output(result, options.brief === true);
   const sync = result.sync ?? result;
