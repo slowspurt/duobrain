@@ -1,0 +1,57 @@
+name: Publish to npm
+
+# Runs when a reviewed draft release is published, so npm never gets a version
+# before its GitHub release. Authenticates with npm Trusted Publishing (OIDC):
+# no npm token is stored in the repository.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published release tag to publish again (for example v0.1.6)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-publish-${{ inputs.tag || github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
+    steps:
+      - name: Validate tag
+        run: '[[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]'
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: Use npm 11.5.1 or later (required for Trusted Publishing)
+        run: |
+          node -e 'const [a, b, c] = process.argv[1].split(".").map(Number); process.exit(a > 11 || (a === 11 && (b > 5 || (b === 5 && c >= 1))) ? 0 : 1)' "$(npm --version)" \
+            || npm install -g npm@^11.5.1
+          npm --version
+      - run: npm run release:check
+      - name: Skip a version that is already on npm
+        id: published
+        run: |
+          version="${RELEASE_TAG#v}"
+          if npm view "duobrain@$version" version >/dev/null 2>&1; then
+            echo "duobrain@$version is already on npm; nothing to publish."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.published.outputs.skip != 'true'
+        run: npm publish --provenance --access public

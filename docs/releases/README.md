@@ -8,7 +8,9 @@ Releases are distributed through GitHub and npm. The Git tag, the GitHub release
 4. After the release change reaches `main`, create an annotated `v<version>` tag at that exact commit and push the tag.
 5. The Draft release workflow rechecks the tag/version, runs tests, and creates a **draft** with ZIP, tar.gz, and SHA256SUMS.
 6. Inspect the assets and release notes before publishing the draft.
-7. From a clean checkout of the tag, run `npm pack --dry-run` to confirm the package holds only `bin`, `src`, `guides`, `skills`, `package.json`, `LICENSE` and `README.md`, then `npm publish`.
+7. Publishing the draft starts the Publish to npm workflow (`publish.yml`). It checks out the tag, reruns `release:check` and publishes with npm Trusted Publishing and provenance; no npm token is stored. A version already on npm is skipped, and the workflow can be rerun through `workflow_dispatch` with the tag. Confirm the new version on npmjs.com.
+
+The npm package holds only `bin`, `src`, `guides`, `skills`, `package.json`, `LICENSE` and `README.md`; `release:check` enforces it, and `npm pack --dry-run` shows it locally. Publishing by hand needs two-factor authentication: the package allows no publish tokens.
 
 The workflow can be rerun through `workflow_dispatch` with an existing tag. It updates a draft but refuses
 to overwrite a published release. Release source archives contain tracked files only.
