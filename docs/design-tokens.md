@@ -1,9 +1,10 @@
 # Design tokens
 
 The dashboard's colors, type, spacing, radii and shadows are published as `--duo-*` CSS custom
-properties in [`src/dashboard/public/tokens.css`](../src/dashboard/public/tokens.css). Tools you build
-next to duobrain — a report page, an internal dashboard — can load that file and look like duobrain
-without copying values, and every release says whether the tokens changed.
+properties in [`src/dashboard/public/tokens.css`](../src/dashboard/public/tokens.css). When the two of you
+build something next to duobrain — a manual for a specific task, a dashboard of what you delivered — load
+that file and reuse duobrain's UI instead of designing tokens of your own; every release says whether the
+tokens changed.
 
 `tokens.html` shows every token with its value and the dashboard elements that use it, then each element
 drawn with the real dashboard styles and the tokens it reads. Open it from a running dashboard at

@@ -119,7 +119,7 @@ git push
 
 ## Use duobrain's look in your own pages
 
-The dashboard's colors, type, spacing and radii are published as `--duo-*` design tokens. Load `tokens.css` in a report or internal page and it matches duobrain without copying values:
+When the two of you build something next to duobrain — a manual for a specific task, a dashboard of what you delivered — reuse its UI instead of designing tokens of your own. The dashboard's colors, type, spacing and radii are published as `--duo-*` design tokens; load `tokens.css` and your page matches duobrain without copying values:
 
 ```html
 <link rel="stylesheet" href=".duobrain/src/dashboard/public/tokens.css">
