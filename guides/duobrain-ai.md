@@ -17,8 +17,8 @@ Run duobrain from the product repository root: `node .duobrain/bin/duobrain.js <
 
 - **Step 1:** `sync`, then `status --brief` (or `overlap --scope <paths> --brief`). If that answers the question, answer now.
   If the brief has `duobrainUpdate`, tell the user first: the partner moved duobrain to that version, so pull the project (vendored) or run `update` (own checkout). Do not run it for them.
-- **Step 2:** at most one targeted lookup, such as one wiki note, one ticket or one commit diff.
-- **Stop:** if still uncertain, mark it `unknown` and create or reuse a ticket, or ask the user. Do not run a third or fourth speculative check or invent a plausible reason.
+- **Step 2:** one `find` (see [finding records](reference/wiki.md#finding-records)), then open at most two of its cards with `wiki-get` or `ticket-get`. If you can run a sub-agent, let it do this step and return only the verdict. For something outside the record, one targeted lookup such as one commit diff.
+- **Stop:** if still uncertain, or `find` says `match: none`, mark it `unknown` and create or reuse a ticket, or ask the user. Do not run a third or fourth speculative check or invent a plausible reason.
 
 This limit applies to answering questions. When the user asks you to investigate or to do the work, use what the task needs.
 
@@ -33,6 +33,17 @@ This limit applies to answering questions. When the user asks you to investigate
 ```
 
 Never call work "safe" from paths alone: `no_overlap` covers paths only, and semantic impact stays unknown.
+
+**Record lookups** ("Why did my partner change the prompt?", "Did we decide on the delimiter?"): four lines.
+
+```
+[찾음] title — status, author, date (wiki/<id>.md or ticket id)
+[근거] "one quoted line from the record" · matched on <fields>
+[판단] 확인됨 / 추론 / 미확인 · <n> candidates, <k> kept
+[다음] open the full text · the related ticket · or an information ticket
+```
+
+Quote only records you opened or cards `find` returned. With `match: none`, say the record does not contain it and propose the ticket. Label a `proposed`, `personal` or superseded record as such; never present it as a joint decision.
 
 **Briefings** ("Where did my partner leave off? What can I pick up?"): at most five lines.
 
@@ -55,9 +66,10 @@ No preamble, filler or unrequested alternatives.
 | Start / change scope / stop | `start --title <t> --scope <paths> [--goal] [--branch] [--base-commit] --actor ai` · `scope-update --session <id> --file <json>` · `pause` / `resume --session <id>` |
 | Hand off | `end --session <id> --summary <t> [--blockers <a,b>] [--next <t>] --actor ai` |
 | Request | `ticket-create --kind information\|feedback --title <t> --body <t> --actor ai` |
-| Answer | `ticket-ack` · `note-add --file <md>` · `ticket-respond --ticket <id> --body <t> --evidence wiki/<id>.md` · `ticket-needs-information` |
+| Find and open | `find --query <t> [--intent <t>] [--expand <a,b>] [--entities <a,b>]` · `wiki-get --path wiki/<id>.md` · `ticket-get --ticket <id>` |
+| Answer | `ticket-ack` · `note-add --file <md>` (with `abstract` and `keywords`) · `ticket-respond --ticket <id> --body <t> --evidence wiki/<id>.md` · `ticket-needs-information` |
 | Requester | `ticket-clarify` · `ticket-resolve` · `ticket-reopen` · `ticket-close --reason cancelled\|duplicate` |
-| Wiki | `wiki-search --query <t>` · `wiki-trace --roots <paths>` · `method-compare --file <json>` · `wiki-refine --file <json>` |
+| Wiki | `wiki-list` · `wiki-trace --roots <paths>` · `method-compare --file <json>` · `wiki-refine --file <json>` |
 | Plan | `plan-set --file <json>` |
 | Commit | follow the [duobrain-commit skill](../skills/duobrain-commit/SKILL.md) |
 | Agent files / tool | `agents-sync` · `update [--check]` · `install` (first person, once) |
@@ -66,4 +78,4 @@ Read a reference only when the task needs it:
 
 - [Sessions and handoffs](reference/sessions.md): start, overlap, worktrees, plans, handoff cards
 - [Tickets](reference/tickets.md): information vs. feedback, lifecycle, completion evidence
-- [Wiki](reference/wiki.md): search, method comparison, manual refinement
+- [Wiki](reference/wiki.md): finding records, writing findable notes, method comparison, manual refinement

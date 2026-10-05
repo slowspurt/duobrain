@@ -2,10 +2,24 @@
 
 Reference for [the duobrain AI guide](../duobrain-ai.md). Note format and statuses are described in [knowledge records](../../docs/wiki/knowledge-records.md).
 
-## Search and lineage
+## Finding records
 
-- `wiki-list` lists all notes. `wiki-search --query <text> [--filters <json>]` finds notes. `wiki-trace --roots wiki/<a>.md,wiki/<b>.md` shows sources and lineage.
+`find` searches wiki notes, tickets and session handoffs at once. It recalls widely, judges the candidates, and returns at most a few cards without bodies.
+
+- Give it more than the question. `--query` is the user's own words and weighs most. Add `--intent` (one line on what you are looking for), `--expand` (synonyms and the other language's terms), `--entities` (file paths, `ticket:<id>`, `wiki/<id>.md`) and, when useful, `--exclude`, `--kinds` or `--limit`. `--file <json>` takes the same fields.
+- Read `match`: `strong` (an entity matched, or the note's title, keywords or abstract cover the query), `weak` (only the body or the expansions matched, so check before relying on it) or `none` (the record does not have it).
+- Open at most two cards: `wiki-get --path wiki/<id>.md` or `ticket-get --ticket <id>`. Each card's `open` field has the command. `recall.candidates` and `more` say how much was left out.
+- Cards carry `links`: `evidenceFor` (tickets that cite the note), `evidence` (notes a ticket cites), `supersededBy` and `members` (sources folded into a summary). A superseded note is ranked low; prefer what replaced it.
+- `wiki-list` lists every note as a card; `--full` returns full text. `wiki-trace --roots wiki/<a>.md,wiki/<b>.md` shows sources and lineage. `wiki-search` remains for exact filters.
 - Summaries never replace their sources. Cite the source note when the claim matters.
+
+## Writing findable notes
+
+Every new note gets an `abstract` and `keywords` in its metadata; `note-add` names them in `searchMetadata.missing` when they are absent.
+
+- `abstract`: one or two sentences, conclusion first, at most 300 characters.
+- `keywords`: at most 12, each at most 60 characters. Include the terms both people would use in Korean and English, entities such as file paths and ticket ids, and one or two questions this note answers, written the way someone would ask them.
+- Cite related notes and tickets in `sources`, so `find` and `wiki-trace` can follow the links.
 
 ## Method comparison
 

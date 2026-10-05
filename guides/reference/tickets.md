@@ -7,7 +7,7 @@ Reference for [the duobrain AI guide](../duobrain-ai.md). The lifecycle is defin
 - **`information`**: a fact is missing from the work record, such as a base commit, a passing check, a decision's reason or a method. The answer must cite at least one existing shared wiki note.
 - **`feedback`**: a person's judgment is needed, such as a preference, approval or priority. Only the assignee's `ticket-respond --actor human` answers it. You may prepare options, impact, existing constraints and a recommendation, but a draft is not an answer.
 
-Before creating a ticket, check `tickets` in `status --brief`. If a matching nonterminal ticket exists, add context with `ticket-clarify` instead of creating a duplicate. Ask the user first only when the target work is ambiguous or a new human decision is needed.
+Before creating a ticket, check `tickets` in `status --brief`, and run `find` when the answer may already be recorded. If a matching nonterminal ticket exists, add context with `ticket-clarify` instead of creating a duplicate. Ask the user first only when the target work is ambiguous or a new human decision is needed.
 
 ## Flow
 
@@ -26,7 +26,7 @@ Keep the ticket id from `event.entityId` in the `ticket-create` output. Every wr
 - The requester adds context: `ticket-clarify`. This keeps the status and the completion condition unchanged, and it is not an acknowledgment, answer or resolution.
 - `answered` is not `resolved`. Only the requester resolves, after checking that the response meets the request.
 - A wrong answer or new evidence is needed: only the requester can `ticket-reopen`. `ticket-close --reason cancelled|duplicate` is not a resolution.
-- `note-add` stores a parser-validated Markdown file as an immutable `wiki/<uuid>.md`. Legacy notes need `--id <uuid>`.
+- `note-add` stores a parser-validated Markdown file as an immutable `wiki/<uuid>.md`. Give it an `abstract` and `keywords` ([writing findable notes](wiki.md#writing-findable-notes)). Legacy notes need `--id <uuid>`.
 - There is no ticket-relation feature. Do not claim tickets were linked.
 
 Everyday questions and the capability behind each one are mapped in [the conversation-to-capability map](../../docs/scenarios/conversation-to-capability-map.md).

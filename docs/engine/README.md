@@ -311,11 +311,22 @@ product checkout or private directories.
 The corresponding CLI commands are:
 
 ```text
-duobrain wiki-list
+duobrain find --query "왜 SRT가 실패하지" --expand "multiline,srt" --entities ticket:<uuid>
+duobrain wiki-get --path wiki/<uuid>.md
+duobrain ticket-get --ticket <uuid>
+duobrain wiki-list [--full]
 duobrain wiki-search --query "multiline export" [--filters filters.json]
 duobrain wiki-trace --roots wiki/<uuid>.md,wiki/<uuid>.md
 duobrain method-compare --file comparison.json [--request-missing]
 ```
+
+`find` (`findSharedRecords`) searches wiki notes, tickets and session handoffs with
+one structured query and returns a few cards without bodies: lexical BM25F recall
+with Hangul bigrams, then a deterministic pass for supersession, ticket evidence,
+summary folding and a score cutoff, and a `match` of `strong`, `weak` or `none`.
+`wiki-list` returns cards (`listSharedWikiCards`); `--full` returns every note.
+`status --brief` adds a capped `wiki` section with the evidence of my open tickets
+and notes others recorded after my last handoff.
 
 `filters.json` is passed to the pure search contract and may select `participant`,
 `status`, `recordType`, or `includeSuperseded`. A comparison manifest has explicit
