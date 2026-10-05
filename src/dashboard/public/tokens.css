@@ -122,7 +122,9 @@
   --duo-chart-grid: var(--duo-color-line); /* Hairline gridlines */
   --duo-chart-axis: var(--duo-color-line-strong); /* Baseline and axes */
   --duo-chart-label: var(--duo-color-ink-soft); /* Ticks, legends and values; never a series color */
+  --duo-chart-empty: var(--duo-color-surface-muted); /* Cells with no data in heatmaps */
   --duo-chart-line-width: 2px; /* Lines */
+  --duo-chart-line-width-detail: 1px; /* Raw daily values under an average in long ranges */
   --duo-chart-marker-size: 8px; /* Points */
   --duo-chart-bar-radius: 4px; /* The data end of bars */
   --duo-chart-gap: 2px; /* Surface gap between adjacent fills */

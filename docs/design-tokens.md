@@ -61,6 +61,10 @@ checked for color-blind separation and contrast against the white card surface, 
   clear 3:1 on white. Scatter-like charts, where any two colors can touch, stay readable up to three
   series.
 - **Lines** need no legend: label each line at its end, in text color.
+- **Long ranges** (months of daily values): draw the raw values as thin gray lines
+  (`--duo-chart-other` at `--duo-chart-line-width-detail`), put each person's moving average on top in
+  their series color, drop the points and label the axis by month. For a year, a calendar heatmap with one
+  cell per day uses the sequential steps, with `--duo-chart-empty` for days with nothing recorded.
 - **Sequential** (`-sequential-1` to `-5`, lime to forest green) shows how much; for ordered steps such as
   stages or tiers start at step 2. **Diverging** (`-diverging-negative` terracotta, `-neutral`,
   `-positive` steel blue) shows above or below a baseline.
@@ -72,7 +76,8 @@ checked for color-blind separation and contrast against the white card surface, 
   status color as a series.
 - One y-axis per chart: two measures on different scales become two charts.
 
-The tokens page draws a line chart, a highlighted bar chart and every chart color.
+The tokens page draws a short line chart, highlighted bars, a 90-day chart with averages, a year heatmap
+and every chart color.
 
 ## What stays stable
 

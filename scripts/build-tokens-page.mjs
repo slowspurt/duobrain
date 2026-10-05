@@ -87,6 +87,57 @@ function highlightBars() {
   return `<figure class="chart chart-bars"><figcaption>Recorded hours together · this week in lime</figcaption><svg viewBox="0 0 330 ${chartFrame.height}" role="img" aria-label="Weekly recorded hours, this week highlighted">${svg}${bars}</svg></figure>`;
 }
 
+/** Deterministic pseudo-random numbers so the generated page never changes between builds. */
+function seeded(seed) {
+  let state = seed;
+  return () => {
+    state = (state * 1103515245 + 12345) % 2147483648;
+    return state / 2147483648;
+  };
+}
+
+/** A long range: 90 days of raw values as thin gray lines, each person's 7-day average on top. */
+function longRangeChart() {
+  const days = 90; const random = seeded(7);
+  const raw = [0, 1].map((person) => Array.from({ length: days }, (_, day) => {
+    const trend = person === 0 ? 3 + day / 30 : 5 - day / 60;
+    const weekend = day % 7 >= 5 ? -1.6 : 0;
+    return Math.max(0, Math.round((trend + weekend + (random() - 0.5) * 3) * 10) / 10);
+  }));
+  const average = raw.map((values) => values.map((_, day) => {
+    const window = values.slice(Math.max(0, day - 6), day + 1);
+    return window.reduce((sum, value) => sum + value, 0) / window.length;
+  }));
+  const frame = { width: 660, left: 34, right: 630, top: 10, height: 190, bottom: 26 };
+  const plot = frame.height - frame.top - frame.bottom;
+  const y = (value) => frame.top + plot - (Math.min(value, 9) / 9) * plot;
+  const x = (day) => frame.left + 4 + (day / (days - 1)) * (frame.right - frame.left - 4);
+  const path = (values) => values.map((value, day) => `${x(day).toFixed(1)},${y(value).toFixed(1)}`).join(' ');
+  const grid = [0, 3, 6, 9].map((value) => `<line class="grid" x1="${frame.left}" x2="${frame.right}" y1="${y(value)}" y2="${y(value)}"/><text x="${frame.left - 6}" y="${y(value) + 4}" text-anchor="end">${value}h</text>`).join('');
+  const months = [['Jul', 0], ['Aug', 31], ['Sep', 62]].map(([name, day]) => `<line class="tick" x1="${x(day)}" x2="${x(day)}" y1="${frame.top + plot}" y2="${frame.top + plot + 4}"/><text x="${x(day)}" y="${frame.height - 6}">${name}</text>`).join('');
+  const lines = raw.map((values) => `<polyline class="raw" points="${path(values)}"/>`).join('')
+    + average.map((values, person) => `<polyline class="avg s${person + 1}" points="${path(values)}"><title>${person ? 'B' : 'A'} · 7-day average</title></polyline>`
+      + `<text class="end-label" x="${x(days - 1) + 6}" y="${y(values[days - 1]) + 4}">${person ? 'B' : 'A'}</text>`).join('');
+  return `<figure class="chart chart-long"><figcaption>Recorded hours per day · last 90 days, 7-day average</figcaption><svg viewBox="0 0 ${frame.width} ${frame.height}" role="img" aria-label="Daily recorded hours over 90 days with 7-day averages for A and B">${grid}<line class="axis" x1="${frame.left}" x2="${frame.right}" y1="${frame.top + plot}" y2="${frame.top + plot}"/>${months}${lines}</svg></figure>`;
+}
+
+/** A year at a glance: one cell per day, darker for more recorded time, gray for none. */
+function calendarHeatmap() {
+  const random = seeded(11); const size = 5; const gap = 1; const left = 22; const top = 14;
+  const cells = [];
+  for (let week = 0; week < 53; week += 1) {
+    for (let day = 0; day < 7; day += 1) {
+      const busy = random();
+      const level = day >= 5 ? (busy > 0.8 ? 1 : 0) : busy < 0.15 ? 0 : Math.min(5, 1 + Math.floor(busy * 5 * (0.6 + week / 90)));
+      cells.push(`<rect class="cell level-${level}" x="${left + week * (size + gap)}" y="${top + day * (size + gap)}" width="${size}" height="${size}"><title>Week ${week + 1}, day ${day + 1}: ${level ? `level ${level}` : 'nothing recorded'}</title></rect>`);
+    }
+  }
+  const months = ['Oct', 'Jan', 'Apr', 'Jul'].map((name, index) => `<text x="${left + index * 13 * (size + gap)}" y="${top - 5}">${name}</text>`).join('');
+  const days = [['Mon', 0], ['Wed', 2], ['Fri', 4]].map(([name, day]) => `<text x="${left - 4}" y="${top + day * (size + gap) + 5}" text-anchor="end">${name}</text>`).join('');
+  const legend = [0, 1, 2, 3, 4, 5].map((level, index) => `<rect class="cell level-${level}" x="${250 + index * (size + 3)}" y="62" width="${size}" height="${size}"/>`).join('');
+  return `<figure class="chart chart-calendar"><figcaption>A year of recorded time · one cell per day</figcaption><svg viewBox="0 0 ${left + 53 * (size + gap)} 72" role="img" aria-label="A year of recorded time, one cell per day">${months}${days}${cells.join('')}<text x="246" y="67" text-anchor="end">Less</text>${legend}<text x="${250 + 6 * (size + 3) + 2}" y="67">More</text></svg></figure>`;
+}
+
 /** The chart colors in order. */
 function chartPalette() {
   const strip = (cls, items) => `<p class="strip">${items.map(([name, label]) => `<span class="${cls}-${name}" title="--duo-chart-${name === 'other' ? 'other' : `${cls}-${name}`}">${label}</span>`).join('')}</p>`;
@@ -133,6 +184,10 @@ const elements = [
     html: lineChart() },
   { id: 'highlight-bars', title: 'Bars with a highlight', selectors: ['.chart-bars', '.chart'],
     html: highlightBars() },
+  { id: 'long-range', title: 'Long range with averages', selectors: ['.chart-long', '.chart'], wide: true,
+    html: longRangeChart() },
+  { id: 'calendar', title: 'A year at a glance', selectors: ['.chart-calendar', '.chart'], wide: true,
+    html: calendarHeatmap() },
   { id: 'chart-colors', title: 'Chart colors', selectors: ['.chart-palette'],
     html: chartPalette() },
   { id: 'blocker', title: 'Blocker row', selectors: ['.blocker-row'],
@@ -194,7 +249,7 @@ export async function buildTokensPage() {
         </table>
       </section>`).join('');
   const elementCards = elements.map((element) => `
-      <article class="element" id="${element.id}">
+      <article class="element${element.wide ? ' wide' : ''}" id="${element.id}">
         <div class="element-stage${element.dark ? ' dark' : ''}">${element.dark ? `<div class="sidebar tokens-sidebar">${element.html}</div>` : element.html}</div>
         <div class="element-copy">
           <h3>${escape(element.title)}</h3>
