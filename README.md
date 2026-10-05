@@ -46,7 +46,7 @@ The first person installs duobrain **into the product repository** with one `npx
 
 ```sh
 cd /path/to/product
-npx duobrain@0.1.8 install
+npx duobrain@0.1.9 install
 node .duobrain/bin/duobrain.js init --participants member-a,member-b --participant member-a
 git add .duobrain AGENTS.md CLAUDE.md .gitattributes
 git commit -m "chore: add duobrain"
@@ -80,7 +80,7 @@ Your existing AI follows the block when you use it. Setup does not start a backg
 <details>
 <summary><strong>Prefer Git, or one global install?</strong></summary>
 
-Without npm, download the release with Git and run its `install` instead: `git clone --depth 1 --branch v0.1.8 https://github.com/slowspurt/duobrain.git /tmp/duobrain`, then `node /tmp/duobrain/bin/duobrain.js install` in the product repository.
+Without npm, download the release with Git and run its `install` instead: `git clone --depth 1 --branch v0.1.9 https://github.com/slowspurt/duobrain.git /tmp/duobrain`, then `node /tmp/duobrain/bin/duobrain.js install` in the product repository.
 
 Clone duobrain outside the product, run `npm link` there, and use `duobrain init --participants … --participant …` in each product clone. Both people then install duobrain themselves; the `AGENTS.md` block tells each AI to find the guide with `duobrain guide`.
 
@@ -119,7 +119,7 @@ git push
 
 ## Use duobrain's look in your own pages
 
-When the two of you build something next to duobrain — a manual for a specific task, a data-tracking dashboard — reuse its UI instead of designing tokens of your own. The dashboard's colors, type, spacing and radii are published as `--duo-*` design tokens; load `tokens.css` and your page matches duobrain without copying values:
+When the two of you build something next to duobrain — a manual for a specific task, a data-analysis or data-tracking dashboard — reuse its UI instead of designing tokens of your own. The dashboard's colors, type, spacing and radii are published as `--duo-*` design tokens; load `tokens.css` and your page matches duobrain without copying values:
 
 ```html
 <link rel="stylesheet" href=".duobrain/src/dashboard/public/tokens.css">
@@ -130,7 +130,7 @@ When the two of you build something next to duobrain — a manual for a specific
 .report { background: var(--duo-color-surface); color: var(--duo-color-ink); border-radius: var(--duo-radius-lg); padding: var(--duo-space-6); }
 ```
 
-Open `/tokens` on a running dashboard to see every token with the elements that use it. Names stay stable within 0.x.y, and every release note says whether the tokens changed. See [Design tokens](docs/design-tokens.md).
+Chart tokens (`--duo-chart-*`) cover analysis and tracking charts in the same colors: the two people as the first two series, a charcoal series with a lime highlight, a lime-to-forest scale, and styles for long ranges such as 90-day averages and a year heatmap. Open `/tokens` on a running dashboard to see every token with the elements that use it. Names stay stable within 0.x.y, and every release note says whether the tokens changed. See [Design tokens](docs/design-tokens.md).
 
 ## Everyday commands
 

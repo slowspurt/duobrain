@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.9
+
+Chart design tokens for analysis and tracking pages, in duobrain's own colors.
+
+- `--duo-chart-*` tokens: five series starting with the two people's colors plus a gray Other, a charcoal single series with a lime highlight, a lime-to-forest sequential scale, a terracotta/steel-blue diverging pair, grid/axis/label chrome and mark sizes. Checked for color-blind separation and 3:1 contrast on white.
+- The tokens page draws a short line chart, highlighted bars, a 90-day chart with averages and a year heatmap.
+- Between releases, `release:check` only requires the `Design tokens:` line; the comparison with the previous tag runs when releasing.
+
 ## 0.1.8
 
 The dashboard's look is published as design tokens.

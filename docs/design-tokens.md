@@ -2,7 +2,7 @@
 
 The dashboard's colors, type, spacing, radii and shadows are published as `--duo-*` CSS custom
 properties in [`src/dashboard/public/tokens.css`](../src/dashboard/public/tokens.css). When the two of you
-build something next to duobrain — a manual for a specific task, a data-tracking dashboard — load
+build something next to duobrain — a manual for a specific task, a data-analysis or data-tracking dashboard — load
 that file and reuse duobrain's UI instead of designing tokens of your own; every release says whether the
 tokens changed.
 
@@ -50,7 +50,7 @@ dot, and `-line` is its border.
 
 ## Charts
 
-For a data-tracking page, the `--duo-chart-*` tokens give chart colors drawn from duobrain's own palette,
+For a data-analysis or data-tracking page, the `--duo-chart-*` tokens give chart colors drawn from duobrain's own palette,
 checked for color-blind separation and contrast against the white card surface, plus the chart chrome.
 
 - **One series:** draw it in `--duo-chart-single` (charcoal) and light only the mark that matters, such
