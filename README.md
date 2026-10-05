@@ -46,7 +46,7 @@ The first person installs duobrain **into the product repository** with one `npx
 
 ```sh
 cd /path/to/product
-npx duobrain@0.1.7 install
+npx duobrain@0.1.8 install
 node .duobrain/bin/duobrain.js init --participants member-a,member-b --participant member-a
 git add .duobrain AGENTS.md CLAUDE.md .gitattributes
 git commit -m "chore: add duobrain"
@@ -80,7 +80,7 @@ Your existing AI follows the block when you use it. Setup does not start a backg
 <details>
 <summary><strong>Prefer Git, or one global install?</strong></summary>
 
-Without npm, download the release with Git and run its `install` instead: `git clone --depth 1 --branch v0.1.7 https://github.com/slowspurt/duobrain.git /tmp/duobrain`, then `node /tmp/duobrain/bin/duobrain.js install` in the product repository.
+Without npm, download the release with Git and run its `install` instead: `git clone --depth 1 --branch v0.1.8 https://github.com/slowspurt/duobrain.git /tmp/duobrain`, then `node /tmp/duobrain/bin/duobrain.js install` in the product repository.
 
 Clone duobrain outside the product, run `npm link` there, and use `duobrain init --participants … --participant …` in each product clone. Both people then install duobrain themselves; the `AGENTS.md` block tells each AI to find the guide with `duobrain guide`.
 
@@ -116,6 +116,21 @@ git push
 ```
 
 `update` downloads the newest `vX.Y.Z` release, replaces `.duobrain/`, commits it as `chore: update duobrain to vX.Y.Z` (nothing else you have staged goes into that commit), and records the update in the work record. Push, and your partner's dashboard and AI say to pull until both run the same version. `AGENTS.md` only points at `.duobrain/AGENTS.md`, so it stays the same across releases. You can also update from the dashboard's `Check for updates` button. Pin a version with `--ref v0.1.1`. It refuses to overwrite committed files in `.duobrain/` that were edited locally. With a global install, `update` fast-forwards the duobrain checkout instead.
+
+## Use duobrain's look in your own pages
+
+The dashboard's colors, type, spacing and radii are published as `--duo-*` design tokens. Load `tokens.css` in a report or internal page and it matches duobrain without copying values:
+
+```html
+<link rel="stylesheet" href=".duobrain/src/dashboard/public/tokens.css">
+<!-- npm: node_modules/duobrain/src/dashboard/public/tokens.css · running dashboard: http://127.0.0.1:4173/tokens.css -->
+```
+
+```css
+.report { background: var(--duo-color-surface); color: var(--duo-color-ink); border-radius: var(--duo-radius-lg); padding: var(--duo-space-6); }
+```
+
+Open `/tokens` on a running dashboard to see every token with the elements that use it. Names stay stable within 0.x.y, and every release note says whether the tokens changed. See [Design tokens](docs/design-tokens.md).
 
 ## Everyday commands
 

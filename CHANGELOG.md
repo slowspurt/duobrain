@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.8
+
+The dashboard's look is published as design tokens.
+
+- `tokens.css` holds 73 `--duo-*` tokens (colors by role, type, a 4px spacing scale, radii, shadows, layout); other pages can load it from `.duobrain/`, `node_modules/duobrain/` or a running dashboard's `/tokens.css`.
+- `tokens.html` (or `/tokens`) shows each token with the elements that use it, and each element with the tokens it reads.
+- Token names stay stable within 0.x.y; every release note now carries a `Design tokens:` line that `release:check` verifies.
+- The dashboard is built only from the tokens; a few gaps are slightly wider and near-identical colors were unified. Old variable names remain as aliases until 0.2.0.
+
 ## 0.1.7
 
 Records are written to be found, and an agent finds them in one step.
