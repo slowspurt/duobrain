@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.7
+
+Records are written to be found, and an agent finds them in one step.
+
+- `find` looks through wiki notes, tickets and session handoffs along two channels at once. Search matches words (BM25F, Korean as two-character pieces, light English stemming), judges the candidates by rule and returns at most a few cards with the reason each matched and a strength (`strong`, `weak`, `none`). Browse lists the other records as one short line each, so the agent can pick by meaning what the words missed. No bodies are returned.
+- `wiki-get` and `ticket-get` open one note or one ticket in full. `wiki-list` now lists cards without bodies; `--full` keeps the previous output.
+- Wiki notes may carry an `abstract` and `keywords`. Notes without them stay valid, and `note-add` names what is missing. Older engines ignore both fields.
+- `status --brief` gains a `wiki` section: the evidence of my open tickets and notes others recorded after my last handoff, capped.
+- The AI guide looks records up with `find`, answers lookups in four lines with a quoted line, and treats a record as missing only when neither channel has it.
+
 ## 0.1.6
 
 First version published on npm.
