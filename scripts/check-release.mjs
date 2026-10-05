@@ -37,7 +37,8 @@ if (major > 0 || minor > 1 || patch >= 8) {
     .filter(({ parts }) => parts[0] < major || (parts[0] === major && (parts[1] < minor || (parts[1] === minor && parts[2] < patch))))
     .sort((left, right) => left.parts[0] - right.parts[0] || left.parts[1] - right.parts[1] || left.parts[2] - right.parts[2])
     .at(-1)?.name;
-  if (previous) {
+  // Only a release (RELEASE_TAG) must match; between releases tokens may change before the version bump.
+  if (previous && tag) {
     const previousTokens = tokensAt(previous, cwd);
     const changes = tokenChanges(previousTokens, await read('src/dashboard/public/tokens.css'));
     assert.equal(line, designTokensLine(changes, { introduced: previousTokens === null }), `The design token line must match the change since ${previous}; run \`node scripts/token-changes.mjs ${previous}\`.`);

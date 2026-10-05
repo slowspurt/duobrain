@@ -101,6 +101,31 @@
   --duo-shadow-overlay: 0 30px 80px -30px #000000cc; /* Dialogs */
   --duo-ring-selected: 0 0 0 2px var(--duo-color-ink); /* The selected card */
 
+  /* @group Chart */
+  --duo-chart-series-1: var(--duo-color-person-1); /* First person, or the first series */
+  --duo-chart-series-2: var(--duo-color-person-2); /* Second person, or the second series */
+  --duo-chart-series-3: #eb6834; /* Orange */
+  --duo-chart-series-4: #2a78d6; /* Blue */
+  --duo-chart-series-5: #e87ba4; /* Pink; below 3:1 on white, so label it */
+  --duo-chart-series-6: #eda100; /* Yellow; below 3:1 on white, so label it */
+  --duo-chart-series-7: #4a3aa7; /* Indigo */
+  --duo-chart-series-8: #e34948; /* Red */
+  --duo-chart-sequential-1: #cde2fb; /* Least; for ordered steps (stages, tiers) start at 2 */
+  --duo-chart-sequential-2: #86b6ef;
+  --duo-chart-sequential-3: #3987e5;
+  --duo-chart-sequential-4: #1c5cab;
+  --duo-chart-sequential-5: #0d366b; /* Most */
+  --duo-chart-diverging-negative: var(--duo-chart-series-8); /* Below the baseline */
+  --duo-chart-diverging-neutral: var(--duo-color-surface-muted); /* At the baseline */
+  --duo-chart-diverging-positive: var(--duo-chart-series-4); /* Above the baseline */
+  --duo-chart-grid: var(--duo-color-line); /* Hairline gridlines */
+  --duo-chart-axis: var(--duo-color-line-strong); /* Baseline and axes */
+  --duo-chart-label: var(--duo-color-ink-soft); /* Ticks, legends and values; never a series color */
+  --duo-chart-line-width: 2px; /* Lines */
+  --duo-chart-marker-size: 8px; /* Points */
+  --duo-chart-bar-radius: 4px; /* The data end of bars */
+  --duo-chart-gap: 2px; /* Surface gap between adjacent fills */
+
   /* @group Layout */
   --duo-sidebar-width: 240px;
   --duo-sidebar-width-collapsed: 68px;

@@ -23,13 +23,25 @@ export function tokenChanges(previousCss, currentCss) {
   };
 }
 
+/** Names with consecutive numeric suffixes shortened to a range: --duo-x-1, --duo-x-2, --duo-x-3 -> --duo-x-1–3. */
+export function compactNames(names) {
+  const out = [];
+  for (const name of names) {
+    const match = name.match(/^(.*-)(\d+)$/);
+    const last = out.at(-1);
+    if (match && last?.prefix === match[1] && Number(match[2]) === last.to + 1) last.to += 1;
+    else out.push(match ? { prefix: match[1], from: Number(match[2]), to: Number(match[2]) } : { name });
+  }
+  return out.map((item) => item.name ?? (item.from === item.to ? `${item.prefix}${item.from}` : `${item.prefix}${item.from}–${item.to}`));
+}
+
 /** The line every release note carries, e.g. "Design tokens: unchanged". */
 export function designTokensLine({ added, removed, changed }, { introduced = false } = {}) {
   if (introduced) return `Design tokens: introduced (${added.length} tokens)`;
   const parts = [
-    added.length && `added ${added.join(', ')}`,
-    changed.length && `changed ${changed.join(', ')}`,
-    removed.length && `removed ${removed.join(', ')}`,
+    added.length && `added ${compactNames(added).join(', ')}`,
+    changed.length && `changed ${compactNames(changed).join(', ')}`,
+    removed.length && `removed ${compactNames(removed).join(', ')}`,
   ].filter(Boolean);
   return `Design tokens: ${parts.length ? parts.join('; ') : 'unchanged'}`;
 }

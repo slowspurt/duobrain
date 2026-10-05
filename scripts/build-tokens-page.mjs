@@ -45,6 +45,37 @@ const icons = {
   refresh: '<svg class="refresh-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M16 10a6 6 0 1 1-1.8-4.3M16 3.5V6h-2.5"/></svg>',
 };
 
+/** A small chart drawn only from the --duo-chart-* tokens (styled in tokens-page.css). */
+function chartSample() {
+  const weeks = ['W1', 'W2', 'W3', 'W4'];
+  const a = [3.5, 5, 2, 6];
+  const b = [4, 3, 6.5, 5];
+  const height = 140; const top = 10; const left = 28; const step = 70; const bar = 22; const max = 8;
+  const y = (value) => top + height - (value / max) * height;
+  // Rounded data end, square at the baseline.
+  const barPath = (x, value) => {
+    const yTop = y(value); const r = 4; const base = top + height;
+    return `M${x},${base}V${yTop + r}Q${x},${yTop} ${x + r},${yTop}H${x + bar - r}Q${x + bar},${yTop} ${x + bar},${yTop + r}V${base}Z`;
+  };
+  const grid = [0, 2, 4, 6, 8].map((value) => `<line class="grid" x1="${left}" x2="${left + step * 4}" y1="${y(value)}" y2="${y(value)}"/><text x="${left - 8}" y="${y(value) + 4}" text-anchor="end">${value}h</text>`).join('');
+  const bars = weeks.map((week, index) => {
+    const x = left + 12 + index * step;
+    return `<path class="bar s1" d="${barPath(x, a[index])}"><title>A · ${week}: ${a[index]}h</title></path>`
+      + `<path class="bar s2" d="${barPath(x + bar + 2, b[index])}"><title>B · ${week}: ${b[index]}h</title></path>`
+      + `<text x="${x + bar + 1}" y="${top + height + 16}" text-anchor="middle">${week}</text>`;
+  }).join('');
+  const line = a.map((value, index) => `${left + 12 + index * step + bar},${y((value + b[index]) / 2)}`).join(' ');
+  const points = a.map((value, index) => `<circle class="point" cx="${left + 12 + index * step + bar}" cy="${y((value + b[index]) / 2)}"><title>Average · ${weeks[index]}: ${(value + b[index]) / 2}h</title></circle>`).join('');
+  const sequential = [1, 2, 3, 4, 5].map((n) => `<span class="seq seq-${n}" title="--duo-chart-sequential-${n}"></span>`).join('');
+  return `<div class="chart-sample">
+  <p class="chart-title">Recorded hours per week</p>
+  <p class="chart-legend"><span><i class="s1"></i>A</span><span><i class="s2"></i>B</span><span><i class="avg"></i>Average</span></p>
+  <svg viewBox="0 0 320 180" role="img" aria-label="Recorded hours per week for A and B">${grid}<line class="axis" x1="${left}" x2="${left + step * 4}" y1="${top + height}" y2="${top + height}"/>${bars}<polyline class="line" points="${line}"/>${points}</svg>
+  <div><p class="chart-title">Series order</p><p class="series-row">${[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `<span class="series series-${n}" title="--duo-chart-series-${n}">${n}</span>`).join('')}</p></div>
+  <div class="chart-strips"><div><p class="chart-title">Sequential</p><p class="seq-row">${sequential}</p></div><div><p class="chart-title">Diverging</p><p class="div-row"><span class="div div-neg" title="--duo-chart-diverging-negative"></span><span class="div div-neutral" title="--duo-chart-diverging-neutral"></span><span class="div div-pos" title="--duo-chart-diverging-positive"></span></p></div></div>
+</div>`;
+}
+
 /** Dashboard elements, built from the real classes in styles.css. */
 const elements = [
   { id: 'sidebar-tabs', title: 'Sidebar tabs', selectors: ['.sidebar', '.app-tab', '.nav-count', '.sidebar-label'], dark: true,
@@ -77,6 +108,8 @@ const elements = [
     html: '<label class="field"><span>Search</span><input type="search" placeholder="Title, body, goal, evidence"></label>' },
   { id: 'notices', title: 'Notices', selectors: ['.notice', '.version-notice', '.error-panel'],
     html: '<aside class="notice"><strong>Sample data</strong><span>This sample shows the product flow.</span></aside><aside class="version-notice"><strong>B updated duobrain to v0.1.8.</strong><span>Pull the project to use the same version.</span></aside><section class="error-panel"><div><strong>Could not load the record.</strong><span>Check that the dashboard server is running.</span></div><button type="button">Try again</button></section>' },
+  { id: 'chart-sample', title: 'Chart sample', selectors: ['.chart-sample'],
+    html: chartSample() },
   { id: 'blocker', title: 'Blocker row', selectors: ['.blocker-row'],
     html: '<div class="blocker-row"><small>B · Clean up the API response</small>Need a second opinion on optional fields</div>' },
 ];
@@ -86,11 +119,13 @@ const classPattern = (selector) => new RegExp(`${selector.replace(/[.*+?^${}()|[
 export async function buildTokensPage() {
   const groups = parseTokens(await read('tokens.css'));
   const rules = parseRules(await read('styles.css'));
+  // Elements may also be drawn by the page's own sample styles (the chart), so match against both.
+  const elementRules = [...rules, ...parseRules(await read('tokens-page.css'))];
   const usage = new Map();
   const elementTokens = new Map();
   for (const element of elements) {
     const tokens = new Set();
-    for (const rule of rules) {
+    for (const rule of elementRules) {
       if (element.selectors.some((selector) => classPattern(selector).test(rule.selector))) rule.tokens.forEach((token) => tokens.add(token));
     }
     elementTokens.set(element.id, [...tokens].sort());
@@ -100,6 +135,11 @@ export async function buildTokensPage() {
 
   const preview = (token, group) => {
     if (group.startsWith('Color')) return `<span class="swatch" data-paint="background" data-token="${token.name}"></span>`;
+    if (group === 'Chart') {
+      if (/-(width|size|gap)$/.test(token.name)) return `<span class="space-bar" data-paint="width" data-token="${token.name}"></span>`;
+      if (/radius/.test(token.name)) return `<span class="radius-box" data-paint="border-radius" data-token="${token.name}"></span>`;
+      return `<span class="swatch" data-paint="background" data-token="${token.name}"></span>`;
+    }
     if (group === 'Space') return `<span class="space-bar" data-paint="width" data-token="${token.name}"></span>`;
     if (group === 'Radius') return `<span class="radius-box" data-paint="border-radius" data-token="${token.name}"></span>`;
     if (group === 'Elevation') return `<span class="shadow-box" data-paint="box-shadow" data-token="${token.name}"></span>`;
