@@ -41,7 +41,7 @@ falls back from Inter and Pretendard to the system font.
 | Space | `--duo-space-<n>` = n × 4px, plus `--duo-space-half` (2px) | `--duo-space-3` (12px), `--duo-space-8` (32px) |
 | Radius | `--duo-radius-<size>` | `--duo-radius-md`, `--duo-radius-pill` |
 | Elevation | `--duo-shadow-*`, `--duo-ring-*` | `--duo-shadow-card`, `--duo-ring-selected` |
-| Chart | `--duo-chart-series-<1–8>`, `--duo-chart-sequential-<1–5>`, `--duo-chart-diverging-*`, `--duo-chart-grid` / `-axis` / `-label`, mark sizes | `--duo-chart-series-1`, `--duo-chart-line-width` |
+| Chart | `--duo-chart-series-<1–5>`, `-other`, `-single`, `-highlight`, `-sequential-<1–5>`, `-diverging-*`, `-grid` / `-axis` / `-label`, mark sizes | `--duo-chart-highlight`, `--duo-chart-line-width` |
 | Layout | `--duo-sidebar-*`, `--duo-content-max` | `--duo-content-max` |
 
 Roles describe what a color is for, not what it looks like: `--duo-color-accent` is the lime used for
@@ -50,16 +50,20 @@ dot, and `-line` is its border.
 
 ## Charts
 
-For a data-tracking page, the `--duo-chart-*` tokens give a palette that was checked for color-blind
-separation and contrast against the white card surface, plus the chart chrome.
+For a data-tracking page, the `--duo-chart-*` tokens give chart colors drawn from duobrain's own palette,
+checked for color-blind separation and contrast against the white card surface, plus the chart chrome.
 
-- **Series** (`--duo-chart-series-1` to `-8`) are assigned in that order and never cycled. Series 1 and 2
-  are the two people's colors, so a two-person chart needs nothing else. A ninth series becomes "Other" or
-  a second chart. Scatter-like charts, where any two colors can touch, stay readable up to three series.
-- Series 5 (pink) and 6 (yellow) are below 3:1 on white: label those marks directly or offer a table.
-- **Sequential** (`-sequential-1` to `-5`, one blue hue) shows how much; for ordered steps such as stages
-  or tiers start at step 2. **Diverging** (`-diverging-negative`, `-neutral`, `-positive`) shows above or
-  below a baseline.
+- **One series:** draw it in `--duo-chart-single` (charcoal) and light only the mark that matters, such
+  as this week or you, in `--duo-chart-highlight` (lime) with `--duo-chart-highlight-line` around it.
+- **Several series** (`--duo-chart-series-1` to `-5`) are assigned in that order and never cycled.
+  Series 1 and 2 are the two people's colors, so a two-person chart needs nothing else; then terracotta,
+  steel blue and olive. A sixth series and anything secondary use `--duo-chart-other` (gray). All five
+  clear 3:1 on white. Scatter-like charts, where any two colors can touch, stay readable up to three
+  series.
+- **Lines** need no legend: label each line at its end, in text color.
+- **Sequential** (`-sequential-1` to `-5`, lime to forest green) shows how much; for ordered steps such as
+  stages or tiers start at step 2. **Diverging** (`-diverging-negative` terracotta, `-neutral`,
+  `-positive` steel blue) shows above or below a baseline.
 - **Chrome:** `-grid` for hairlines, `-axis` for the baseline, `-label` for ticks, legends and values.
   Text never takes a series color; a colored mark beside it carries the identity.
 - **Marks:** 2px lines (`-line-width`), 8px points (`-marker-size`), 4px rounded data ends on bars
@@ -68,7 +72,7 @@ separation and contrast against the white card surface, plus the chart chrome.
   status color as a series.
 - One y-axis per chart: two measures on different scales become two charts.
 
-The chart sample on the tokens page draws all of these.
+The tokens page draws a line chart, a highlighted bar chart and every chart color.
 
 ## What stays stable
 

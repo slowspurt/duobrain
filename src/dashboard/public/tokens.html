@@ -15,7 +15,7 @@
     <a class="wordmark" href="./"><span>duo</span><b>brain</b></a>
     <div>
       <h1>Design tokens</h1>
-      <p>96 <code>--duo-*</code> tokens from <code>tokens.css</code>. Load that file to use the same colors, type and spacing; names are kept stable within 0.x.y and every release note says whether they changed.</p>
+      <p>97 <code>--duo-*</code> tokens from <code>tokens.css</code>. Load that file to use the same colors, type and spacing; names are kept stable within 0.x.y and every release note says whether they changed.</p>
     </div>
     <nav class="tokens-nav"><a href="#tokens">Tokens</a><a href="#elements">Elements</a></nav>
   </header>
@@ -38,7 +38,7 @@
               <td><span class="swatch" data-paint="background" data-token="--duo-color-surface"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-color-surface)" title="Copy var(--duo-color-surface)">--duo-color-surface</button><small>Cards, dialogs, inputs and text on person colors</small></td>
               <td><code>#ffffff</code></td>
-              <td><a href="#card">Card</a>, <a href="#chips">Chips and kinds</a>, <a href="#faces">People</a>, <a href="#lanes">Two-lane flow</a>, <a href="#field">Fields</a>, <a href="#notices">Notices</a>, <a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#card">Card</a>, <a href="#chips">Chips and kinds</a>, <a href="#faces">People</a>, <a href="#lanes">Two-lane flow</a>, <a href="#field">Fields</a>, <a href="#notices">Notices</a>, <a href="#line-chart">Line chart</a>, <a href="#highlight-bars">Bars with a highlight</a>, <a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-color-surface-muted"></span></td>
@@ -76,7 +76,7 @@
               <td><span class="swatch" data-paint="background" data-token="--duo-color-ink"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-color-ink)" title="Copy var(--duo-color-ink)">--duo-color-ink</button><small>Primary text, also on lime</small></td>
               <td><code>#151c19</code></td>
-              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#update-button">Update button</a>, <a href="#buttons">Buttons</a>, <a href="#section-title">Titles and labels</a>, <a href="#turn">Turn tags</a>, <a href="#tabs">Tabs and segmented controls</a>, <a href="#field">Fields</a>, <a href="#notices">Notices</a>, <a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#update-button">Update button</a>, <a href="#buttons">Buttons</a>, <a href="#section-title">Titles and labels</a>, <a href="#turn">Turn tags</a>, <a href="#tabs">Tabs and segmented controls</a>, <a href="#field">Fields</a>, <a href="#notices">Notices</a>, <a href="#line-chart">Line chart</a>, <a href="#highlight-bars">Bars with a highlight</a>, <a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-color-ink-soft"></span></td>
@@ -290,7 +290,7 @@
               <td><span class="type-sample" data-paint="font-family" data-token="--duo-font-sans">Aa 가</span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-font-sans)" title="Copy var(--duo-font-sans)">--duo-font-sans</button><small>All interface text; fonts are not bundled</small></td>
               <td><code>Inter, Pretendard, &quot;Noto Sans KR&quot;, system-ui, sans-serif</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#line-chart">Line chart</a>, <a href="#highlight-bars">Bars with a highlight</a></td>
             </tr>
             <tr>
               <td><span class="type-sample" data-paint="font-family" data-token="--duo-font-mono">Aa 가</span></td>
@@ -302,13 +302,13 @@
               <td><span class="type-sample" data-paint="font-size" data-token="--duo-text-xs">Aa 가</span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-text-xs)" title="Copy var(--duo-text-xs)">--duo-text-xs</button><small>Badges, meta lines and uppercase labels</small></td>
               <td><code>.76rem</code></td>
-              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#sync-card">Sharing status card</a>, <a href="#section-title">Titles and labels</a>, <a href="#badges">Status badges</a>, <a href="#turn">Turn tags</a>, <a href="#chips">Chips and kinds</a>, <a href="#ask">Request card</a>, <a href="#lanes">Two-lane flow</a>, <a href="#field">Fields</a>, <a href="#chart-sample">Chart sample</a>, <a href="#blocker">Blocker row</a></td>
+              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#sync-card">Sharing status card</a>, <a href="#section-title">Titles and labels</a>, <a href="#badges">Status badges</a>, <a href="#turn">Turn tags</a>, <a href="#chips">Chips and kinds</a>, <a href="#ask">Request card</a>, <a href="#lanes">Two-lane flow</a>, <a href="#field">Fields</a>, <a href="#line-chart">Line chart</a>, <a href="#highlight-bars">Bars with a highlight</a>, <a href="#chart-colors">Chart colors</a>, <a href="#blocker">Blocker row</a></td>
             </tr>
             <tr>
               <td><span class="type-sample" data-paint="font-size" data-token="--duo-text-sm">Aa 가</span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-text-sm)" title="Copy var(--duo-text-sm)">--duo-text-sm</button><small>Secondary text and controls</small></td>
               <td><code>.86rem</code></td>
-              <td><a href="#sync-card">Sharing status card</a>, <a href="#update-button">Update button</a>, <a href="#card">Card</a>, <a href="#section-title">Titles and labels</a>, <a href="#faces">People</a>, <a href="#ask">Request card</a>, <a href="#lanes">Two-lane flow</a>, <a href="#tabs">Tabs and segmented controls</a>, <a href="#notices">Notices</a>, <a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#sync-card">Sharing status card</a>, <a href="#update-button">Update button</a>, <a href="#card">Card</a>, <a href="#section-title">Titles and labels</a>, <a href="#faces">People</a>, <a href="#ask">Request card</a>, <a href="#lanes">Two-lane flow</a>, <a href="#tabs">Tabs and segmented controls</a>, <a href="#notices">Notices</a>, <a href="#line-chart">Line chart</a>, <a href="#highlight-bars">Bars with a highlight</a>, <a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="type-sample" data-paint="font-size" data-token="--duo-text-md">Aa 가</span></td>
@@ -356,13 +356,13 @@
               <td><span class="type-sample" data-paint="font-weight" data-token="--duo-weight-semibold">Aa 가</span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-weight-semibold)" title="Copy var(--duo-weight-semibold)">--duo-weight-semibold</button></td>
               <td><code>700</code></td>
-              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#sync-card">Sharing status card</a>, <a href="#update-button">Update button</a>, <a href="#buttons">Buttons</a>, <a href="#section-title">Titles and labels</a>, <a href="#ask">Request card</a>, <a href="#tabs">Tabs and segmented controls</a>, <a href="#field">Fields</a>, <a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#sync-card">Sharing status card</a>, <a href="#update-button">Update button</a>, <a href="#buttons">Buttons</a>, <a href="#section-title">Titles and labels</a>, <a href="#ask">Request card</a>, <a href="#tabs">Tabs and segmented controls</a>, <a href="#field">Fields</a>, <a href="#line-chart">Line chart</a>, <a href="#highlight-bars">Bars with a highlight</a>, <a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="type-sample" data-paint="font-weight" data-token="--duo-weight-bold">Aa 가</span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-weight-bold)" title="Copy var(--duo-weight-bold)">--duo-weight-bold</button></td>
               <td><code>800</code></td>
-              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#update-button">Update button</a>, <a href="#buttons">Buttons</a>, <a href="#card">Card</a>, <a href="#section-title">Titles and labels</a>, <a href="#badges">Status badges</a>, <a href="#turn">Turn tags</a>, <a href="#chips">Chips and kinds</a>, <a href="#faces">People</a>, <a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#update-button">Update button</a>, <a href="#buttons">Buttons</a>, <a href="#card">Card</a>, <a href="#section-title">Titles and labels</a>, <a href="#badges">Status badges</a>, <a href="#turn">Turn tags</a>, <a href="#chips">Chips and kinds</a>, <a href="#faces">People</a>, <a href="#highlight-bars">Bars with a highlight</a>, <a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="no-preview">—</span></td>
@@ -406,25 +406,25 @@
               <td><span class="space-bar" data-paint="width" data-token="--duo-space-1"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-space-1)" title="Copy var(--duo-space-1)">--duo-space-1</button></td>
               <td><code>4px</code></td>
-              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#section-title">Titles and labels</a>, <a href="#badges">Status badges</a>, <a href="#turn">Turn tags</a>, <a href="#chips">Chips and kinds</a>, <a href="#ask">Request card</a>, <a href="#tabs">Tabs and segmented controls</a>, <a href="#field">Fields</a>, <a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#section-title">Titles and labels</a>, <a href="#badges">Status badges</a>, <a href="#turn">Turn tags</a>, <a href="#chips">Chips and kinds</a>, <a href="#ask">Request card</a>, <a href="#tabs">Tabs and segmented controls</a>, <a href="#field">Fields</a>, <a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="space-bar" data-paint="width" data-token="--duo-space-2"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-space-2)" title="Copy var(--duo-space-2)">--duo-space-2</button></td>
               <td><code>8px</code></td>
-              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#sync-card">Sharing status card</a>, <a href="#buttons">Buttons</a>, <a href="#card">Card</a>, <a href="#turn">Turn tags</a>, <a href="#chips">Chips and kinds</a>, <a href="#faces">People</a>, <a href="#ask">Request card</a>, <a href="#lanes">Two-lane flow</a>, <a href="#tabs">Tabs and segmented controls</a>, <a href="#field">Fields</a>, <a href="#notices">Notices</a></td>
+              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#sync-card">Sharing status card</a>, <a href="#buttons">Buttons</a>, <a href="#card">Card</a>, <a href="#turn">Turn tags</a>, <a href="#chips">Chips and kinds</a>, <a href="#faces">People</a>, <a href="#ask">Request card</a>, <a href="#lanes">Two-lane flow</a>, <a href="#tabs">Tabs and segmented controls</a>, <a href="#field">Fields</a>, <a href="#notices">Notices</a>, <a href="#line-chart">Line chart</a>, <a href="#highlight-bars">Bars with a highlight</a>, <a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="space-bar" data-paint="width" data-token="--duo-space-3"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-space-3)" title="Copy var(--duo-space-3)">--duo-space-3</button></td>
               <td><code>12px</code></td>
-              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#sync-card">Sharing status card</a>, <a href="#update-button">Update button</a>, <a href="#card">Card</a>, <a href="#section-title">Titles and labels</a>, <a href="#badges">Status badges</a>, <a href="#turn">Turn tags</a>, <a href="#chips">Chips and kinds</a>, <a href="#ask">Request card</a>, <a href="#lanes">Two-lane flow</a>, <a href="#tabs">Tabs and segmented controls</a>, <a href="#field">Fields</a>, <a href="#notices">Notices</a>, <a href="#chart-sample">Chart sample</a>, <a href="#blocker">Blocker row</a></td>
+              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#sync-card">Sharing status card</a>, <a href="#update-button">Update button</a>, <a href="#card">Card</a>, <a href="#section-title">Titles and labels</a>, <a href="#badges">Status badges</a>, <a href="#turn">Turn tags</a>, <a href="#chips">Chips and kinds</a>, <a href="#ask">Request card</a>, <a href="#lanes">Two-lane flow</a>, <a href="#tabs">Tabs and segmented controls</a>, <a href="#field">Fields</a>, <a href="#notices">Notices</a>, <a href="#blocker">Blocker row</a></td>
             </tr>
             <tr>
               <td><span class="space-bar" data-paint="width" data-token="--duo-space-4"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-space-4)" title="Copy var(--duo-space-4)">--duo-space-4</button></td>
               <td><code>16px</code></td>
-              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#sync-card">Sharing status card</a>, <a href="#buttons">Buttons</a>, <a href="#card">Card</a>, <a href="#section-title">Titles and labels</a>, <a href="#ask">Request card</a>, <a href="#lanes">Two-lane flow</a>, <a href="#tabs">Tabs and segmented controls</a>, <a href="#notices">Notices</a>, <a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#sync-card">Sharing status card</a>, <a href="#buttons">Buttons</a>, <a href="#card">Card</a>, <a href="#section-title">Titles and labels</a>, <a href="#ask">Request card</a>, <a href="#lanes">Two-lane flow</a>, <a href="#tabs">Tabs and segmented controls</a>, <a href="#notices">Notices</a>, <a href="#line-chart">Line chart</a>, <a href="#highlight-bars">Bars with a highlight</a>, <a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="space-bar" data-paint="width" data-token="--duo-space-5"></span></td>
@@ -468,7 +468,7 @@
               <td><span class="radius-box" data-paint="border-radius" data-token="--duo-radius-xs"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-radius-xs)" title="Copy var(--duo-radius-xs)">--duo-radius-xs</button><small>Wordmark, small tags</small></td>
               <td><code>4px</code></td>
-              <td><a href="#lanes">Two-lane flow</a>, <a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#lanes">Two-lane flow</a></td>
             </tr>
             <tr>
               <td><span class="radius-box" data-paint="border-radius" data-token="--duo-radius-sm"></span></td>
@@ -486,7 +486,7 @@
               <td><span class="radius-box" data-paint="border-radius" data-token="--duo-radius-lg"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-radius-lg)" title="Copy var(--duo-radius-lg)">--duo-radius-lg</button><small>Cards, bubbles and dialogs</small></td>
               <td><code>18px</code></td>
-              <td><a href="#card">Card</a>, <a href="#lanes">Two-lane flow</a>, <a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#card">Card</a>, <a href="#lanes">Two-lane flow</a>, <a href="#line-chart">Line chart</a>, <a href="#highlight-bars">Bars with a highlight</a>, <a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="radius-box" data-paint="border-radius" data-token="--duo-radius-pill"></span></td>
@@ -532,139 +532,145 @@
               <td><span class="swatch" data-paint="background" data-token="--duo-chart-series-1"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-chart-series-1)" title="Copy var(--duo-chart-series-1)">--duo-chart-series-1</button><small>First person, or the first series</small></td>
               <td><code>var(--duo-color-person-1)</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#line-chart">Line chart</a>, <a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-chart-series-2"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-chart-series-2)" title="Copy var(--duo-chart-series-2)">--duo-chart-series-2</button><small>Second person, or the second series</small></td>
               <td><code>var(--duo-color-person-2)</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#line-chart">Line chart</a>, <a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-chart-series-3"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-chart-series-3)" title="Copy var(--duo-chart-series-3)">--duo-chart-series-3</button><small>Orange</small></td>
-              <td><code>#eb6834</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><button class="token-name" type="button" data-copy="var(--duo-chart-series-3)" title="Copy var(--duo-chart-series-3)">--duo-chart-series-3</button><small>Terracotta</small></td>
+              <td><code>#d0692e</code></td>
+              <td><a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-chart-series-4"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-chart-series-4)" title="Copy var(--duo-chart-series-4)">--duo-chart-series-4</button><small>Blue</small></td>
-              <td><code>#2a78d6</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><button class="token-name" type="button" data-copy="var(--duo-chart-series-4)" title="Copy var(--duo-chart-series-4)">--duo-chart-series-4</button><small>Steel blue</small></td>
+              <td><code>#3a7fb8</code></td>
+              <td><a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-chart-series-5"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-chart-series-5)" title="Copy var(--duo-chart-series-5)">--duo-chart-series-5</button><small>Pink; below 3:1 on white, so label it</small></td>
-              <td><code>#e87ba4</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><button class="token-name" type="button" data-copy="var(--duo-chart-series-5)" title="Copy var(--duo-chart-series-5)">--duo-chart-series-5</button><small>Olive; a sixth series folds into Other</small></td>
+              <td><code>#6f9a00</code></td>
+              <td><a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
-              <td><span class="swatch" data-paint="background" data-token="--duo-chart-series-6"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-chart-series-6)" title="Copy var(--duo-chart-series-6)">--duo-chart-series-6</button><small>Yellow; below 3:1 on white, so label it</small></td>
-              <td><code>#eda100</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><span class="swatch" data-paint="background" data-token="--duo-chart-other"></span></td>
+              <td><button class="token-name" type="button" data-copy="var(--duo-chart-other)" title="Copy var(--duo-chart-other)">--duo-chart-other</button><small>&quot;Other&quot; and context series</small></td>
+              <td><code>var(--duo-color-ink-faint)</code></td>
+              <td><a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
-              <td><span class="swatch" data-paint="background" data-token="--duo-chart-series-7"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-chart-series-7)" title="Copy var(--duo-chart-series-7)">--duo-chart-series-7</button><small>Indigo</small></td>
-              <td><code>#4a3aa7</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><span class="swatch" data-paint="background" data-token="--duo-chart-single"></span></td>
+              <td><button class="token-name" type="button" data-copy="var(--duo-chart-single)" title="Copy var(--duo-chart-single)">--duo-chart-single</button><small>A chart with one series</small></td>
+              <td><code>var(--duo-color-sidebar-active)</code></td>
+              <td><a href="#highlight-bars">Bars with a highlight</a></td>
             </tr>
             <tr>
-              <td><span class="swatch" data-paint="background" data-token="--duo-chart-series-8"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-chart-series-8)" title="Copy var(--duo-chart-series-8)">--duo-chart-series-8</button><small>Red</small></td>
-              <td><code>#e34948</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><span class="swatch" data-paint="background" data-token="--duo-chart-highlight"></span></td>
+              <td><button class="token-name" type="button" data-copy="var(--duo-chart-highlight)" title="Copy var(--duo-chart-highlight)">--duo-chart-highlight</button><small>The one mark to notice: this week, you</small></td>
+              <td><code>var(--duo-color-accent)</code></td>
+              <td><a href="#highlight-bars">Bars with a highlight</a></td>
+            </tr>
+            <tr>
+              <td><span class="swatch" data-paint="background" data-token="--duo-chart-highlight-line"></span></td>
+              <td><button class="token-name" type="button" data-copy="var(--duo-chart-highlight-line)" title="Copy var(--duo-chart-highlight-line)">--duo-chart-highlight-line</button><small>Outline that keeps lime visible on white</small></td>
+              <td><code>var(--duo-color-accent-line)</code></td>
+              <td><a href="#highlight-bars">Bars with a highlight</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-chart-sequential-1"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-chart-sequential-1)" title="Copy var(--duo-chart-sequential-1)">--duo-chart-sequential-1</button><small>Least; for ordered steps (stages, tiers) start at 2</small></td>
-              <td><code>#cde2fb</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><code>#dcefb0</code></td>
+              <td><a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-chart-sequential-2"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-chart-sequential-2)" title="Copy var(--duo-chart-sequential-2)">--duo-chart-sequential-2</button></td>
-              <td><code>#86b6ef</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><code>#88b934</code></td>
+              <td><a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-chart-sequential-3"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-chart-sequential-3)" title="Copy var(--duo-chart-sequential-3)">--duo-chart-sequential-3</button></td>
-              <td><code>#3987e5</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><code>#5a8f24</code></td>
+              <td><a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-chart-sequential-4"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-chart-sequential-4)" title="Copy var(--duo-chart-sequential-4)">--duo-chart-sequential-4</button></td>
-              <td><code>#1c5cab</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><code>#3a681f</code></td>
+              <td><a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-chart-sequential-5"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-chart-sequential-5)" title="Copy var(--duo-chart-sequential-5)">--duo-chart-sequential-5</button><small>Most</small></td>
-              <td><code>#0d366b</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><code>#1f3f17</code></td>
+              <td><a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-chart-diverging-negative"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-chart-diverging-negative)" title="Copy var(--duo-chart-diverging-negative)">--duo-chart-diverging-negative</button><small>Below the baseline</small></td>
-              <td><code>var(--duo-chart-series-8)</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><code>var(--duo-chart-series-3)</code></td>
+              <td><a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-chart-diverging-neutral"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-chart-diverging-neutral)" title="Copy var(--duo-chart-diverging-neutral)">--duo-chart-diverging-neutral</button><small>At the baseline</small></td>
               <td><code>var(--duo-color-surface-muted)</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-chart-diverging-positive"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-chart-diverging-positive)" title="Copy var(--duo-chart-diverging-positive)">--duo-chart-diverging-positive</button><small>Above the baseline</small></td>
               <td><code>var(--duo-chart-series-4)</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-chart-grid"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-chart-grid)" title="Copy var(--duo-chart-grid)">--duo-chart-grid</button><small>Hairline gridlines</small></td>
               <td><code>var(--duo-color-line)</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#line-chart">Line chart</a>, <a href="#highlight-bars">Bars with a highlight</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-chart-axis"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-chart-axis)" title="Copy var(--duo-chart-axis)">--duo-chart-axis</button><small>Baseline and axes</small></td>
               <td><code>var(--duo-color-line-strong)</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#line-chart">Line chart</a>, <a href="#highlight-bars">Bars with a highlight</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-chart-label"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-chart-label)" title="Copy var(--duo-chart-label)">--duo-chart-label</button><small>Ticks, legends and values; never a series color</small></td>
               <td><code>var(--duo-color-ink-soft)</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#line-chart">Line chart</a>, <a href="#highlight-bars">Bars with a highlight</a></td>
             </tr>
             <tr>
               <td><span class="space-bar" data-paint="width" data-token="--duo-chart-line-width"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-chart-line-width)" title="Copy var(--duo-chart-line-width)">--duo-chart-line-width</button><small>Lines</small></td>
               <td><code>2px</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#line-chart">Line chart</a></td>
             </tr>
             <tr>
               <td><span class="space-bar" data-paint="width" data-token="--duo-chart-marker-size"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-chart-marker-size)" title="Copy var(--duo-chart-marker-size)">--duo-chart-marker-size</button><small>Points</small></td>
               <td><code>8px</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#line-chart">Line chart</a></td>
             </tr>
             <tr>
               <td><span class="radius-box" data-paint="border-radius" data-token="--duo-chart-bar-radius"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-chart-bar-radius)" title="Copy var(--duo-chart-bar-radius)">--duo-chart-bar-radius</button><small>The data end of bars</small></td>
               <td><code>4px</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#chart-colors">Chart colors</a></td>
             </tr>
             <tr>
               <td><span class="space-bar" data-paint="width" data-token="--duo-chart-gap"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-chart-gap)" title="Copy var(--duo-chart-gap)">--duo-chart-gap</button><small>Surface gap between adjacent fills</small></td>
               <td><code>2px</code></td>
-              <td><a href="#chart-sample">Chart sample</a></td>
+              <td><a href="#line-chart">Line chart</a>, <a href="#highlight-bars">Bars with a highlight</a>, <a href="#chart-colors">Chart colors</a></td>
             </tr>
           </tbody>
         </table>
@@ -820,18 +826,32 @@
           <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-accent-line)">--duo-color-accent-line</button> <button class="token-name small" type="button" data-copy="var(--duo-color-accent-subtle)">--duo-color-accent-subtle</button> <button class="token-name small" type="button" data-copy="var(--duo-color-danger)">--duo-color-danger</button> <button class="token-name small" type="button" data-copy="var(--duo-color-danger-subtle)">--duo-color-danger-subtle</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink)">--duo-color-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface)">--duo-color-surface</button> <button class="token-name small" type="button" data-copy="var(--duo-color-waiting)">--duo-color-waiting</button> <button class="token-name small" type="button" data-copy="var(--duo-color-waiting-subtle)">--duo-color-waiting-subtle</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-md)">--duo-radius-md</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-sm)">--duo-radius-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-space-5)">--duo-space-5</button> <button class="token-name small" type="button" data-copy="var(--duo-space-8)">--duo-space-8</button> <button class="token-name small" type="button" data-copy="var(--duo-space-half)">--duo-space-half</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button></p>
         </div>
       </article>
-      <article class="element" id="chart-sample">
-        <div class="element-stage"><div class="chart-sample">
-  <p class="chart-title">Recorded hours per week</p>
-  <p class="chart-legend"><span><i class="s1"></i>A</span><span><i class="s2"></i>B</span><span><i class="avg"></i>Average</span></p>
-  <svg viewBox="0 0 320 180" role="img" aria-label="Recorded hours per week for A and B"><line class="grid" x1="28" x2="308" y1="150" y2="150"/><text x="20" y="154" text-anchor="end">0h</text><line class="grid" x1="28" x2="308" y1="115" y2="115"/><text x="20" y="119" text-anchor="end">2h</text><line class="grid" x1="28" x2="308" y1="80" y2="80"/><text x="20" y="84" text-anchor="end">4h</text><line class="grid" x1="28" x2="308" y1="45" y2="45"/><text x="20" y="49" text-anchor="end">6h</text><line class="grid" x1="28" x2="308" y1="10" y2="10"/><text x="20" y="14" text-anchor="end">8h</text><line class="axis" x1="28" x2="308" y1="150" y2="150"/><path class="bar s1" d="M40,150V92.75Q40,88.75 44,88.75H58Q62,88.75 62,92.75V150Z"><title>A · W1: 3.5h</title></path><path class="bar s2" d="M64,150V84Q64,80 68,80H82Q86,80 86,84V150Z"><title>B · W1: 4h</title></path><text x="63" y="166" text-anchor="middle">W1</text><path class="bar s1" d="M110,150V66.5Q110,62.5 114,62.5H128Q132,62.5 132,66.5V150Z"><title>A · W2: 5h</title></path><path class="bar s2" d="M134,150V101.5Q134,97.5 138,97.5H152Q156,97.5 156,101.5V150Z"><title>B · W2: 3h</title></path><text x="133" y="166" text-anchor="middle">W2</text><path class="bar s1" d="M180,150V119Q180,115 184,115H198Q202,115 202,119V150Z"><title>A · W3: 2h</title></path><path class="bar s2" d="M204,150V40.25Q204,36.25 208,36.25H222Q226,36.25 226,40.25V150Z"><title>B · W3: 6.5h</title></path><text x="203" y="166" text-anchor="middle">W3</text><path class="bar s1" d="M250,150V49Q250,45 254,45H268Q272,45 272,49V150Z"><title>A · W4: 6h</title></path><path class="bar s2" d="M274,150V66.5Q274,62.5 278,62.5H292Q296,62.5 296,66.5V150Z"><title>B · W4: 5h</title></path><text x="273" y="166" text-anchor="middle">W4</text><polyline class="line" points="62,84.375 132,80 202,75.625 272,53.75"/><circle class="point" cx="62" cy="84.375"><title>Average · W1: 3.75h</title></circle><circle class="point" cx="132" cy="80"><title>Average · W2: 4h</title></circle><circle class="point" cx="202" cy="75.625"><title>Average · W3: 4.25h</title></circle><circle class="point" cx="272" cy="53.75"><title>Average · W4: 5.5h</title></circle></svg>
-  <div><p class="chart-title">Series order</p><p class="series-row"><span class="series series-1" title="--duo-chart-series-1">1</span><span class="series series-2" title="--duo-chart-series-2">2</span><span class="series series-3" title="--duo-chart-series-3">3</span><span class="series series-4" title="--duo-chart-series-4">4</span><span class="series series-5" title="--duo-chart-series-5">5</span><span class="series series-6" title="--duo-chart-series-6">6</span><span class="series series-7" title="--duo-chart-series-7">7</span><span class="series series-8" title="--duo-chart-series-8">8</span></p></div>
-  <div class="chart-strips"><div><p class="chart-title">Sequential</p><p class="seq-row"><span class="seq seq-1" title="--duo-chart-sequential-1"></span><span class="seq seq-2" title="--duo-chart-sequential-2"></span><span class="seq seq-3" title="--duo-chart-sequential-3"></span><span class="seq seq-4" title="--duo-chart-sequential-4"></span><span class="seq seq-5" title="--duo-chart-sequential-5"></span></p></div><div><p class="chart-title">Diverging</p><p class="div-row"><span class="div div-neg" title="--duo-chart-diverging-negative"></span><span class="div div-neutral" title="--duo-chart-diverging-neutral"></span><span class="div div-pos" title="--duo-chart-diverging-positive"></span></p></div></div>
+      <article class="element" id="line-chart">
+        <div class="element-stage"><figure class="chart chart-line"><figcaption>Recorded hours per week</figcaption><svg viewBox="0 0 330 150" role="img" aria-label="Recorded hours per week for A and B"><line class="grid" x1="30" x2="300" y1="126" y2="126"/><text x="24" y="130" text-anchor="end">0h</text><line class="grid" x1="30" x2="300" y1="68" y2="68"/><text x="24" y="72" text-anchor="end">4h</text><line class="grid" x1="30" x2="300" y1="10" y2="10"/><text x="24" y="14" text-anchor="end">8h</text><line class="axis" x1="30" x2="300" y1="126" y2="126"/><polyline class="line s1" points="40,82.5 84,60.75 128,68 172,39 216,46.25 260,24.5"><title>A: 3, 4.5, 4, 6, 5.5, 7h</title></polyline><circle class="point s1" cx="260" cy="24.5"/><text class="end-label" x="268" y="28.5">A</text><polyline class="line s2" points="40,53.5 84,68 128,39 172,53.5 216,31.75 260,53.5"><title>B: 5, 4, 6, 5, 6.5, 5h</title></polyline><circle class="point s2" cx="260" cy="53.5"/><text class="end-label" x="268" y="57.5">B</text><text x="40" y="144" text-anchor="middle">W1</text><text x="84" y="144" text-anchor="middle">W2</text><text x="128" y="144" text-anchor="middle">W3</text><text x="172" y="144" text-anchor="middle">W4</text><text x="216" y="144" text-anchor="middle">W5</text><text x="260" y="144" text-anchor="middle">W6</text></svg></figure></div>
+        <div class="element-copy">
+          <h3>Line chart</h3>
+          <p class="selectors"><code>.chart-line</code> <code>.chart</code></p>
+          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-chart-axis)">--duo-chart-axis</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-gap)">--duo-chart-gap</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-grid)">--duo-chart-grid</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-label)">--duo-chart-label</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-line-width)">--duo-chart-line-width</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-marker-size)">--duo-chart-marker-size</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-series-1)">--duo-chart-series-1</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-series-2)">--duo-chart-series-2</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink)">--duo-color-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface)">--duo-color-surface</button> <button class="token-name small" type="button" data-copy="var(--duo-font-sans)">--duo-font-sans</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-lg)">--duo-radius-lg</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-text-xs)">--duo-text-xs</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-semibold)">--duo-weight-semibold</button></p>
+        </div>
+      </article>
+      <article class="element" id="highlight-bars">
+        <div class="element-stage"><figure class="chart chart-bars"><figcaption>Recorded hours together · this week in lime</figcaption><svg viewBox="0 0 330 150" role="img" aria-label="Weekly recorded hours, this week highlighted"><line class="grid" x1="30" x2="300" y1="126" y2="126"/><text x="24" y="130" text-anchor="end">0h</text><line class="grid" x1="30" x2="300" y1="68" y2="68"/><text x="24" y="72" text-anchor="end">6h</text><line class="grid" x1="30" x2="300" y1="10" y2="10"/><text x="24" y="14" text-anchor="end">12h</text><line class="axis" x1="30" x2="300" y1="126" y2="126"/><path class="bar single" d="M38,126V72Q38,68 42,68H64Q68,68 68,72V126Z"><title>W1: 6h</title></path><text x="53" y="144" text-anchor="middle">W1</text><path class="bar single" d="M82,126V47.83333333333333Q82,43.83333333333333 86,43.83333333333333H108Q112,43.83333333333333 112,47.83333333333333V126Z"><title>W2: 8.5h</title></path><text x="97" y="144" text-anchor="middle">W2</text><path class="bar single" d="M126,126V62.33333333333333Q126,58.33333333333333 130,58.33333333333333H152Q156,58.33333333333333 156,62.33333333333333V126Z"><title>W3: 7h</title></path><text x="141" y="144" text-anchor="middle">W3</text><path class="bar single" d="M170,126V33.33333333333333Q170,29.33333333333333 174,29.33333333333333H196Q200,29.33333333333333 200,33.33333333333333V126Z"><title>W4: 10h</title></path><text x="185" y="144" text-anchor="middle">W4</text><path class="bar single" d="M214,126V43Q214,39 218,39H240Q244,39 244,43V126Z"><title>W5: 9h</title></path><text x="229" y="144" text-anchor="middle">W5</text><path class="bar highlight" d="M258,126V14Q258,10 262,10H284Q288,10 288,14V126Z"><title>W6: 12h</title></path><text class="value" x="273" y="4" text-anchor="middle">12h</text><text x="273" y="144" text-anchor="middle">W6</text></svg></figure></div>
+        <div class="element-copy">
+          <h3>Bars with a highlight</h3>
+          <p class="selectors"><code>.chart-bars</code> <code>.chart</code></p>
+          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-chart-axis)">--duo-chart-axis</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-gap)">--duo-chart-gap</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-grid)">--duo-chart-grid</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-highlight)">--duo-chart-highlight</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-highlight-line)">--duo-chart-highlight-line</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-label)">--duo-chart-label</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-single)">--duo-chart-single</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink)">--duo-color-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface)">--duo-color-surface</button> <button class="token-name small" type="button" data-copy="var(--duo-font-sans)">--duo-font-sans</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-lg)">--duo-radius-lg</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-text-xs)">--duo-text-xs</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-bold)">--duo-weight-bold</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-semibold)">--duo-weight-semibold</button></p>
+        </div>
+      </article>
+      <article class="element" id="chart-colors">
+        <div class="element-stage"><div class="chart-palette">
+  <p class="chart-caption">Series, in order</p><p class="strip"><span class="series-1" title="--duo-chart-series-1">A</span><span class="series-2" title="--duo-chart-series-2">B</span><span class="series-3" title="--duo-chart-series-3">3</span><span class="series-4" title="--duo-chart-series-4">4</span><span class="series-5" title="--duo-chart-series-5">5</span><span class="series-other" title="--duo-chart-other">Other</span></p>
+  <p class="chart-caption">Sequential</p><p class="strip"><span class="sequential-1" title="--duo-chart-sequential-1"></span><span class="sequential-2" title="--duo-chart-sequential-2"></span><span class="sequential-3" title="--duo-chart-sequential-3"></span><span class="sequential-4" title="--duo-chart-sequential-4"></span><span class="sequential-5" title="--duo-chart-sequential-5"></span></p>
+  <p class="chart-caption">Diverging</p><p class="strip"><span class="diverging-negative" title="--duo-chart-diverging-negative">−</span><span class="diverging-neutral" title="--duo-chart-diverging-neutral">0</span><span class="diverging-positive" title="--duo-chart-diverging-positive">+</span></p>
 </div></div>
         <div class="element-copy">
-          <h3>Chart sample</h3>
-          <p class="selectors"><code>.chart-sample</code></p>
-          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-chart-axis)">--duo-chart-axis</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-bar-radius)">--duo-chart-bar-radius</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-diverging-negative)">--duo-chart-diverging-negative</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-diverging-neutral)">--duo-chart-diverging-neutral</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-diverging-positive)">--duo-chart-diverging-positive</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-gap)">--duo-chart-gap</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-grid)">--duo-chart-grid</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-label)">--duo-chart-label</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-line-width)">--duo-chart-line-width</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-marker-size)">--duo-chart-marker-size</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-sequential-1)">--duo-chart-sequential-1</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-sequential-2)">--duo-chart-sequential-2</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-sequential-3)">--duo-chart-sequential-3</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-sequential-4)">--duo-chart-sequential-4</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-sequential-5)">--duo-chart-sequential-5</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-series-1)">--duo-chart-series-1</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-series-2)">--duo-chart-series-2</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-series-3)">--duo-chart-series-3</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-series-4)">--duo-chart-series-4</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-series-5)">--duo-chart-series-5</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-series-6)">--duo-chart-series-6</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-series-7)">--duo-chart-series-7</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-series-8)">--duo-chart-series-8</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink)">--duo-color-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface)">--duo-color-surface</button> <button class="token-name small" type="button" data-copy="var(--duo-font-sans)">--duo-font-sans</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-lg)">--duo-radius-lg</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-xs)">--duo-radius-xs</button> <button class="token-name small" type="button" data-copy="var(--duo-space-1)">--duo-space-1</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-text-xs)">--duo-text-xs</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-bold)">--duo-weight-bold</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-semibold)">--duo-weight-semibold</button></p>
+          <h3>Chart colors</h3>
+          <p class="selectors"><code>.chart-palette</code></p>
+          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-chart-bar-radius)">--duo-chart-bar-radius</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-diverging-negative)">--duo-chart-diverging-negative</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-diverging-neutral)">--duo-chart-diverging-neutral</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-diverging-positive)">--duo-chart-diverging-positive</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-gap)">--duo-chart-gap</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-other)">--duo-chart-other</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-sequential-1)">--duo-chart-sequential-1</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-sequential-2)">--duo-chart-sequential-2</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-sequential-3)">--duo-chart-sequential-3</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-sequential-4)">--duo-chart-sequential-4</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-sequential-5)">--duo-chart-sequential-5</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-series-1)">--duo-chart-series-1</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-series-2)">--duo-chart-series-2</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-series-3)">--duo-chart-series-3</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-series-4)">--duo-chart-series-4</button> <button class="token-name small" type="button" data-copy="var(--duo-chart-series-5)">--duo-chart-series-5</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink)">--duo-color-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface)">--duo-color-surface</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-lg)">--duo-radius-lg</button> <button class="token-name small" type="button" data-copy="var(--duo-space-1)">--duo-space-1</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-text-xs)">--duo-text-xs</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-bold)">--duo-weight-bold</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-semibold)">--duo-weight-semibold</button></p>
         </div>
       </article>
       <article class="element" id="blocker">

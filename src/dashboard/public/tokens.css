@@ -104,18 +104,19 @@
   /* @group Chart */
   --duo-chart-series-1: var(--duo-color-person-1); /* First person, or the first series */
   --duo-chart-series-2: var(--duo-color-person-2); /* Second person, or the second series */
-  --duo-chart-series-3: #eb6834; /* Orange */
-  --duo-chart-series-4: #2a78d6; /* Blue */
-  --duo-chart-series-5: #e87ba4; /* Pink; below 3:1 on white, so label it */
-  --duo-chart-series-6: #eda100; /* Yellow; below 3:1 on white, so label it */
-  --duo-chart-series-7: #4a3aa7; /* Indigo */
-  --duo-chart-series-8: #e34948; /* Red */
-  --duo-chart-sequential-1: #cde2fb; /* Least; for ordered steps (stages, tiers) start at 2 */
-  --duo-chart-sequential-2: #86b6ef;
-  --duo-chart-sequential-3: #3987e5;
-  --duo-chart-sequential-4: #1c5cab;
-  --duo-chart-sequential-5: #0d366b; /* Most */
-  --duo-chart-diverging-negative: var(--duo-chart-series-8); /* Below the baseline */
+  --duo-chart-series-3: #d0692e; /* Terracotta */
+  --duo-chart-series-4: #3a7fb8; /* Steel blue */
+  --duo-chart-series-5: #6f9a00; /* Olive; a sixth series folds into Other */
+  --duo-chart-other: var(--duo-color-ink-faint); /* "Other" and context series */
+  --duo-chart-single: var(--duo-color-sidebar-active); /* A chart with one series */
+  --duo-chart-highlight: var(--duo-color-accent); /* The one mark to notice: this week, you */
+  --duo-chart-highlight-line: var(--duo-color-accent-line); /* Outline that keeps lime visible on white */
+  --duo-chart-sequential-1: #dcefb0; /* Least; for ordered steps (stages, tiers) start at 2 */
+  --duo-chart-sequential-2: #88b934;
+  --duo-chart-sequential-3: #5a8f24;
+  --duo-chart-sequential-4: #3a681f;
+  --duo-chart-sequential-5: #1f3f17; /* Most */
+  --duo-chart-diverging-negative: var(--duo-chart-series-3); /* Below the baseline */
   --duo-chart-diverging-neutral: var(--duo-color-surface-muted); /* At the baseline */
   --duo-chart-diverging-positive: var(--duo-chart-series-4); /* Above the baseline */
   --duo-chart-grid: var(--duo-color-line); /* Hairline gridlines */

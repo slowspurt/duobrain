@@ -45,34 +45,55 @@ const icons = {
   refresh: '<svg class="refresh-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M16 10a6 6 0 1 1-1.8-4.3M16 3.5V6h-2.5"/></svg>',
 };
 
-/** A small chart drawn only from the --duo-chart-* tokens (styled in tokens-page.css). */
-function chartSample() {
-  const weeks = ['W1', 'W2', 'W3', 'W4'];
-  const a = [3.5, 5, 2, 6];
-  const b = [4, 3, 6.5, 5];
-  const height = 140; const top = 10; const left = 28; const step = 70; const bar = 22; const max = 8;
-  const y = (value) => top + height - (value / max) * height;
-  // Rounded data end, square at the baseline.
-  const barPath = (x, value) => {
-    const yTop = y(value); const r = 4; const base = top + height;
-    return `M${x},${base}V${yTop + r}Q${x},${yTop} ${x + r},${yTop}H${x + bar - r}Q${x + bar},${yTop} ${x + bar},${yTop + r}V${base}Z`;
-  };
-  const grid = [0, 2, 4, 6, 8].map((value) => `<line class="grid" x1="${left}" x2="${left + step * 4}" y1="${y(value)}" y2="${y(value)}"/><text x="${left - 8}" y="${y(value) + 4}" text-anchor="end">${value}h</text>`).join('');
-  const bars = weeks.map((week, index) => {
-    const x = left + 12 + index * step;
-    return `<path class="bar s1" d="${barPath(x, a[index])}"><title>A · ${week}: ${a[index]}h</title></path>`
-      + `<path class="bar s2" d="${barPath(x + bar + 2, b[index])}"><title>B · ${week}: ${b[index]}h</title></path>`
-      + `<text x="${x + bar + 1}" y="${top + height + 16}" text-anchor="middle">${week}</text>`;
+// Small charts drawn only from the --duo-chart-* tokens (styled in tokens-page.css).
+const chartFrame = { width: 300, height: 150, left: 30, top: 10, bottom: 24 };
+function axisAndGrid(max, ticks, unit) {
+  const { width, height, left, top, bottom } = chartFrame;
+  const plot = height - top - bottom;
+  const y = (value) => top + plot - (value / max) * plot;
+  const lines = ticks.map((value) => `<line class="grid" x1="${left}" x2="${width}" y1="${y(value)}" y2="${y(value)}"/><text x="${left - 6}" y="${y(value) + 4}" text-anchor="end">${value}${unit}</text>`).join('');
+  return { y, svg: `${lines}<line class="axis" x1="${left}" x2="${width}" y1="${top + plot}" y2="${top + plot}"/>` };
+}
+
+/** Lines only: the two people's recorded hours, labelled at the line ends instead of a legend. */
+function lineChart() {
+  const weeks = ['W1', 'W2', 'W3', 'W4', 'W5', 'W6'];
+  const series = [['s1', 'A', [3, 4.5, 4, 6, 5.5, 7]], ['s2', 'B', [5, 4, 6, 5, 6.5, 5]]];
+  const { y, svg } = axisAndGrid(8, [0, 4, 8], 'h');
+  const x = (index) => chartFrame.left + 10 + index * 44;
+  const paths = series.map(([cls, name, values]) => {
+    const points = values.map((value, index) => `${x(index)},${y(value)}`).join(' ');
+    const last = values.length - 1;
+    return `<polyline class="line ${cls}" points="${points}"><title>${name}: ${values.join(', ')}h</title></polyline>`
+      + `<circle class="point ${cls}" cx="${x(last)}" cy="${y(values[last])}"/><text class="end-label" x="${x(last) + 8}" y="${y(values[last]) + 4}">${name}</text>`;
   }).join('');
-  const line = a.map((value, index) => `${left + 12 + index * step + bar},${y((value + b[index]) / 2)}`).join(' ');
-  const points = a.map((value, index) => `<circle class="point" cx="${left + 12 + index * step + bar}" cy="${y((value + b[index]) / 2)}"><title>Average · ${weeks[index]}: ${(value + b[index]) / 2}h</title></circle>`).join('');
-  const sequential = [1, 2, 3, 4, 5].map((n) => `<span class="seq seq-${n}" title="--duo-chart-sequential-${n}"></span>`).join('');
-  return `<div class="chart-sample">
-  <p class="chart-title">Recorded hours per week</p>
-  <p class="chart-legend"><span><i class="s1"></i>A</span><span><i class="s2"></i>B</span><span><i class="avg"></i>Average</span></p>
-  <svg viewBox="0 0 320 180" role="img" aria-label="Recorded hours per week for A and B">${grid}<line class="axis" x1="${left}" x2="${left + step * 4}" y1="${top + height}" y2="${top + height}"/>${bars}<polyline class="line" points="${line}"/>${points}</svg>
-  <div><p class="chart-title">Series order</p><p class="series-row">${[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `<span class="series series-${n}" title="--duo-chart-series-${n}">${n}</span>`).join('')}</p></div>
-  <div class="chart-strips"><div><p class="chart-title">Sequential</p><p class="seq-row">${sequential}</p></div><div><p class="chart-title">Diverging</p><p class="div-row"><span class="div div-neg" title="--duo-chart-diverging-negative"></span><span class="div div-neutral" title="--duo-chart-diverging-neutral"></span><span class="div div-pos" title="--duo-chart-diverging-positive"></span></p></div></div>
+  const labels = weeks.map((week, index) => `<text x="${x(index)}" y="${chartFrame.height - 6}" text-anchor="middle">${week}</text>`).join('');
+  return `<figure class="chart chart-line"><figcaption>Recorded hours per week</figcaption><svg viewBox="0 0 330 ${chartFrame.height}" role="img" aria-label="Recorded hours per week for A and B">${svg}${paths}${labels}</svg></figure>`;
+}
+
+/** One series in charcoal with the one mark that matters lit in lime. */
+function highlightBars() {
+  const weeks = ['W1', 'W2', 'W3', 'W4', 'W5', 'W6'];
+  const values = [6, 8.5, 7, 10, 9, 12];
+  const { y, svg } = axisAndGrid(12, [0, 6, 12], 'h');
+  const width = 30; const base = y(0); const radius = 4;
+  const bars = values.map((value, index) => {
+    const x = chartFrame.left + 8 + index * 44; const top = y(value); const current = index === values.length - 1;
+    const d = `M${x},${base}V${top + radius}Q${x},${top} ${x + radius},${top}H${x + width - radius}Q${x + width},${top} ${x + width},${top + radius}V${base}Z`;
+    return `<path class="bar ${current ? 'highlight' : 'single'}" d="${d}"><title>${weeks[index]}: ${value}h</title></path>`
+      + (current ? `<text class="value" x="${x + width / 2}" y="${top - 6}" text-anchor="middle">${value}h</text>` : '')
+      + `<text x="${x + width / 2}" y="${chartFrame.height - 6}" text-anchor="middle">${weeks[index]}</text>`;
+  }).join('');
+  return `<figure class="chart chart-bars"><figcaption>Recorded hours together · this week in lime</figcaption><svg viewBox="0 0 330 ${chartFrame.height}" role="img" aria-label="Weekly recorded hours, this week highlighted">${svg}${bars}</svg></figure>`;
+}
+
+/** The chart colors in order. */
+function chartPalette() {
+  const strip = (cls, items) => `<p class="strip">${items.map(([name, label]) => `<span class="${cls}-${name}" title="--duo-chart-${name === 'other' ? 'other' : `${cls}-${name}`}">${label}</span>`).join('')}</p>`;
+  return `<div class="chart-palette">
+  <p class="chart-caption">Series, in order</p>${strip('series', [['1', 'A'], ['2', 'B'], ['3', '3'], ['4', '4'], ['5', '5'], ['other', 'Other']])}
+  <p class="chart-caption">Sequential</p>${strip('sequential', [['1', ''], ['2', ''], ['3', ''], ['4', ''], ['5', '']])}
+  <p class="chart-caption">Diverging</p>${strip('diverging', [['negative', '−'], ['neutral', '0'], ['positive', '+']])}
 </div>`;
 }
 
@@ -108,8 +129,12 @@ const elements = [
     html: '<label class="field"><span>Search</span><input type="search" placeholder="Title, body, goal, evidence"></label>' },
   { id: 'notices', title: 'Notices', selectors: ['.notice', '.version-notice', '.error-panel'],
     html: '<aside class="notice"><strong>Sample data</strong><span>This sample shows the product flow.</span></aside><aside class="version-notice"><strong>B updated duobrain to v0.1.8.</strong><span>Pull the project to use the same version.</span></aside><section class="error-panel"><div><strong>Could not load the record.</strong><span>Check that the dashboard server is running.</span></div><button type="button">Try again</button></section>' },
-  { id: 'chart-sample', title: 'Chart sample', selectors: ['.chart-sample'],
-    html: chartSample() },
+  { id: 'line-chart', title: 'Line chart', selectors: ['.chart-line', '.chart'],
+    html: lineChart() },
+  { id: 'highlight-bars', title: 'Bars with a highlight', selectors: ['.chart-bars', '.chart'],
+    html: highlightBars() },
+  { id: 'chart-colors', title: 'Chart colors', selectors: ['.chart-palette'],
+    html: chartPalette() },
   { id: 'blocker', title: 'Blocker row', selectors: ['.blocker-row'],
     html: '<div class="blocker-row"><small>B · Clean up the API response</small>Need a second opinion on optional fields</div>' },
 ];
