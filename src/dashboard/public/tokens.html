@@ -15,7 +15,7 @@
     <a class="wordmark" href="./"><span>duo</span><b>brain</b></a>
     <div>
       <h1>Design tokens</h1>
-      <p>86 <code>--duo-*</code> tokens from <code>tokens.css</code>. Load that file to use the same colors, type and spacing; names are kept stable within 0.x.y and every release note says whether they changed.</p>
+      <p>73 <code>--duo-*</code> tokens from <code>tokens.css</code>. Load that file to use the same colors, type and spacing; names are kept stable within 0.x.y and every release note says whether they changed.</p>
     </div>
     <nav class="tokens-nav"><a href="#tokens">Tokens</a><a href="#elements">Elements</a></nav>
   </header>
@@ -30,27 +30,21 @@
           <tbody>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-color-bg"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-color-bg)" title="Copy var(--duo-color-bg)">--duo-color-bg</button><small>Page background</small></td>
+              <td><button class="token-name" type="button" data-copy="var(--duo-color-bg)" title="Copy var(--duo-color-bg)">--duo-color-bg</button><small>Page background and quiet panels inside cards</small></td>
               <td><code>#f4f5f0</code></td>
-              <td><a href="#tabs">Tabs and segmented controls</a></td>
+              <td><a href="#chips">Chips and kinds</a>, <a href="#ask">Request card</a>, <a href="#tabs">Tabs and segmented controls</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-color-surface"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-color-surface)" title="Copy var(--duo-color-surface)">--duo-color-surface</button><small>Cards, dialogs and inputs</small></td>
+              <td><button class="token-name" type="button" data-copy="var(--duo-color-surface)" title="Copy var(--duo-color-surface)">--duo-color-surface</button><small>Cards, dialogs, inputs and text on person colors</small></td>
               <td><code>#ffffff</code></td>
-              <td><a href="#card">Card</a>, <a href="#chips">Chips and kinds</a>, <a href="#lanes">Two-lane flow</a>, <a href="#field">Fields</a>, <a href="#notices">Notices</a></td>
+              <td><a href="#card">Card</a>, <a href="#chips">Chips and kinds</a>, <a href="#faces">People</a>, <a href="#lanes">Two-lane flow</a>, <a href="#field">Fields</a>, <a href="#notices">Notices</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-color-surface-muted"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-color-surface-muted)" title="Copy var(--duo-color-surface-muted)">--duo-color-surface-muted</button><small>Neutral chips, tab tracks, secondary buttons</small></td>
               <td><code>#eceee8</code></td>
               <td><a href="#buttons">Buttons</a>, <a href="#badges">Status badges</a>, <a href="#turn">Turn tags</a>, <a href="#tabs">Tabs and segmented controls</a></td>
-            </tr>
-            <tr>
-              <td><span class="swatch" data-paint="background" data-token="--duo-color-surface-subtle"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-color-surface-subtle)" title="Copy var(--duo-color-surface-subtle)">--duo-color-surface-subtle</button><small>Quiet panels inside cards</small></td>
-              <td><code>#f2f3ee</code></td>
-              <td><a href="#chips">Chips and kinds</a>, <a href="#ask">Request card</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-color-line"></span></td>
@@ -80,9 +74,9 @@
           <tbody>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-color-ink"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-color-ink)" title="Copy var(--duo-color-ink)">--duo-color-ink</button><small>Primary text</small></td>
+              <td><button class="token-name" type="button" data-copy="var(--duo-color-ink)" title="Copy var(--duo-color-ink)">--duo-color-ink</button><small>Primary text, also on lime</small></td>
               <td><code>#151c19</code></td>
-              <td><a href="#buttons">Buttons</a>, <a href="#section-title">Titles and labels</a>, <a href="#tabs">Tabs and segmented controls</a>, <a href="#field">Fields</a></td>
+              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#update-button">Update button</a>, <a href="#buttons">Buttons</a>, <a href="#section-title">Titles and labels</a>, <a href="#turn">Turn tags</a>, <a href="#tabs">Tabs and segmented controls</a>, <a href="#field">Fields</a>, <a href="#notices">Notices</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-color-ink-soft"></span></td>
@@ -95,12 +89,6 @@
               <td><button class="token-name" type="button" data-copy="var(--duo-color-ink-faint)" title="Copy var(--duo-color-ink-faint)">--duo-color-ink-faint</button><small>Hints and placeholders</small></td>
               <td><code>#9aa39e</code></td>
               <td><a href="#chips">Chips and kinds</a>, <a href="#faces">People</a>, <a href="#ask">Request card</a>, <a href="#lanes">Two-lane flow</a></td>
-            </tr>
-            <tr>
-              <td><span class="swatch" data-paint="background" data-token="--duo-color-ink-inverse"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-color-ink-inverse)" title="Copy var(--duo-color-ink-inverse)">--duo-color-ink-inverse</button><small>Text on person colors</small></td>
-              <td><code>#ffffff</code></td>
-              <td><a href="#faces">People</a></td>
             </tr>
           </tbody>
         </table>
@@ -142,15 +130,9 @@
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-color-sidebar-active"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-color-sidebar-active)" title="Copy var(--duo-color-sidebar-active)">--duo-color-sidebar-active</button><small>The current tab</small></td>
+              <td><button class="token-name" type="button" data-copy="var(--duo-color-sidebar-active)" title="Copy var(--duo-color-sidebar-active)">--duo-color-sidebar-active</button><small>The current tab and sidebar borders</small></td>
               <td><code>#2f3d36</code></td>
-              <td><a href="#sidebar-tabs">Sidebar tabs</a></td>
-            </tr>
-            <tr>
-              <td><span class="swatch" data-paint="background" data-token="--duo-color-sidebar-line"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-color-sidebar-line)" title="Copy var(--duo-color-sidebar-line)">--duo-color-sidebar-line</button><small>Sidebar borders</small></td>
-              <td><code>#2c3832</code></td>
-              <td><a href="#sync-card">Sharing status card</a>, <a href="#update-button">Update button</a></td>
+              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#sync-card">Sharing status card</a>, <a href="#update-button">Update button</a></td>
             </tr>
           </tbody>
         </table>
@@ -167,33 +149,15 @@
               <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#update-button">Update button</a>, <a href="#buttons">Buttons</a>, <a href="#turn">Turn tags</a></td>
             </tr>
             <tr>
-              <td><span class="swatch" data-paint="background" data-token="--duo-color-accent-hover"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-color-accent-hover)" title="Copy var(--duo-color-accent-hover)">--duo-color-accent-hover</button><small>Hovered lime buttons</small></td>
-              <td><code>#d6ff6b</code></td>
-              <td><a href="#update-button">Update button</a></td>
-            </tr>
-            <tr>
-              <td><span class="swatch" data-paint="background" data-token="--duo-color-accent-ink"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-color-accent-ink)" title="Copy var(--duo-color-accent-ink)">--duo-color-accent-ink</button><small>Text on lime</small></td>
-              <td><code>#151c19</code></td>
-              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#update-button">Update button</a>, <a href="#buttons">Buttons</a>, <a href="#turn">Turn tags</a>, <a href="#notices">Notices</a></td>
-            </tr>
-            <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-color-accent-line"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-color-accent-line)" title="Copy var(--duo-color-accent-line)">--duo-color-accent-line</button><small>Lime outlines</small></td>
+              <td><button class="token-name" type="button" data-copy="var(--duo-color-accent-line)" title="Copy var(--duo-color-accent-line)">--duo-color-accent-line</button><small>Lime outlines and hovered lime buttons</small></td>
               <td><code>#a8d92b</code></td>
-              <td><a href="#ask">Request card</a>, <a href="#notices">Notices</a></td>
+              <td><a href="#update-button">Update button</a>, <a href="#ask">Request card</a>, <a href="#notices">Notices</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-color-accent-subtle"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-color-accent-subtle)" title="Copy var(--duo-color-accent-subtle)">--duo-color-accent-subtle</button><small>Lime notices</small></td>
               <td><code>#efffc8</code></td>
-              <td><a href="#notices">Notices</a></td>
-            </tr>
-            <tr>
-              <td><span class="swatch" data-paint="background" data-token="--duo-color-accent-text"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-color-accent-text)" title="Copy var(--duo-color-accent-text)">--duo-color-accent-text</button><small>Body text on lime notices</small></td>
-              <td><code>#3d4a12</code></td>
               <td><a href="#notices">Notices</a></td>
             </tr>
           </tbody>
@@ -256,15 +220,15 @@
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-color-waiting"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-color-waiting)" title="Copy var(--duo-color-waiting)">--duo-color-waiting</button><small>Paused, proposed, not read</small></td>
+              <td><button class="token-name" type="button" data-copy="var(--duo-color-waiting)" title="Copy var(--duo-color-waiting)">--duo-color-waiting</button><small>Paused, proposed, not read, sample data</small></td>
               <td><code>#7a4b0e</code></td>
-              <td><a href="#badges">Status badges</a></td>
+              <td><a href="#badges">Status badges</a>, <a href="#notices">Notices</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-color-waiting-subtle"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-color-waiting-subtle)" title="Copy var(--duo-color-waiting-subtle)">--duo-color-waiting-subtle</button></td>
               <td><code>#fbe9cc</code></td>
-              <td><a href="#badges">Status badges</a></td>
+              <td><a href="#badges">Status badges</a>, <a href="#notices">Notices</a></td>
             </tr>
             <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-color-waiting-indicator"></span></td>
@@ -297,12 +261,6 @@
               <td><a href="#badges">Status badges</a>, <a href="#notices">Notices</a></td>
             </tr>
             <tr>
-              <td><span class="swatch" data-paint="background" data-token="--duo-color-danger-line"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-color-danger-line)" title="Copy var(--duo-color-danger-line)">--duo-color-danger-line</button></td>
-              <td><code>#efbcc2</code></td>
-              <td><a href="#notices">Notices</a></td>
-            </tr>
-            <tr>
               <td><span class="swatch" data-paint="background" data-token="--duo-color-danger-indicator"></span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-color-danger-indicator)" title="Copy var(--duo-color-danger-indicator)">--duo-color-danger-indicator</button></td>
               <td><code>#ff6b6b</code></td>
@@ -319,24 +277,6 @@
               <td><button class="token-name" type="button" data-copy="var(--duo-color-blocked-subtle)" title="Copy var(--duo-color-blocked-subtle)">--duo-color-blocked-subtle</button></td>
               <td><code>#fdeee5</code></td>
               <td><a href="#lanes">Two-lane flow</a>, <a href="#blocker">Blocker row</a></td>
-            </tr>
-            <tr>
-              <td><span class="swatch" data-paint="background" data-token="--duo-color-notice"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-color-notice)" title="Copy var(--duo-color-notice)">--duo-color-notice</button><small>Sample data and soft warnings</small></td>
-              <td><code>#5e4b12</code></td>
-              <td><a href="#notices">Notices</a></td>
-            </tr>
-            <tr>
-              <td><span class="swatch" data-paint="background" data-token="--duo-color-notice-subtle"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-color-notice-subtle)" title="Copy var(--duo-color-notice-subtle)">--duo-color-notice-subtle</button></td>
-              <td><code>#fff4c7</code></td>
-              <td><a href="#notices">Notices</a></td>
-            </tr>
-            <tr>
-              <td><span class="swatch" data-paint="background" data-token="--duo-color-notice-line"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-color-notice-line)" title="Copy var(--duo-color-notice-line)">--duo-color-notice-line</button></td>
-              <td><code>#eedc8f</code></td>
-              <td><a href="#notices">Notices</a></td>
             </tr>
           </tbody>
         </table>
@@ -359,14 +299,8 @@
               <td><a href="#chips">Chips and kinds</a></td>
             </tr>
             <tr>
-              <td><span class="type-sample" data-paint="font-size" data-token="--duo-text-2xs">Aa 가</span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-text-2xs)" title="Copy var(--duo-text-2xs)">--duo-text-2xs</button><small>Uppercase labels</small></td>
-              <td><code>.72rem</code></td>
-              <td><a href="#sidebar-tabs">Sidebar tabs</a></td>
-            </tr>
-            <tr>
               <td><span class="type-sample" data-paint="font-size" data-token="--duo-text-xs">Aa 가</span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-text-xs)" title="Copy var(--duo-text-xs)">--duo-text-xs</button><small>Badges and meta lines</small></td>
+              <td><button class="token-name" type="button" data-copy="var(--duo-text-xs)" title="Copy var(--duo-text-xs)">--duo-text-xs</button><small>Badges, meta lines and uppercase labels</small></td>
               <td><code>.76rem</code></td>
               <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#sync-card">Sharing status card</a>, <a href="#section-title">Titles and labels</a>, <a href="#badges">Status badges</a>, <a href="#turn">Turn tags</a>, <a href="#chips">Chips and kinds</a>, <a href="#ask">Request card</a>, <a href="#lanes">Two-lane flow</a>, <a href="#field">Fields</a>, <a href="#blocker">Blocker row</a></td>
             </tr>
@@ -419,16 +353,10 @@
               <td><a href="#card">Card</a>, <a href="#section-title">Titles and labels</a></td>
             </tr>
             <tr>
-              <td><span class="type-sample" data-paint="font-weight" data-token="--duo-weight-medium">Aa 가</span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-weight-medium)" title="Copy var(--duo-weight-medium)">--duo-weight-medium</button></td>
-              <td><code>650</code></td>
-              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#update-button">Update button</a></td>
-            </tr>
-            <tr>
               <td><span class="type-sample" data-paint="font-weight" data-token="--duo-weight-semibold">Aa 가</span></td>
               <td><button class="token-name" type="button" data-copy="var(--duo-weight-semibold)" title="Copy var(--duo-weight-semibold)">--duo-weight-semibold</button></td>
               <td><code>700</code></td>
-              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#sync-card">Sharing status card</a>, <a href="#buttons">Buttons</a>, <a href="#section-title">Titles and labels</a>, <a href="#ask">Request card</a>, <a href="#tabs">Tabs and segmented controls</a>, <a href="#field">Fields</a></td>
+              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#sync-card">Sharing status card</a>, <a href="#update-button">Update button</a>, <a href="#buttons">Buttons</a>, <a href="#section-title">Titles and labels</a>, <a href="#ask">Request card</a>, <a href="#tabs">Tabs and segmented controls</a>, <a href="#field">Fields</a></td>
             </tr>
             <tr>
               <td><span class="type-sample" data-paint="font-weight" data-token="--duo-weight-bold">Aa 가</span></td>
@@ -550,19 +478,13 @@
             </tr>
             <tr>
               <td><span class="radius-box" data-paint="border-radius" data-token="--duo-radius-md"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-radius-md)" title="Copy var(--duo-radius-md)">--duo-radius-md</button><small>Buttons, tabs, list items</small></td>
-              <td><code>10px</code></td>
-              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#update-button">Update button</a>, <a href="#buttons">Buttons</a>, <a href="#field">Fields</a>, <a href="#notices">Notices</a>, <a href="#blocker">Blocker row</a></td>
+              <td><button class="token-name" type="button" data-copy="var(--duo-radius-md)" title="Copy var(--duo-radius-md)">--duo-radius-md</button><small>Buttons, tabs, list items and panels inside cards</small></td>
+              <td><code>12px</code></td>
+              <td><a href="#sidebar-tabs">Sidebar tabs</a>, <a href="#sync-card">Sharing status card</a>, <a href="#update-button">Update button</a>, <a href="#buttons">Buttons</a>, <a href="#ask">Request card</a>, <a href="#tabs">Tabs and segmented controls</a>, <a href="#field">Fields</a>, <a href="#notices">Notices</a>, <a href="#blocker">Blocker row</a></td>
             </tr>
             <tr>
               <td><span class="radius-box" data-paint="border-radius" data-token="--duo-radius-lg"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-radius-lg)" title="Copy var(--duo-radius-lg)">--duo-radius-lg</button><small>Panels inside cards</small></td>
-              <td><code>12px</code></td>
-              <td><a href="#sync-card">Sharing status card</a>, <a href="#ask">Request card</a>, <a href="#tabs">Tabs and segmented controls</a></td>
-            </tr>
-            <tr>
-              <td><span class="radius-box" data-paint="border-radius" data-token="--duo-radius-xl"></span></td>
-              <td><button class="token-name" type="button" data-copy="var(--duo-radius-xl)" title="Copy var(--duo-radius-xl)">--duo-radius-xl</button><small>Cards, bubbles and dialogs</small></td>
+              <td><button class="token-name" type="button" data-copy="var(--duo-radius-lg)" title="Copy var(--duo-radius-lg)">--duo-radius-lg</button><small>Cards, bubbles and dialogs</small></td>
               <td><code>18px</code></td>
               <td><a href="#card">Card</a>, <a href="#lanes">Two-lane flow</a></td>
             </tr>
@@ -637,7 +559,7 @@
         <div class="element-copy">
           <h3>Sidebar tabs</h3>
           <p class="selectors"><code>.sidebar</code> <code>.app-tab</code> <code>.nav-count</code> <code>.sidebar-label</code></p>
-          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-accent)">--duo-color-accent</button> <button class="token-name small" type="button" data-copy="var(--duo-color-accent-ink)">--duo-color-accent-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar)">--duo-color-sidebar</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-active)">--duo-color-sidebar-active</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-hover)">--duo-color-sidebar-hover</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-ink)">--duo-color-sidebar-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-ink-faint)">--duo-color-sidebar-ink-faint</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-ink-soft)">--duo-color-sidebar-ink-soft</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-md)">--duo-radius-md</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-pill)">--duo-radius-pill</button> <button class="token-name small" type="button" data-copy="var(--duo-space-1)">--duo-space-1</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-text-2xs)">--duo-text-2xs</button> <button class="token-name small" type="button" data-copy="var(--duo-text-xs)">--duo-text-xs</button> <button class="token-name small" type="button" data-copy="var(--duo-tracking-caps)">--duo-tracking-caps</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-bold)">--duo-weight-bold</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-medium)">--duo-weight-medium</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-semibold)">--duo-weight-semibold</button></p>
+          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-accent)">--duo-color-accent</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink)">--duo-color-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar)">--duo-color-sidebar</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-active)">--duo-color-sidebar-active</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-hover)">--duo-color-sidebar-hover</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-ink)">--duo-color-sidebar-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-ink-faint)">--duo-color-sidebar-ink-faint</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-ink-soft)">--duo-color-sidebar-ink-soft</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-md)">--duo-radius-md</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-pill)">--duo-radius-pill</button> <button class="token-name small" type="button" data-copy="var(--duo-space-1)">--duo-space-1</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-text-xs)">--duo-text-xs</button> <button class="token-name small" type="button" data-copy="var(--duo-tracking-caps)">--duo-tracking-caps</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-bold)">--duo-weight-bold</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-semibold)">--duo-weight-semibold</button></p>
         </div>
       </article>
       <article class="element" id="sync-card">
@@ -645,7 +567,7 @@
         <div class="element-copy">
           <h3>Sharing status card</h3>
           <p class="selectors"><code>.sync-card</code> <code>.sync-dot</code> <code>.sync-copy</code> <code>.refresh-icon</code></p>
-          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-danger-indicator)">--duo-color-danger-indicator</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-hover)">--duo-color-sidebar-hover</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-ink)">--duo-color-sidebar-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-ink-faint)">--duo-color-sidebar-ink-faint</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-ink-soft)">--duo-color-sidebar-ink-soft</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-line)">--duo-color-sidebar-line</button> <button class="token-name small" type="button" data-copy="var(--duo-color-success-indicator)">--duo-color-success-indicator</button> <button class="token-name small" type="button" data-copy="var(--duo-color-waiting-indicator)">--duo-color-waiting-indicator</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-lg)">--duo-radius-lg</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-text-xs)">--duo-text-xs</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-semibold)">--duo-weight-semibold</button></p>
+          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-danger-indicator)">--duo-color-danger-indicator</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-active)">--duo-color-sidebar-active</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-hover)">--duo-color-sidebar-hover</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-ink)">--duo-color-sidebar-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-ink-faint)">--duo-color-sidebar-ink-faint</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-ink-soft)">--duo-color-sidebar-ink-soft</button> <button class="token-name small" type="button" data-copy="var(--duo-color-success-indicator)">--duo-color-success-indicator</button> <button class="token-name small" type="button" data-copy="var(--duo-color-waiting-indicator)">--duo-color-waiting-indicator</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-md)">--duo-radius-md</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-text-xs)">--duo-text-xs</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-semibold)">--duo-weight-semibold</button></p>
         </div>
       </article>
       <article class="element" id="update-button">
@@ -653,7 +575,7 @@
         <div class="element-copy">
           <h3>Update button</h3>
           <p class="selectors"><code>.update-button</code> <code>.update-dot</code></p>
-          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-accent)">--duo-color-accent</button> <button class="token-name small" type="button" data-copy="var(--duo-color-accent-hover)">--duo-color-accent-hover</button> <button class="token-name small" type="button" data-copy="var(--duo-color-accent-ink)">--duo-color-accent-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar)">--duo-color-sidebar</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-hover)">--duo-color-sidebar-hover</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-ink)">--duo-color-sidebar-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-ink-soft)">--duo-color-sidebar-ink-soft</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-line)">--duo-color-sidebar-line</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-md)">--duo-radius-md</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-bold)">--duo-weight-bold</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-medium)">--duo-weight-medium</button></p>
+          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-accent)">--duo-color-accent</button> <button class="token-name small" type="button" data-copy="var(--duo-color-accent-line)">--duo-color-accent-line</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink)">--duo-color-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar)">--duo-color-sidebar</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-active)">--duo-color-sidebar-active</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-hover)">--duo-color-sidebar-hover</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-ink)">--duo-color-sidebar-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-ink-soft)">--duo-color-sidebar-ink-soft</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-md)">--duo-radius-md</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-bold)">--duo-weight-bold</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-semibold)">--duo-weight-semibold</button></p>
         </div>
       </article>
       <article class="element" id="buttons">
@@ -661,7 +583,7 @@
         <div class="element-copy">
           <h3>Buttons</h3>
           <p class="selectors"><code>.primary-button</code> <code>.secondary-button</code></p>
-          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-accent)">--duo-color-accent</button> <button class="token-name small" type="button" data-copy="var(--duo-color-accent-ink)">--duo-color-accent-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink)">--duo-color-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface-muted)">--duo-color-surface-muted</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-md)">--duo-radius-md</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-bold)">--duo-weight-bold</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-semibold)">--duo-weight-semibold</button></p>
+          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-accent)">--duo-color-accent</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink)">--duo-color-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface-muted)">--duo-color-surface-muted</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-md)">--duo-radius-md</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-bold)">--duo-weight-bold</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-semibold)">--duo-weight-semibold</button></p>
         </div>
       </article>
       <article class="element" id="card">
@@ -669,7 +591,7 @@
         <div class="element-copy">
           <h3>Card</h3>
           <p class="selectors"><code>.card</code> <code>.card-title</code></p>
-          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-ink-soft)">--duo-color-ink-soft</button> <button class="token-name small" type="button" data-copy="var(--duo-color-line)">--duo-color-line</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface)">--duo-color-surface</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-xl)">--duo-radius-xl</button> <button class="token-name small" type="button" data-copy="var(--duo-shadow-card)">--duo-shadow-card</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-text-base)">--duo-text-base</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-bold)">--duo-weight-bold</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-regular)">--duo-weight-regular</button></p>
+          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-ink-soft)">--duo-color-ink-soft</button> <button class="token-name small" type="button" data-copy="var(--duo-color-line)">--duo-color-line</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface)">--duo-color-surface</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-lg)">--duo-radius-lg</button> <button class="token-name small" type="button" data-copy="var(--duo-shadow-card)">--duo-shadow-card</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-text-base)">--duo-text-base</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-bold)">--duo-weight-bold</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-regular)">--duo-weight-regular</button></p>
         </div>
       </article>
       <article class="element" id="section-title">
@@ -693,7 +615,7 @@
         <div class="element-copy">
           <h3>Turn tags</h3>
           <p class="selectors"><code>.turn</code></p>
-          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-accent)">--duo-color-accent</button> <button class="token-name small" type="button" data-copy="var(--duo-color-accent-ink)">--duo-color-accent-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink-soft)">--duo-color-ink-soft</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface-muted)">--duo-color-surface-muted</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-pill)">--duo-radius-pill</button> <button class="token-name small" type="button" data-copy="var(--duo-space-1)">--duo-space-1</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-text-xs)">--duo-text-xs</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-bold)">--duo-weight-bold</button></p>
+          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-accent)">--duo-color-accent</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink)">--duo-color-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink-soft)">--duo-color-ink-soft</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface-muted)">--duo-color-surface-muted</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-pill)">--duo-radius-pill</button> <button class="token-name small" type="button" data-copy="var(--duo-space-1)">--duo-space-1</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-text-xs)">--duo-text-xs</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-bold)">--duo-weight-bold</button></p>
         </div>
       </article>
       <article class="element" id="chips">
@@ -701,7 +623,7 @@
         <div class="element-copy">
           <h3>Chips and kinds</h3>
           <p class="selectors"><code>.chip</code> <code>.kind</code></p>
-          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-ink-faint)">--duo-color-ink-faint</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink-soft)">--duo-color-ink-soft</button> <button class="token-name small" type="button" data-copy="var(--duo-color-line)">--duo-color-line</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface)">--duo-color-surface</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface-subtle)">--duo-color-surface-subtle</button> <button class="token-name small" type="button" data-copy="var(--duo-font-mono)">--duo-font-mono</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-pill)">--duo-radius-pill</button> <button class="token-name small" type="button" data-copy="var(--duo-space-1)">--duo-space-1</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-space-half)">--duo-space-half</button> <button class="token-name small" type="button" data-copy="var(--duo-text-xs)">--duo-text-xs</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-bold)">--duo-weight-bold</button></p>
+          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-bg)">--duo-color-bg</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink-faint)">--duo-color-ink-faint</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink-soft)">--duo-color-ink-soft</button> <button class="token-name small" type="button" data-copy="var(--duo-color-line)">--duo-color-line</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface)">--duo-color-surface</button> <button class="token-name small" type="button" data-copy="var(--duo-font-mono)">--duo-font-mono</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-pill)">--duo-radius-pill</button> <button class="token-name small" type="button" data-copy="var(--duo-space-1)">--duo-space-1</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-space-half)">--duo-space-half</button> <button class="token-name small" type="button" data-copy="var(--duo-text-xs)">--duo-text-xs</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-bold)">--duo-weight-bold</button></p>
         </div>
       </article>
       <article class="element" id="faces">
@@ -709,7 +631,7 @@
         <div class="element-copy">
           <h3>People</h3>
           <p class="selectors"><code>.face</code></p>
-          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-ink-faint)">--duo-color-ink-faint</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink-inverse)">--duo-color-ink-inverse</button> <button class="token-name small" type="button" data-copy="var(--duo-color-person-1)">--duo-color-person-1</button> <button class="token-name small" type="button" data-copy="var(--duo-color-person-2)">--duo-color-person-2</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar)">--duo-color-sidebar</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-ink-faint)">--duo-color-sidebar-ink-faint</button> <button class="token-name small" type="button" data-copy="var(--duo-color-success-indicator)">--duo-color-success-indicator</button> <button class="token-name small" type="button" data-copy="var(--duo-color-waiting-indicator)">--duo-color-waiting-indicator</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-text-lg)">--duo-text-lg</button> <button class="token-name small" type="button" data-copy="var(--duo-text-md)">--duo-text-md</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-bold)">--duo-weight-bold</button></p>
+          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-ink-faint)">--duo-color-ink-faint</button> <button class="token-name small" type="button" data-copy="var(--duo-color-person-1)">--duo-color-person-1</button> <button class="token-name small" type="button" data-copy="var(--duo-color-person-2)">--duo-color-person-2</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar)">--duo-color-sidebar</button> <button class="token-name small" type="button" data-copy="var(--duo-color-sidebar-ink-faint)">--duo-color-sidebar-ink-faint</button> <button class="token-name small" type="button" data-copy="var(--duo-color-success-indicator)">--duo-color-success-indicator</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface)">--duo-color-surface</button> <button class="token-name small" type="button" data-copy="var(--duo-color-waiting-indicator)">--duo-color-waiting-indicator</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-text-lg)">--duo-text-lg</button> <button class="token-name small" type="button" data-copy="var(--duo-text-md)">--duo-text-md</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-bold)">--duo-weight-bold</button></p>
         </div>
       </article>
       <article class="element" id="ask">
@@ -717,7 +639,7 @@
         <div class="element-copy">
           <h3>Request card</h3>
           <p class="selectors"><code>.ask</code> <code>.ask-line</code> <code>.ask-title</code> <code>.ask-meta</code> <code>.ask-reply</code></p>
-          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-accent-line)">--duo-color-accent-line</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink-faint)">--duo-color-ink-faint</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink-soft)">--duo-color-ink-soft</button> <button class="token-name small" type="button" data-copy="var(--duo-color-line)">--duo-color-line</button> <button class="token-name small" type="button" data-copy="var(--duo-color-line-strong)">--duo-color-line-strong</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface-subtle)">--duo-color-surface-subtle</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-lg)">--duo-radius-lg</button> <button class="token-name small" type="button" data-copy="var(--duo-ring-selected)">--duo-ring-selected</button> <button class="token-name small" type="button" data-copy="var(--duo-shadow-card)">--duo-shadow-card</button> <button class="token-name small" type="button" data-copy="var(--duo-space-1)">--duo-space-1</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-space-5)">--duo-space-5</button> <button class="token-name small" type="button" data-copy="var(--duo-space-half)">--duo-space-half</button> <button class="token-name small" type="button" data-copy="var(--duo-text-base)">--duo-text-base</button> <button class="token-name small" type="button" data-copy="var(--duo-text-md)">--duo-text-md</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-text-xs)">--duo-text-xs</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-semibold)">--duo-weight-semibold</button></p>
+          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-accent-line)">--duo-color-accent-line</button> <button class="token-name small" type="button" data-copy="var(--duo-color-bg)">--duo-color-bg</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink-faint)">--duo-color-ink-faint</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink-soft)">--duo-color-ink-soft</button> <button class="token-name small" type="button" data-copy="var(--duo-color-line)">--duo-color-line</button> <button class="token-name small" type="button" data-copy="var(--duo-color-line-strong)">--duo-color-line-strong</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-md)">--duo-radius-md</button> <button class="token-name small" type="button" data-copy="var(--duo-ring-selected)">--duo-ring-selected</button> <button class="token-name small" type="button" data-copy="var(--duo-shadow-card)">--duo-shadow-card</button> <button class="token-name small" type="button" data-copy="var(--duo-space-1)">--duo-space-1</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-space-5)">--duo-space-5</button> <button class="token-name small" type="button" data-copy="var(--duo-space-half)">--duo-space-half</button> <button class="token-name small" type="button" data-copy="var(--duo-text-base)">--duo-text-base</button> <button class="token-name small" type="button" data-copy="var(--duo-text-md)">--duo-text-md</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-text-xs)">--duo-text-xs</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-semibold)">--duo-weight-semibold</button></p>
         </div>
       </article>
       <article class="element" id="lanes">
@@ -725,7 +647,7 @@
         <div class="element-copy">
           <h3>Two-lane flow</h3>
           <p class="selectors"><code>.lane-row</code> <code>.lane-pin</code> <code>.bubble</code></p>
-          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-blocked)">--duo-color-blocked</button> <button class="token-name small" type="button" data-copy="var(--duo-color-blocked-subtle)">--duo-color-blocked-subtle</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink-faint)">--duo-color-ink-faint</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink-soft)">--duo-color-ink-soft</button> <button class="token-name small" type="button" data-copy="var(--duo-color-line)">--duo-color-line</button> <button class="token-name small" type="button" data-copy="var(--duo-color-line-strong)">--duo-color-line-strong</button> <button class="token-name small" type="button" data-copy="var(--duo-color-person-1)">--duo-color-person-1</button> <button class="token-name small" type="button" data-copy="var(--duo-color-person-1-subtle)">--duo-color-person-1-subtle</button> <button class="token-name small" type="button" data-copy="var(--duo-color-person-2)">--duo-color-person-2</button> <button class="token-name small" type="button" data-copy="var(--duo-color-person-2-subtle)">--duo-color-person-2-subtle</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface)">--duo-color-surface</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-xl)">--duo-radius-xl</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-xs)">--duo-radius-xs</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-space-half)">--duo-space-half</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-text-xs)">--duo-text-xs</button></p>
+          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-blocked)">--duo-color-blocked</button> <button class="token-name small" type="button" data-copy="var(--duo-color-blocked-subtle)">--duo-color-blocked-subtle</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink-faint)">--duo-color-ink-faint</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink-soft)">--duo-color-ink-soft</button> <button class="token-name small" type="button" data-copy="var(--duo-color-line)">--duo-color-line</button> <button class="token-name small" type="button" data-copy="var(--duo-color-line-strong)">--duo-color-line-strong</button> <button class="token-name small" type="button" data-copy="var(--duo-color-person-1)">--duo-color-person-1</button> <button class="token-name small" type="button" data-copy="var(--duo-color-person-1-subtle)">--duo-color-person-1-subtle</button> <button class="token-name small" type="button" data-copy="var(--duo-color-person-2)">--duo-color-person-2</button> <button class="token-name small" type="button" data-copy="var(--duo-color-person-2-subtle)">--duo-color-person-2-subtle</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface)">--duo-color-surface</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-lg)">--duo-radius-lg</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-xs)">--duo-radius-xs</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-space-half)">--duo-space-half</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-text-xs)">--duo-text-xs</button></p>
         </div>
       </article>
       <article class="element" id="tabs">
@@ -733,7 +655,7 @@
         <div class="element-copy">
           <h3>Tabs and segmented controls</h3>
           <p class="selectors"><code>.chip-tabs</code> <code>.chip-tab</code> <code>.segmented</code></p>
-          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-bg)">--duo-color-bg</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink)">--duo-color-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink-soft)">--duo-color-ink-soft</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface-muted)">--duo-color-surface-muted</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-lg)">--duo-radius-lg</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-pill)">--duo-radius-pill</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-sm)">--duo-radius-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-space-1)">--duo-space-1</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-semibold)">--duo-weight-semibold</button></p>
+          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-bg)">--duo-color-bg</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink)">--duo-color-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink-soft)">--duo-color-ink-soft</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface-muted)">--duo-color-surface-muted</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-md)">--duo-radius-md</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-pill)">--duo-radius-pill</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-sm)">--duo-radius-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-space-1)">--duo-space-1</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-weight-semibold)">--duo-weight-semibold</button></p>
         </div>
       </article>
       <article class="element" id="field">
@@ -749,7 +671,7 @@
         <div class="element-copy">
           <h3>Notices</h3>
           <p class="selectors"><code>.notice</code> <code>.version-notice</code> <code>.error-panel</code></p>
-          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-accent-ink)">--duo-color-accent-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-accent-line)">--duo-color-accent-line</button> <button class="token-name small" type="button" data-copy="var(--duo-color-accent-subtle)">--duo-color-accent-subtle</button> <button class="token-name small" type="button" data-copy="var(--duo-color-accent-text)">--duo-color-accent-text</button> <button class="token-name small" type="button" data-copy="var(--duo-color-danger)">--duo-color-danger</button> <button class="token-name small" type="button" data-copy="var(--duo-color-danger-line)">--duo-color-danger-line</button> <button class="token-name small" type="button" data-copy="var(--duo-color-danger-subtle)">--duo-color-danger-subtle</button> <button class="token-name small" type="button" data-copy="var(--duo-color-notice)">--duo-color-notice</button> <button class="token-name small" type="button" data-copy="var(--duo-color-notice-line)">--duo-color-notice-line</button> <button class="token-name small" type="button" data-copy="var(--duo-color-notice-subtle)">--duo-color-notice-subtle</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface)">--duo-color-surface</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-md)">--duo-radius-md</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-sm)">--duo-radius-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-space-5)">--duo-space-5</button> <button class="token-name small" type="button" data-copy="var(--duo-space-8)">--duo-space-8</button> <button class="token-name small" type="button" data-copy="var(--duo-space-half)">--duo-space-half</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button></p>
+          <p class="element-tokens"><button class="token-name small" type="button" data-copy="var(--duo-color-accent-line)">--duo-color-accent-line</button> <button class="token-name small" type="button" data-copy="var(--duo-color-accent-subtle)">--duo-color-accent-subtle</button> <button class="token-name small" type="button" data-copy="var(--duo-color-danger)">--duo-color-danger</button> <button class="token-name small" type="button" data-copy="var(--duo-color-danger-subtle)">--duo-color-danger-subtle</button> <button class="token-name small" type="button" data-copy="var(--duo-color-ink)">--duo-color-ink</button> <button class="token-name small" type="button" data-copy="var(--duo-color-surface)">--duo-color-surface</button> <button class="token-name small" type="button" data-copy="var(--duo-color-waiting)">--duo-color-waiting</button> <button class="token-name small" type="button" data-copy="var(--duo-color-waiting-subtle)">--duo-color-waiting-subtle</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-md)">--duo-radius-md</button> <button class="token-name small" type="button" data-copy="var(--duo-radius-sm)">--duo-radius-sm</button> <button class="token-name small" type="button" data-copy="var(--duo-space-2)">--duo-space-2</button> <button class="token-name small" type="button" data-copy="var(--duo-space-3)">--duo-space-3</button> <button class="token-name small" type="button" data-copy="var(--duo-space-4)">--duo-space-4</button> <button class="token-name small" type="button" data-copy="var(--duo-space-5)">--duo-space-5</button> <button class="token-name small" type="button" data-copy="var(--duo-space-8)">--duo-space-8</button> <button class="token-name small" type="button" data-copy="var(--duo-space-half)">--duo-space-half</button> <button class="token-name small" type="button" data-copy="var(--duo-text-sm)">--duo-text-sm</button></p>
         </div>
       </article>
       <article class="element" id="blocker">

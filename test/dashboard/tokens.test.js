@@ -12,7 +12,7 @@ const publicFile = (name) => readFile(new URL(`../../src/dashboard/public/${name
 test('tokens.css defines grouped, uniquely named --duo-* tokens', async () => {
   const groups = parseTokens(await publicFile('tokens.css'));
   const names = groups.flatMap((group) => group.tokens.map((token) => token.name));
-  assert.ok(groups.length >= 8 && names.length >= 80);
+  assert.ok(groups.length >= 8 && names.length >= 60);
   assert.deepEqual(names.filter((name) => !/^--duo-[a-z0-9]+(-[a-z0-9]+)*$/.test(name)), []);
   assert.equal(new Set(names).size, names.length, 'token names are unique');
   assert.ok(groups.every((group) => group.tokens.length > 0), 'every group has tokens');

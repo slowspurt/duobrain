@@ -12,19 +12,17 @@
  */
 :root {
   /* @group Color · Surfaces */
-  --duo-color-bg: #f4f5f0; /* Page background */
-  --duo-color-surface: #ffffff; /* Cards, dialogs and inputs */
+  --duo-color-bg: #f4f5f0; /* Page background and quiet panels inside cards */
+  --duo-color-surface: #ffffff; /* Cards, dialogs, inputs and text on person colors */
   --duo-color-surface-muted: #eceee8; /* Neutral chips, tab tracks, secondary buttons */
-  --duo-color-surface-subtle: #f2f3ee; /* Quiet panels inside cards */
   --duo-color-line: #e2e5de; /* Default borders and dividers */
   --duo-color-line-strong: #c9cec5; /* Hovered borders and input outlines */
   --duo-color-overlay: #0d1310b3; /* Backdrop behind dialogs */
 
   /* @group Color · Text */
-  --duo-color-ink: #151c19; /* Primary text */
+  --duo-color-ink: #151c19; /* Primary text, also on lime */
   --duo-color-ink-soft: #5f6a64; /* Secondary text and labels */
   --duo-color-ink-faint: #9aa39e; /* Hints and placeholders */
-  --duo-color-ink-inverse: #ffffff; /* Text on person colors */
 
   /* @group Color · Sidebar */
   --duo-color-sidebar: #18211d; /* Sidebar background */
@@ -32,16 +30,12 @@
   --duo-color-sidebar-ink-soft: #a6b2ac; /* Sidebar secondary text */
   --duo-color-sidebar-ink-faint: #6f7c75; /* Sidebar labels and idle dots */
   --duo-color-sidebar-hover: #24302b; /* Hovered sidebar items and cards */
-  --duo-color-sidebar-active: #2f3d36; /* The current tab */
-  --duo-color-sidebar-line: #2c3832; /* Sidebar borders */
+  --duo-color-sidebar-active: #2f3d36; /* The current tab and sidebar borders */
 
   /* @group Color · Accent */
   --duo-color-accent: #c8ff3d; /* Lime: brand, your turn, primary actions */
-  --duo-color-accent-hover: #d6ff6b; /* Hovered lime buttons */
-  --duo-color-accent-ink: #151c19; /* Text on lime */
-  --duo-color-accent-line: #a8d92b; /* Lime outlines */
+  --duo-color-accent-line: #a8d92b; /* Lime outlines and hovered lime buttons */
   --duo-color-accent-subtle: #efffc8; /* Lime notices */
-  --duo-color-accent-text: #3d4a12; /* Body text on lime notices */
 
   /* @group Color · People */
   --duo-color-person-1: #7c5cff; /* First participant */
@@ -53,26 +47,21 @@
   --duo-color-success: #17633f; /* Working, agreed, resolved, validated */
   --duo-color-success-subtle: #ddf3e6;
   --duo-color-success-indicator: #22a463; /* Status dots */
-  --duo-color-waiting: #7a4b0e; /* Paused, proposed, not read */
+  --duo-color-waiting: #7a4b0e; /* Paused, proposed, not read, sample data */
   --duo-color-waiting-subtle: #fbe9cc;
   --duo-color-waiting-indicator: #dd9a2b;
   --duo-color-info: #1d4f75; /* Answered */
   --duo-color-info-subtle: #dcecf7;
   --duo-color-danger: #8a2430; /* Failures and conflicts */
   --duo-color-danger-subtle: #f8dcdf;
-  --duo-color-danger-line: #efbcc2;
   --duo-color-danger-indicator: #ff6b6b;
   --duo-color-blocked: #b4471f; /* Recorded blockers */
   --duo-color-blocked-subtle: #fdeee5;
-  --duo-color-notice: #5e4b12; /* Sample data and soft warnings */
-  --duo-color-notice-subtle: #fff4c7;
-  --duo-color-notice-line: #eedc8f;
 
   /* @group Typography */
   --duo-font-sans: Inter, Pretendard, "Noto Sans KR", system-ui, sans-serif; /* All interface text; fonts are not bundled */
   --duo-font-mono: ui-monospace, SFMono-Regular, monospace; /* Paths, versions, commits */
-  --duo-text-2xs: .72rem; /* Uppercase labels */
-  --duo-text-xs: .76rem; /* Badges and meta lines */
+  --duo-text-xs: .76rem; /* Badges, meta lines and uppercase labels */
   --duo-text-sm: .86rem; /* Secondary text and controls */
   --duo-text-md: .92rem; /* Dense body text */
   --duo-text-base: 1rem; /* Body text */
@@ -81,7 +70,6 @@
   --duo-text-2xl: 1.7rem; /* Page titles and big numbers */
   --duo-text-display: clamp(1.5rem, 2.6vw, 2rem); /* The current goal */
   --duo-weight-regular: 500;
-  --duo-weight-medium: 650;
   --duo-weight-semibold: 700;
   --duo-weight-bold: 800;
   --duo-leading-tight: 1.2; /* Headings */
@@ -104,9 +92,8 @@
   /* @group Radius */
   --duo-radius-xs: 4px; /* Wordmark, small tags */
   --duo-radius-sm: 8px; /* Inputs, small buttons */
-  --duo-radius-md: 10px; /* Buttons, tabs, list items */
-  --duo-radius-lg: 12px; /* Panels inside cards */
-  --duo-radius-xl: 18px; /* Cards, bubbles and dialogs */
+  --duo-radius-md: 12px; /* Buttons, tabs, list items and panels inside cards */
+  --duo-radius-lg: 18px; /* Cards, bubbles and dialogs */
   --duo-radius-pill: 999px; /* Badges, chips and counts */
 
   /* @group Elevation */

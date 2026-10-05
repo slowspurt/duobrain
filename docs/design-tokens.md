@@ -22,7 +22,7 @@ Load the file; do not copy its values.
 ```html
 <link rel="stylesheet" href=".duobrain/src/dashboard/public/tokens.css">
 <style>
-  .report { background: var(--duo-color-surface); border-radius: var(--duo-radius-xl); padding: var(--duo-space-6); }
+  .report { background: var(--duo-color-surface); border-radius: var(--duo-radius-lg); padding: var(--duo-space-6); }
   .report h1 { font: var(--duo-weight-bold) var(--duo-text-2xl)/var(--duo-leading-tight) var(--duo-font-sans); }
 </style>
 ```
