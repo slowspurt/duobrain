@@ -1,0 +1,121 @@
+/*
+ * duobrain design tokens.
+ *
+ * The public, stable part of the dashboard's look. Other tools may load this file and use the
+ * --duo-* names; the dashboard itself is built only from them. Within 0.x.y a name is never
+ * renamed or removed in a patch release, and every release note says whether tokens changed.
+ * See docs/design-tokens.md for the rules and tokens.html for every token next to the
+ * elements that use it.
+ *
+ * Lines are "name: value; /* description *\/" and "@group" comments name the sections;
+ * scripts/build-tokens-page.mjs reads this layout, so keep it.
+ */
+:root {
+  /* @group Color · Surfaces */
+  --duo-color-bg: #f4f5f0; /* Page background */
+  --duo-color-surface: #ffffff; /* Cards, dialogs and inputs */
+  --duo-color-surface-muted: #eceee8; /* Neutral chips, tab tracks, secondary buttons */
+  --duo-color-surface-subtle: #f2f3ee; /* Quiet panels inside cards */
+  --duo-color-line: #e2e5de; /* Default borders and dividers */
+  --duo-color-line-strong: #c9cec5; /* Hovered borders and input outlines */
+  --duo-color-overlay: #0d1310b3; /* Backdrop behind dialogs */
+
+  /* @group Color · Text */
+  --duo-color-ink: #151c19; /* Primary text */
+  --duo-color-ink-soft: #5f6a64; /* Secondary text and labels */
+  --duo-color-ink-faint: #9aa39e; /* Hints and placeholders */
+  --duo-color-ink-inverse: #ffffff; /* Text on person colors */
+
+  /* @group Color · Sidebar */
+  --duo-color-sidebar: #18211d; /* Sidebar background */
+  --duo-color-sidebar-ink: #eef2ee; /* Sidebar text */
+  --duo-color-sidebar-ink-soft: #a6b2ac; /* Sidebar secondary text */
+  --duo-color-sidebar-ink-faint: #6f7c75; /* Sidebar labels and idle dots */
+  --duo-color-sidebar-hover: #24302b; /* Hovered sidebar items and cards */
+  --duo-color-sidebar-active: #2f3d36; /* The current tab */
+  --duo-color-sidebar-line: #2c3832; /* Sidebar borders */
+
+  /* @group Color · Accent */
+  --duo-color-accent: #c8ff3d; /* Lime: brand, your turn, primary actions */
+  --duo-color-accent-hover: #d6ff6b; /* Hovered lime buttons */
+  --duo-color-accent-ink: #151c19; /* Text on lime */
+  --duo-color-accent-line: #a8d92b; /* Lime outlines */
+  --duo-color-accent-subtle: #efffc8; /* Lime notices */
+  --duo-color-accent-text: #3d4a12; /* Body text on lime notices */
+
+  /* @group Color · People */
+  --duo-color-person-1: #7c5cff; /* First participant */
+  --duo-color-person-1-subtle: #efebff; /* First participant's bubbles */
+  --duo-color-person-2: #0f9f74; /* Second participant */
+  --duo-color-person-2-subtle: #e2f5ee; /* Second participant's bubbles */
+
+  /* @group Color · Status */
+  --duo-color-success: #17633f; /* Working, agreed, resolved, validated */
+  --duo-color-success-subtle: #ddf3e6;
+  --duo-color-success-indicator: #22a463; /* Status dots */
+  --duo-color-waiting: #7a4b0e; /* Paused, proposed, not read */
+  --duo-color-waiting-subtle: #fbe9cc;
+  --duo-color-waiting-indicator: #dd9a2b;
+  --duo-color-info: #1d4f75; /* Answered */
+  --duo-color-info-subtle: #dcecf7;
+  --duo-color-danger: #8a2430; /* Failures and conflicts */
+  --duo-color-danger-subtle: #f8dcdf;
+  --duo-color-danger-line: #efbcc2;
+  --duo-color-danger-indicator: #ff6b6b;
+  --duo-color-blocked: #b4471f; /* Recorded blockers */
+  --duo-color-blocked-subtle: #fdeee5;
+  --duo-color-notice: #5e4b12; /* Sample data and soft warnings */
+  --duo-color-notice-subtle: #fff4c7;
+  --duo-color-notice-line: #eedc8f;
+
+  /* @group Typography */
+  --duo-font-sans: Inter, Pretendard, "Noto Sans KR", system-ui, sans-serif; /* All interface text; fonts are not bundled */
+  --duo-font-mono: ui-monospace, SFMono-Regular, monospace; /* Paths, versions, commits */
+  --duo-text-2xs: .72rem; /* Uppercase labels */
+  --duo-text-xs: .76rem; /* Badges and meta lines */
+  --duo-text-sm: .86rem; /* Secondary text and controls */
+  --duo-text-md: .92rem; /* Dense body text */
+  --duo-text-base: 1rem; /* Body text */
+  --duo-text-lg: 1.1rem; /* Card and dialog titles */
+  --duo-text-xl: 1.25rem; /* Section titles */
+  --duo-text-2xl: 1.7rem; /* Page titles and big numbers */
+  --duo-text-display: clamp(1.5rem, 2.6vw, 2rem); /* The current goal */
+  --duo-weight-regular: 500;
+  --duo-weight-medium: 650;
+  --duo-weight-semibold: 700;
+  --duo-weight-bold: 800;
+  --duo-leading-tight: 1.2; /* Headings */
+  --duo-leading-body: 1.5; /* Running text */
+  --duo-tracking-tight: -.03em; /* Large headings */
+  --duo-tracking-caps: .07em; /* Uppercase labels */
+
+  /* @group Space */
+  --duo-space-half: 2px;
+  --duo-space-1: 4px;
+  --duo-space-2: 8px;
+  --duo-space-3: 12px;
+  --duo-space-4: 16px;
+  --duo-space-5: 20px;
+  --duo-space-6: 24px;
+  --duo-space-8: 32px;
+  --duo-space-12: 48px;
+  --duo-space-16: 64px;
+
+  /* @group Radius */
+  --duo-radius-xs: 4px; /* Wordmark, small tags */
+  --duo-radius-sm: 8px; /* Inputs, small buttons */
+  --duo-radius-md: 10px; /* Buttons, tabs, list items */
+  --duo-radius-lg: 12px; /* Panels inside cards */
+  --duo-radius-xl: 18px; /* Cards, bubbles and dialogs */
+  --duo-radius-pill: 999px; /* Badges, chips and counts */
+
+  /* @group Elevation */
+  --duo-shadow-card: 0 1px 0 #0000000a, 0 12px 30px -22px #151c1940; /* Resting cards */
+  --duo-shadow-overlay: 0 30px 80px -30px #000000cc; /* Dialogs */
+  --duo-ring-selected: 0 0 0 2px var(--duo-color-ink); /* The selected card */
+
+  /* @group Layout */
+  --duo-sidebar-width: 240px;
+  --duo-sidebar-width-collapsed: 68px;
+  --duo-content-max: 1080px; /* Widest page content */
+}

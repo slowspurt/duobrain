@@ -7,6 +7,10 @@ const assets = new Map([
   ['/i18n.js', ['text/javascript; charset=utf-8', new URL('./public/i18n.js', import.meta.url)]],
   ['/model.js', ['text/javascript; charset=utf-8', new URL('./public/model.js', import.meta.url)]],
   ['/styles.css', ['text/css; charset=utf-8', new URL('./public/styles.css', import.meta.url)]],
+  ['/tokens.css', ['text/css; charset=utf-8', new URL('./public/tokens.css', import.meta.url)]],
+  ['/tokens', ['text/html; charset=utf-8', new URL('./public/tokens.html', import.meta.url)]],
+  ['/tokens-page.css', ['text/css; charset=utf-8', new URL('./public/tokens-page.css', import.meta.url)]],
+  ['/tokens-page.js', ['text/javascript; charset=utf-8', new URL('./public/tokens-page.js', import.meta.url)]],
 ]);
 
 const securityHeaders = {
