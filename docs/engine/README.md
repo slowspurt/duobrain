@@ -324,6 +324,9 @@ duobrain method-compare --file comparison.json [--request-missing]
 one structured query and returns a few cards without bodies: lexical BM25F recall
 with Hangul bigrams, then a deterministic pass for supersession, ticket evidence,
 summary folding and a score cutoff, and a `match` of `strong`, `weak` or `none`.
+Beside the search cards it returns a browse channel: the other records as short
+lines, newest first, at most 100, so the calling agent can pick by meaning what
+the words missed (`--no-browse` omits it). English words are lightly stemmed.
 `wiki-list` returns cards (`listSharedWikiCards`); `--full` returns every note.
 `status --brief` adds a capped `wiki` section with the evidence of my open tickets
 and notes others recorded after my last handoff.

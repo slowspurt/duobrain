@@ -24,12 +24,15 @@ const TOP_SCORE_FLOOR = 0.35;
 const DROP_RATIO = 0.5;
 const STRONG_COVERAGE = 0.5;
 const EXCERPT_LENGTH = 160;
+const BROWSE_LIMIT = 100;
+const BROWSE_ABSTRACT_LENGTH = 80;
 
 /**
  * Find wiki notes, tickets and sessions for a structured query without reading
- * the shared store. Recall is wide (lexical BM25F over every record), a
- * deterministic judgment pass reorders and trims it, and only a few cards come
- * back. Bodies are never included; the caller opens a card to read it.
+ * the shared store. Two channels run side by side. Search: wide lexical BM25F
+ * recall, a deterministic judgment pass, and a few scored cards. Browse: a short
+ * listing of the other records, newest first, so the caller can also pick by
+ * meaning what the words missed. Bodies are never included.
  */
 export function findRecords({notes = [], tickets = [], sessions = [], query} = {}) {
   if (!Array.isArray(notes) || !Array.isArray(tickets) || !Array.isArray(sessions)) {
@@ -56,6 +59,25 @@ export function findRecords({notes = [], tickets = [], sessions = [], query} = {
     recall: {candidates: recalled.length, byKind: countByKind(recalled)},
     results: kept.map((entry) => card(entry)),
     more: judged.length - kept.length,
+    ...(normalized.browse ? {browse: browse(documents, kept)} : {}),
+  };
+}
+
+/** The file-exploration channel: every record the search did not return, as one short line each. */
+function browse(documents, kept) {
+  const shown = new Set(kept.flatMap((entry) => [entry.document.ref, ...(entry.members ?? [])]));
+  const rest = documents
+    .filter((document) => !shown.has(document.ref))
+    .sort((left, right) => (right.at ?? "").localeCompare(left.at ?? "") || left.ref.localeCompare(right.ref));
+  return {
+    total: rest.length,
+    items: rest.slice(0, BROWSE_LIMIT).map((document) => {
+      const summary = card({document, hitFields: [], hitTerms: [], exactEntities: [], reasons: []});
+      const item = {ref: document.ref, title: summary.title, status: summary.status, at: summary.at};
+      if (summary.abstract) item.abstract = clip(summary.abstract, BROWSE_ABSTRACT_LENGTH);
+      if (document.superseded) item.superseded = true;
+      return item;
+    }),
   };
 }
 
@@ -101,6 +123,7 @@ function normalizeQuery(query) {
     exclude: strings(query.exclude, "exclude").map((item) => fold(item)),
     kinds: new Set(kinds),
     limit,
+    browse: query.browse !== false,
   };
 }
 
@@ -114,13 +137,24 @@ export function tokenize(text) {
   for (const [word] of fold(text).matchAll(/[\p{L}\p{N}]+/gu)) {
     for (const part of word.split(/(\p{Script=Hangul}+)/u).filter(Boolean)) {
       if (!/^\p{Script=Hangul}+$/u.test(part) || part.length < 2) {
-        terms.push(part);
+        terms.push(/^[a-z]+$/.test(part) ? stem(part) : part);
         continue;
       }
       for (let index = 0; index < part.length - 1; index += 1) terms.push(part.slice(index, index + 2));
     }
   }
   return terms;
+}
+
+/** A light English stem applied to both sides, so fixtures, fixture and tested, tests meet. */
+function stem(word) {
+  let result = word;
+  if (result.length > 4 && result.endsWith("ies")) result = `${result.slice(0, -3)}y`;
+  else if (result.length > 3 && result.endsWith("s") && !result.endsWith("ss")) result = result.slice(0, -1);
+  if (result.length > 5 && result.endsWith("ing")) result = result.slice(0, -3);
+  else if (result.length > 4 && result.endsWith("ed")) result = result.slice(0, -2);
+  if (result.length > 3 && result.endsWith("e")) result = result.slice(0, -1);
+  return result;
 }
 
 function wikiDocument(note) {
@@ -467,8 +501,8 @@ function firstHeading(body) {
   return match ? match[1].trim() : null;
 }
 
-function clip(text) {
-  return text.length > EXCERPT_LENGTH ? `${text.slice(0, EXCERPT_LENGTH - 1)}…` : text;
+function clip(text, length = EXCERPT_LENGTH) {
+  return text.length > length ? `${text.slice(0, length - 1)}…` : text;
 }
 
 function countByKind(entries) {

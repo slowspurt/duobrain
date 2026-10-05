@@ -17,8 +17,8 @@ Run duobrain from the product repository root: `node .duobrain/bin/duobrain.js <
 
 - **Step 1:** `sync`, then `status --brief` (or `overlap --scope <paths> --brief`). If that answers the question, answer now.
   If the brief has `duobrainUpdate`, tell the user first: the partner moved duobrain to that version, so pull the project (vendored) or run `update` (own checkout). Do not run it for them.
-- **Step 2:** one `find` (see [finding records](reference/wiki.md#finding-records)), then open at most two of its cards with `wiki-get` or `ticket-get`. If you can run a sub-agent, let it do this step and return only the verdict. For something outside the record, one targeted lookup such as one commit diff.
-- **Stop:** if still uncertain, or `find` says `match: none`, mark it `unknown` and create or reuse a ticket, or ask the user. Do not run a third or fourth speculative check or invent a plausible reason.
+- **Step 2:** one `find` (see [finding records](reference/wiki.md#finding-records)). Judge both its search cards and its browse lines, then open at most two records with `wiki-get` or `ticket-get`. If you can run a sub-agent, let it do this step and return only the verdict. For something outside the record, one targeted lookup such as one commit diff.
+- **Stop:** if still uncertain, or neither channel has a matching record, mark it `unknown` and create or reuse a ticket, or ask the user. Do not run a third or fourth speculative check or invent a plausible reason.
 
 This limit applies to answering questions. When the user asks you to investigate or to do the work, use what the task needs.
 
@@ -39,11 +39,11 @@ Never call work "safe" from paths alone: `no_overlap` covers paths only, and sem
 ```
 [찾음] title — status, author, date (wiki/<id>.md or ticket id)
 [근거] "one quoted line from the record" · matched on <fields>
-[판단] 확인됨 / 추론 / 미확인 · <n> candidates, <k> kept
+[판단] 확인됨 / 추론 / 미확인 · found by search or browse · <n> candidates, <k> kept
 [다음] open the full text · the related ticket · or an information ticket
 ```
 
-Quote only records you opened or cards `find` returned. With `match: none`, say the record does not contain it and propose the ticket. Label a `proposed`, `personal` or superseded record as such; never present it as a joint decision.
+Quote only records you opened or cards `find` returned. When neither search nor browse has it, say the record does not contain it and propose the ticket. Label a `proposed`, `personal` or superseded record as such; never present it as a joint decision.
 
 **Briefings** ("Where did my partner leave off? What can I pick up?"): at most five lines.
 

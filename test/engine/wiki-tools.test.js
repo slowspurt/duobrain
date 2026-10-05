@@ -186,6 +186,12 @@ test('find, wiki-get, ticket-get and wiki-list cards read the shared record thro
   assert.deepEqual(found.results[0].links.evidenceFor, [`ticket:${ticketId}`]);
   assert.equal(JSON.stringify(found).includes('so it was cut to three checks'), false);
 
+  assert.equal(found.browse.total, 1, 'the ticket the search did not return is listed to browse');
+  assert.equal(Object.hasOwn(
+    await duobrain(setup.bob, 'find', '--query', 'review prompt', '--no-browse'),
+    'browse',
+  ), false);
+
   const byTicket = await duobrain(setup.bob, 'find', '--query', 'review prompt', '--entities', `ticket:${ticketId}`);
   assert.deepEqual(byTicket.results.map(({ ref }) => ref).sort(), [notePath, `ticket:${ticketId}`].sort());
 

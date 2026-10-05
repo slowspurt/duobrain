@@ -80,20 +80,12 @@ test("weighs the user's question above expansion terms", () => {
 
 test("demotes a superseded note and surfaces its replacement", () => {
   const old = note(1, {title: "CSV export policy", status: "personal"}, "Use commas.");
-  const replacement = note(2, {
-    title: "Delimiter decision",
-    status: "superseded",
-    supersedes: [path(1)],
-  }, "Retired.");
-  const current = note(3, {title: "CSV export policy v2", supersedes: [path(1)]}, "Use semicolons.");
-  const result = findRecords({notes: [old, replacement, current, ...filler], query: {question: "csv export policy", limit: 5}});
+  const current = note(3, {title: "Delimiter rule", supersedes: [path(1)]}, "Use semicolons.");
+  const result = findRecords({notes: [old, current, ...filler], query: {question: "csv export policy", limit: 5}});
 
-  assert.equal(result.results[0].ref, current.path);
-  const demoted = result.results.find(({ref}) => ref === old.path);
-  if (demoted) {
-    assert.deepEqual(demoted.links.supersededBy.sort(), [path(2), path(3)].sort());
-    assert.ok(demoted.hit.reasons.includes("superseded"));
-  }
+  assert.deepEqual(result.results.map(({ref}) => ref), [current.path], "the replacement answers; the old note drops below the cutoff");
+  assert.deepEqual(result.results[0].hit.reasons, [`replaces ${old.path}`]);
+  assert.deepEqual(result.browse.items.find(({ref}) => ref === old.path).superseded, true, "the old note stays visible as superseded");
 });
 
 test("matches an exact entity and links tickets to their evidence notes", () => {
@@ -115,7 +107,7 @@ test("matches an exact entity and links tickets to their evidence notes", () => 
   const result = findRecords({
     notes: [evidence, ...filler],
     tickets: [ticket],
-    query: {question: "fixture", entities: [`ticket:${ticket.id}`], limit: 5},
+    query: {question: "fixtures", entities: [`ticket:${ticket.id}`], limit: 5},
   });
   const ticketCard = result.results.find(({kind}) => kind === "ticket");
   const noteCard = result.results.find(({kind}) => kind === "wiki");
@@ -170,6 +162,38 @@ test("keeps the output small, reports the rest, and honours kinds and exclude", 
 
   const excluded = findRecords({notes, sessions: [session], query: {question: "export", exclude: ["cleanup"], kinds: ["session"]}});
   assert.equal(excluded.match, "none");
+});
+
+test("matches English word forms both ways", () => {
+  const notes = [note(1, {title: "Export tests"}), note(2, {title: "SRT fixture result"}), ...filler];
+
+  assert.equal(findRecords({notes, query: {question: "test"}}).results[0].ref, path(1));
+  assert.equal(findRecords({notes, query: {question: "testing"}}).results[0].ref, path(1));
+  assert.equal(findRecords({notes, query: {question: "fixtures"}}).results[0].ref, path(2));
+});
+
+test("browses the records the search did not return, so meaning can catch what words missed", () => {
+  const meaning = note(1, {title: "Why the review checklist got shorter", abstract: "Fewer checks, less noise."});
+  const worded = note(2, {title: "Prompt change log"});
+  const result = findRecords({notes: [meaning, worded, ...filler], query: {question: "prompt change"}});
+
+  assert.deepEqual(result.results.map(({ref}) => ref), [worded.path]);
+  assert.equal(result.browse.total, 9);
+  const listed = result.browse.items.find(({ref}) => ref === meaning.path);
+  assert.deepEqual(listed, {
+    ref: meaning.path,
+    title: "Why the review checklist got shorter",
+    status: "proposed",
+    at: "2026-10-01T00:00:00.000Z",
+    abstract: "Fewer checks, less noise.",
+  });
+  assert.equal(result.browse.items.some(({ref}) => ref === worded.path), false, "a search result is not listed twice");
+
+  const none = findRecords({notes: [meaning, ...filler], query: {question: "deployment rollback"}});
+  assert.equal(none.match, "none");
+  assert.equal(none.browse.total, 9, "with no search hit the whole listing remains to browse");
+
+  assert.equal(Object.hasOwn(findRecords({notes: [meaning], query: {question: "x", browse: false}}), "browse"), false);
 });
 
 test("rejects an unusable query", () => {

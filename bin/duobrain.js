@@ -94,7 +94,7 @@ Usage:
   duobrain ticket-reopen --ticket <uuid> --body <text> [--actor <human|ai>]
   duobrain note-add --file <markdown-path> [--id <uuid>]
   duobrain find --query <text> [--intent <text>] [--expand <a,b>] [--entities <a,b>]
-                [--exclude <a,b>] [--kinds <wiki,ticket,session>] [--limit <n>]
+                [--exclude <a,b>] [--kinds <wiki,ticket,session>] [--limit <n>] [--no-browse]
   duobrain find --file <query-json>
   duobrain wiki-get --path <wiki/path>
   duobrain ticket-get --ticket <uuid>
@@ -143,7 +143,7 @@ const COMMAND_HELP = {
   'ticket-close': 'Usage: duobrain ticket-close --ticket <uuid> --reason <cancelled|duplicate> --body <text> [--actor <human|ai>] [--repository <path>]',
   'ticket-reopen': 'Usage: duobrain ticket-reopen --ticket <uuid> --body <text> [--actor <human|ai>] [--repository <path>]',
   'note-add': 'Usage: duobrain note-add --file <markdown-path> [--id <uuid>] [--repository <path>]',
-  find: 'Usage: duobrain find --query <text> [--intent <text>] [--expand <a,b>] [--entities <a,b>] [--exclude <a,b>] [--kinds <wiki,ticket,session>] [--limit <1-10>] [--repository <path>], or duobrain find --file <query-json> (returns a few cards without bodies; open one with wiki-get or ticket-get)',
+  find: 'Usage: duobrain find --query <text> [--intent <text>] [--expand <a,b>] [--entities <a,b>] [--exclude <a,b>] [--kinds <wiki,ticket,session>] [--limit <1-10>] [--no-browse] [--repository <path>], or duobrain find --file <query-json> (search cards plus a browse listing of the other records, without bodies; open one with wiki-get or ticket-get)',
   'wiki-get': 'Usage: duobrain wiki-get --path <wiki/path> [--repository <path>]',
   'ticket-get': 'Usage: duobrain ticket-get --ticket <uuid> [--repository <path>]',
   'wiki-list': 'Usage: duobrain wiki-list [--full] [--repository <path>] (cards without bodies; --full returns every note in full)',
@@ -162,7 +162,7 @@ const COMMAND_HELP = {
 
 function parseOptions(tokens) {
   const options = {};
-  const booleanOptions = new Set(['help', 'full', 'request-missing', 'brief', 'dry-run', 'bundle', 'check', 'no-agents', 'no-commit']);
+  const booleanOptions = new Set(['help', 'full', 'no-browse', 'request-missing', 'brief', 'dry-run', 'bundle', 'check', 'no-agents', 'no-commit']);
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
     if (!token.startsWith('--')) throw new Error(`Unexpected argument: ${token}`);
@@ -449,6 +449,7 @@ async function main() {
         ...(options.exclude ? { exclude: list(options.exclude) } : {}),
         ...(options.kinds ? { kinds: list(options.kinds) } : {}),
         ...(limit === undefined ? {} : { limit }),
+        ...(options['no-browse'] ? { browse: false } : {}),
       };
     result = await findSharedRecords({ repository, query });
   } else if (command === 'wiki-get') {
